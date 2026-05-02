@@ -15,6 +15,9 @@ import {
   notificationsTable,
   legalDocumentsTable,
   platformSettingsTable,
+  currenciesTable,
+  fxRatesTable,
+  subscriptionPlansTable,
 } from "@workspace/db";
 
 async function hash(p: string) {
@@ -27,7 +30,10 @@ async function main() {
     consents, dispute_messages, disputes, attachments, legal_documents, platform_settings,
     notifications, payments, reviews, messages, conversations,
     saved_jobs, proposals, jobs, complaints,
-    freelancer_profiles, client_profiles, users, skills, categories
+    freelancer_profiles, client_profiles, users, skills, categories,
+    device_tokens, escrow_events, payout_batch_items, payout_batches,
+    featured_listings, user_subscriptions, subscription_plans,
+    moderation_reports, currencies, fx_rates
     RESTART IDENTITY CASCADE`);
 
   const categories = [
@@ -449,6 +455,65 @@ async function main() {
       isPublic: 0,
       description: "Minimum withdrawable balance for freelancer payout",
       updatedById: admin!.id,
+    },
+    {
+      key: "payment_gateway",
+      value: "mock",
+      isPublic: 0,
+      description: "Active payment gateway adapter (mock|stripe|paytabs|telr)",
+      updatedById: admin!.id,
+    },
+    {
+      key: "platform_trn",
+      value: "100123456700003",
+      isPublic: 1,
+      description: "Khidma UAE Tax Registration Number for invoices",
+      updatedById: admin!.id,
+    },
+  ]);
+
+  // ---------- Phase 4: Currencies + FX rates ----------
+  await db.insert(currenciesTable).values([
+    { code: "AED", nameEn: "UAE Dirham", nameAr: "درهم إماراتي", symbol: "د.إ", decimals: 2 },
+    { code: "USD", nameEn: "US Dollar", nameAr: "دولار أمريكي", symbol: "$", decimals: 2 },
+    { code: "EUR", nameEn: "Euro", nameAr: "يورو", symbol: "€", decimals: 2 },
+    { code: "SAR", nameEn: "Saudi Riyal", nameAr: "ريال سعودي", symbol: "﷼", decimals: 2 },
+    { code: "GBP", nameEn: "British Pound", nameAr: "جنيه إسترليني", symbol: "£", decimals: 2 },
+  ]);
+  await db.insert(fxRatesTable).values([
+    { base: "AED", quote: "USD", rate: "0.27226", source: "seed" },
+    { base: "AED", quote: "EUR", rate: "0.25100", source: "seed" },
+    { base: "AED", quote: "SAR", rate: "1.02100", source: "seed" },
+    { base: "AED", quote: "GBP", rate: "0.21500", source: "seed" },
+    { base: "USD", quote: "AED", rate: "3.67250", source: "seed" },
+    { base: "EUR", quote: "AED", rate: "3.98400", source: "seed" },
+  ]);
+
+  // ---------- Phase 4: Subscription plans ----------
+  await db.insert(subscriptionPlansTable).values([
+    {
+      slug: "freelancer_pro",
+      nameEn: "Freelancer Pro",
+      nameAr: "محترف",
+      descriptionEn: "Boost visibility, unlimited proposals and priority support.",
+      descriptionAr: "ظهور أعلى، عروض غير محدودة ودعم ذو أولوية.",
+      audience: "freelancer",
+      period: "monthly",
+      priceAed: "99.00",
+      features: ["unlimited_proposals", "profile_boost", "priority_support", "verified_badge_eligible"],
+      sortOrder: 1,
+    },
+    {
+      slug: "client_business",
+      nameEn: "Client Business",
+      nameAr: "أعمال",
+      descriptionEn: "Featured job postings, advanced talent search and dedicated success manager.",
+      descriptionAr: "إعلانات وظائف مميزة، بحث متقدم عن المواهب ومدير نجاح مخصص.",
+      audience: "client",
+      period: "monthly",
+      priceAed: "299.00",
+      features: ["featured_job_credits_5", "advanced_search", "team_seats_3", "dedicated_manager"],
+      sortOrder: 2,
     },
   ]);
 

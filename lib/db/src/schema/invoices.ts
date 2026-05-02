@@ -1,4 +1,4 @@
-import { pgTable, serial, integer, text, numeric, timestamp, index } from "drizzle-orm/pg-core";
+import { pgTable, serial, integer, text, numeric, timestamp, index, boolean } from "drizzle-orm/pg-core";
 
 export const invoicesTable = pgTable(
   "invoices",
@@ -16,6 +16,10 @@ export const invoicesTable = pgTable(
     vatAmount: numeric("vat_amount", { precision: 12, scale: 2 }).notNull().default("0"),
     total: numeric("total", { precision: 12, scale: 2 }).notNull(),
     currency: text("currency").notNull().default("AED"),
+    trn: text("trn"),
+    placeOfSupply: text("place_of_supply").notNull().default("AE"),
+    reverseCharge: boolean("reverse_charge").notNull().default(false),
+    invoiceTypeCode: text("invoice_type_code").notNull().default("standard"),
     issuedAt: timestamp("issued_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => ({

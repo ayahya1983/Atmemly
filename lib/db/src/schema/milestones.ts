@@ -11,6 +11,7 @@ export const milestonesTable = pgTable(
     currency: text("currency").notNull().default("AED"),
     dueDate: timestamp("due_date", { withTimezone: true }),
     status: text("status").notNull().default("pending_funding"),
+    escrowState: text("escrow_state").notNull().default("none"),
     fundedAt: timestamp("funded_at", { withTimezone: true }),
     submittedAt: timestamp("submitted_at", { withTimezone: true }),
     approvedAt: timestamp("approved_at", { withTimezone: true }),

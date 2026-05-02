@@ -114,6 +114,34 @@ router.post("/contracts/:id/disputes", requireAuth, async (req, res): Promise<vo
       status: "open",
     })
     .returning();
+  // Phase 4: when a dispute targets a milestone, mark its escrow as held-for-dispute
+  // and emit an audit event. Best-effort — failure must not block dispute creation.
+  if (parsed.data.milestoneId != null) {
+    try {
+      const { milestonesTable: mt } = await import("@workspace/db");
+      const [m] = await db.select().from(mt).where(eq(mt.id, parsed.data.milestoneId));
+      if (m) {
+        await db
+          .update(mt)
+          .set({ escrowState: "dispute_held" })
+          .where(eq(mt.id, m.id));
+        const { recordEscrowEvent } = await import("../lib/escrowEvents");
+        await recordEscrowEvent({
+          contractId: m.contractId,
+          milestoneId: m.id,
+          paymentId: m.paymentId,
+          fromState: m.escrowState,
+          toState: "dispute_held",
+          amount: Number(m.amount),
+          currency: m.currency,
+          actorUserId: uid,
+          reason: `dispute opened: ${parsed.data.subject}`.slice(0, 500),
+        });
+      }
+    } catch {
+      // best-effort
+    }
+  }
   await audit(req, "dispute.create", "dispute", d!.id, {
     contractId,
     kind: parsed.data.kind,

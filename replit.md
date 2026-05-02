@@ -240,6 +240,95 @@ Phase 3 extends the Phase 1/2 stack additively. **No rebuild, no breaking change
 - **Recommended freelancers filter:** `/me/recommended-freelancers` only considers the client's `status='open'` jobs (matches the original spec).
 - **Legal cache invalidation:** `POST /admin/legal` calls `cacheDeletePrefix(\`legal:${slug}:\`)` after publish so freshly published versions appear immediately.
 
+## Phase 4 — production prep, mobile API, payment abstraction, monetization
+
+Phase 4 is fully additive on top of Phases 1–3. **No rebuild, no breaking changes** to existing routes or schemas. All Phase 1–3 smoke tests still pass (35/35 + 37/37). Phase 4 routes return a mobile-friendly envelope; legacy Phase 1–3 routes are untouched.
+
+### Schema additions (drizzle-kit push)
+- New tables: `device_tokens`, `escrow_events`, `payout_batches`, `payout_batch_items`, `featured_listings`, `subscription_plans`, `user_subscriptions`, `moderation_reports`, `currencies`, `fx_rates`.
+- Additive columns:
+  - `invoices`: `trn`, `place_of_supply` (default `'AE'`), `reverse_charge` (bool), `invoice_type_code` (`'standard'`|`'simplified'`).
+  - `milestones`: `escrow_state` (mirrors status; new states: `partial_released`, `dispute_held`, `expired_returned`).
+
+### Mobile API standards (`lib/apiResponse.ts`)
+- All NEW Phase 4 routes use `respond(res, data, meta?)` and `respondError(res, status, code, message)` producing `{ data, meta? }` / `{ error: { code, message } }` envelopes.
+- `parsePagination(query)` + `paginate(page, perPage, total)` produce `{ page, perPage, total, hasMore }` meta.
+- Legacy Phase 1–3 routes deliberately keep their bare-array/object shapes for backward compatibility with the existing marketplace frontend.
+- `app.ts`: every response now sets `X-API-Version: 4` and CORS exposes `X-Request-Id` + `X-API-Version`.
+
+### Device tokens + push (`lib/push.ts`)
+- `sendPush(userId, payload)` is a no-op stub that logs and returns `{ delivered: 0, attempted: tokens.length }`. Future-pluggable for FCM/APNs/Expo.
+- Routes (auth): `POST /me/devices`, `GET /me/devices`, `DELETE /me/devices/:id`. List redacts the token (`first8…`).
+- Idempotent: re-registering the same token by the same user updates `last_seen_at`. Re-registering by a different user → 409.
+- `lib/notify.ts` now schedules `sendPush` via `setImmediate` after the socket emit — best-effort, never blocks the request, never throws.
+
+### Payment gateway abstraction (`lib/payments/`)
+- `gateway.ts` — `PaymentGateway` interface (`name`, `configured`, `createIntent`, `capture`, `refund`, `webhookVerify`).
+- Adapters: `mock.ts` (default; mirrors current behaviour), `stripe.ts`, `paytabs.ts`, `telr.ts` — all real-gateway adapters return `not configured` until env keys are set. **No live charges anywhere.**
+- `index.ts` exports `getActiveGatewayName()` (reads `payment_gateway` setting, default `mock`), `getGatewayByName(name)`, `listGateways()`.
+- Endpoints: `GET /payments/gateway` (public — `{ active, available[] }`), `POST /admin/payments/gateway` (set active), `POST /payments/webhook/:gateway` (stub verify), `POST /admin/payments/refund`.
+
+### Advanced escrow (`lib/escrowEvents.ts` + `routes/escrowAdmin.ts`)
+- `recordEscrowEvent({ contractId, milestoneId, paymentId, fromState, toState, amount, currency, actorUserId, reason, metadata })` writes to `escrow_events`. Emitted on every Phase 4 admin transition AND auto-fired on dispute open when a milestone is targeted.
+- Admin-only routes (return envelope):
+  - `POST /admin/escrow/milestones/:id/partial-release` — releases a portion to the freelancer wallet (uses existing `releaseToWallet`), marks milestone `escrowState='partial_released'`. Validated against held amount; rejects if milestone not in `funded`/`submitted`.
+  - `POST /admin/escrow/milestones/:id/refund` — marks milestone `refunded`, payment `refunded`, records event.
+  - `POST /admin/escrow/milestones/:id/hold-for-dispute` — sets `escrowState='dispute_held'`.
+  - `GET /admin/escrow/events?milestoneId=&contractId=` — audit feed (200 latest).
+
+### Payout batches (`routes/payoutBatches.ts`)
+- `POST /admin/payout-batches` — creates a draft batch from currently `requested` payouts; optional filters `minAmount`, `freelancerIds`. In a single tx: insert batch, insert items, flip payouts to `batched`. 400 `no_candidates` when nothing matches.
+- `POST /admin/payout-batches/:id/process` — flips items + underlying payouts to `completed`, stamps `processed_at/by`.
+- `GET /admin/payout-batches` (paginated), `GET /admin/payout-batches/:id` (joins users), `GET /admin/payout-batches/:id/export.csv` — CSV with payout/freelancer/amount columns; sets Content-Disposition for download.
+
+### Featured listings (`routes/featured.ts`)
+- Admin: `POST /admin/featured` (kind `job|freelancer`, targetId, startsAt?, endsAt, optional sponsor/payment), `DELETE /admin/featured/:id`, `GET /admin/featured` (returns `activeCount` in meta).
+- Public: `GET /featured?kind=` returns currently active (now between `starts_at` and `ends_at`).
+- **Phase 3 ranking unchanged** — no sort/filter mutation in `/jobs` or `/freelancers` to keep the Phase 3 ranking smoke green.
+
+### Subscriptions (`routes/subscriptions.ts`)
+- Public: `GET /subscription-plans` (active only). Admin: `GET/POST /admin/subscription-plans`, `PUT /admin/subscription-plans/:id`.
+- Self-serve: `GET /me/subscription`, `POST /me/subscription` (subscribes to a plan; supersedes any active row), `POST /me/subscription/cancel`.
+- Seeded plans: `freelancer_pro` (AED 99/mo) and `client_business` (AED 299/mo) with bilingual descriptions and feature flags.
+
+### VAT/tax invoice improvements (`lib/escrow.ts` + `routes/invoicesTax.ts`)
+- `generateInvoice` now accepts `trn`, `placeOfSupply` (default `AE`), `reverseCharge`, `invoiceTypeCode` (default `standard`). Existing call sites continue to work (all four are optional).
+- `GET /invoices/:id/tax-pdf-data` — bilateral access (client+freelancer+admin) returns a JSON snapshot for client-side PDF generation: invoice numbers/totals, bilingual reverse-charge note text, platform TRN (read from `platform_settings.platform_trn`).
+
+### Multi-currency (`lib/currency.ts`)
+- Seeded `currencies`: AED (default), USD, EUR, SAR, GBP with EN/AR names + symbol + decimals.
+- Seeded `fx_rates`: AED↔USD/EUR/SAR/GBP and reverse pairs.
+- Endpoints: `GET /currencies`, `GET /fx-rates?base=&quote=`, `GET /fx-convert?amount=&from=&to=`, `POST /admin/fx-rates` (manual upsert), `POST /admin/fx-rates/refresh` (no-op stub returning provider+age).
+- Helper `convert(amount, from, to)`: identity when `from===to`; uses latest cached `fx_rates`; returns `null` if no rate.
+
+### Admin reconciliation (`routes/reconciliation.ts`)
+- `GET /admin/reconciliation/daily?date=YYYY-MM-DD` — payments captured/fees/refunded, payouts initiated/completed, wallet credits/debits, `discrepancy` boolean.
+- `GET /admin/reconciliation/wallets` — sum(`available + pending`) vs sum(`wallet_transactions.amount`); reports up to 500 row-level mismatches (>0.05 AED tolerance).
+- `GET /admin/reconciliation/escrow` — sum of `held` payments vs sum of `funded` milestones; `reconciled` flag (<0.5 AED).
+
+### Moderation queue (`routes/moderation.ts`)
+- `POST /reports` (any auth user) — `targetKind` ∈ `job|profile|review|message|proposal`, `targetId`, `reason`, `details?`.
+- `GET /me/reports` — own filed reports.
+- Admin: `GET /admin/moderation?status=&kind=` (paginated meta), `POST /admin/moderation/:id/resolve` (`action` ∈ `approve_keep|hide|warn|ban`, `notes?` — MVP records the decision; auto-ban not wired yet).
+
+### Production monitoring (`lib/metrics.ts` + `routes/metrics.ts`)
+- `metricsMiddleware` registered in `app.ts` after the request-id middleware. Tracks `requestsTotal`, `requestsByStatusClass`, `errors5xx`, `slowRequests` (>1s), and a sliding window of latencies for p50/p95/p99.
+- Slow requests (>1s) are logged at `warn` via the existing pino-http logger.
+- `GET /metrics` (admin-only) returns `{ uptimeSec, memoryRssMb, requests, errors5xx, slowRequests, latency: { p50, p95, p99, samples } }`.
+
+### Phase 4 smoke
+- `node artifacts/api-server/scripts/smoke-phase4.mjs` — **61 end-to-end checks** covering envelope shape + headers, device CRUD + idempotency + cross-user 409, gateway list/set/webhook/refund, featured admin CRUD + public list + bad-range 400, subscription plan list + subscribe + supersede + cancel, invoice tax-pdf-data including platform TRN, currencies + fx single/list/convert/identity/upsert/refresh, reconciliation daily/wallets/escrow + 403 for non-admin, moderation report file/list/resolve, metrics admin-only, escrow events admin-only, payout batches no-candidates + paginated list, plus backward-compat checks against `/meta/categories` and `/auth/me`. **Last run: 61/61 pass.** Phase 2 (35/35) and Phase 3 (37/37) still pass — Phase 4 is additive.
+
+### Phase 4 — known gaps / deferred
+- **OpenAPI/codegen not extended for Phase 4** (same precedent as Phase 2/3): all Phase 4 routes are direct Zod-validated handlers; mobile/web clients consuming them must hand-write the call.
+- **Real payment gateways (Stripe, PayTabs, Telr) are stubs.** Adapters return `not configured` until env keys are wired. The default `payment_gateway` setting is `mock`.
+- **`sendPush` is a no-op stub.** No FCM/APNs/Expo client wired yet — registering devices and inserting notifications works, the push fan-out logs and returns `{ delivered: 0 }`.
+- **FX refresh is a stub.** No external provider wired; `POST /admin/fx-rates/refresh` only reports the latest rate age. Use `POST /admin/fx-rates` to upsert manually.
+- **Subscriptions don't take real money.** `/me/subscription` records the row; no charge, no proration, no auto-renew enforcement.
+- **Featured listings are not (yet) reflected in `/jobs` and `/freelancers` ranking** to avoid disturbing the Phase 3 relevance smoke. Listing-side surfacing can be added once a regression baseline is captured.
+- **Metrics + rate-limit + cache remain in-process.** Move to Redis/Prometheus before horizontal scale-out.
+- **Moderation actions don't enforce yet.** `hide/warn/ban` only stamp the report — they don't actually toggle user `status` or hide content.
+
 ### Phase 3 — known gaps / deferred
 - **OpenAPI/codegen not extended for Phase 3** (T213, same precedent as Phase 2): scoring, matching, recommendations, saved-searches, reports, public, sitemap and health endpoints are not described in `lib/api-spec/openapi.yaml`. Frontends consuming them must hand-write fetch calls. All Phase 1 hooks remain valid.
 - **Cache and rate-limit are in-process.** Single-instance only — move to Redis before horizontal scale-out.

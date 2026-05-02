@@ -24,6 +24,17 @@ import savedSearchesRouter from "./savedSearches";
 import reportsRouter from "./reports";
 import seoRouter from "./seo";
 import scoringRouter from "./scoring";
+import devicesRouter from "./devices";
+import paymentsGatewayRouter from "./paymentsGateway";
+import escrowAdminRouter from "./escrowAdmin";
+import payoutBatchesRouter from "./payoutBatches";
+import featuredRouter from "./featured";
+import subscriptionsRouter from "./subscriptions";
+import currenciesRouter from "./currencies";
+import reconciliationRouter from "./reconciliation";
+import moderationRouter from "./moderation";
+import metricsRouter from "./metrics";
+import invoicesTaxRouter from "./invoicesTax";
 import { attachUser } from "../lib/auth";
 
 const router: IRouter = Router();
@@ -56,5 +67,18 @@ router.use(reportsRouter);
 router.use(seoRouter);
 router.use(scoringRouter);
 router.use(adminRouter);
+
+// Phase 4
+router.use(devicesRouter);
+router.use(paymentsGatewayRouter);
+router.use(escrowAdminRouter);
+router.use(payoutBatchesRouter);
+router.use(featuredRouter);
+router.use(subscriptionsRouter);
+router.use(currenciesRouter);
+router.use(reconciliationRouter);
+router.use(moderationRouter);
+router.use(metricsRouter);
+router.use(invoicesTaxRouter);
 
 export default router;

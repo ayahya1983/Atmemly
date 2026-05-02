@@ -155,6 +155,48 @@ export async function releaseToWallet(
 }
 
 /**
+ * Atomically reverse a previously credited pending balance (e.g. on refund
+ * or escrow expiry). Returns true if the debit succeeded, false if the
+ * wallet had insufficient pending funds (no rows affected). Caller MUST
+ * run this inside a transaction. Records a `refund` wallet ledger entry.
+ */
+export async function debitPending(
+  userId: number,
+  amount: number,
+  currency: string,
+  refType: string,
+  refId: number,
+  note?: string,
+  client: DbClient = db,
+): Promise<boolean> {
+  const wallet = await ensureWallet(userId, currency, client);
+  const updated = await client
+    .update(walletsTable)
+    .set({
+      pendingBalance: sql`${walletsTable.pendingBalance} - ${amount}`,
+      updatedAt: new Date(),
+    })
+    .where(
+      sql`${walletsTable.id} = ${wallet.id} and ${walletsTable.pendingBalance} >= ${amount}`,
+    )
+    .returning({ id: walletsTable.id });
+  if (updated.length === 0) return false;
+  await recordWalletTransaction(
+    {
+      walletId: wallet.id,
+      type: "refund",
+      amount: -amount,
+      currency,
+      refType,
+      refId,
+      note: note ?? `Refund reversal of pending escrow`,
+    },
+    client,
+  );
+  return true;
+}
+
+/**
  * Atomically debit available balance. Returns true if the debit succeeded,
  * false if the wallet had insufficient funds (no rows affected).
  * Caller is responsible for the transactional context.
@@ -215,6 +257,10 @@ export async function generateInvoice(
     subtotal: number;
     vatPct?: number;
     currency?: string;
+    trn?: string | null;
+    placeOfSupply?: string;
+    reverseCharge?: boolean;
+    invoiceTypeCode?: "standard" | "simplified";
   },
   client: DbClient = db,
 ): Promise<{ id: number; invoiceNumber: string }> {
@@ -237,6 +283,10 @@ export async function generateInvoice(
       vatAmount: String(vatAmount),
       total: String(total),
       currency: opts.currency ?? "AED",
+      trn: opts.trn ?? null,
+      placeOfSupply: opts.placeOfSupply ?? "AE",
+      reverseCharge: opts.reverseCharge ?? false,
+      invoiceTypeCode: opts.invoiceTypeCode ?? "standard",
     })
     .returning({ id: invoicesTable.id, invoiceNumber: invoicesTable.invoiceNumber });
   return { id: row!.id, invoiceNumber: row!.invoiceNumber };
