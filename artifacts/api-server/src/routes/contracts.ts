@@ -278,6 +278,9 @@ router.patch("/contracts/:id", requireAuth, async (req, res): Promise<void> => {
       .where(eq(contractsTable.id, c.id));
     await db.update(jobsTable).set({ status: "completed" }).where(eq(jobsTable.id, c.jobId));
     await audit(req, "contract.complete", "contract", c.id);
+    // Phase 3 — fire-and-forget score recompute (never blocks the response).
+    const { recomputePairAsync } = await import("../lib/scoring");
+    recomputePairAsync(c.freelancerId, c.clientId);
   }
   const detail = await loadContractWithMilestones(c.id);
   res.json(UpdateContractResponse.parse(detail!));
@@ -703,6 +706,9 @@ router.post(
       body: `Client approved "${m.title}". Funds were released to your wallet.`,
       link: "/dashboard/freelancer/earnings",
     });
+    // Phase 3 — fire-and-forget score recompute on milestone release (auto-completion path).
+    const { recomputePairAsync } = await import("../lib/scoring");
+    recomputePairAsync(c.freelancerId, c.clientId);
     await audit(req, "milestone.approve", "milestone", m.id, {
       contractId: c.id,
       releasedAmount: amount,

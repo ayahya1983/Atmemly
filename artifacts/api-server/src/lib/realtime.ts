@@ -85,3 +85,11 @@ export function emitToConversation(
   if (!io) return;
   io.to(`conversation:${conversationId}`).emit(event, payload);
 }
+
+export async function shutdownRealtime(): Promise<void> {
+  if (!io) return;
+  await new Promise<void>((resolve) => {
+    io!.close(() => resolve());
+  });
+  io = null;
+}

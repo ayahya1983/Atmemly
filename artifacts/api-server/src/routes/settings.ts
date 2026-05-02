@@ -4,8 +4,10 @@ import { z } from "zod";
 import { db, platformSettingsTable } from "@workspace/db";
 import { requireAuth, requireRole } from "../lib/auth";
 import { audit } from "../lib/audit";
+import { cached, cacheDelete } from "../lib/cache";
 
 const router: IRouter = Router();
+const PUBLIC_SETTINGS_KEY = "settings:public";
 
 const PutSettingBody = z.object({
   value: z.unknown(),
@@ -14,13 +16,14 @@ const PutSettingBody = z.object({
 });
 
 router.get("/settings/public", async (_req, res): Promise<void> => {
-  const rows = await db
-    .select()
-    .from(platformSettingsTable)
-    .where(eq(platformSettingsTable.isPublic, 1));
-  res.json(
-    Object.fromEntries(rows.map((r) => [r.key, r.value])),
-  );
+  const out = await cached(PUBLIC_SETTINGS_KEY, 60 * 1000, async () => {
+    const rows = await db
+      .select()
+      .from(platformSettingsTable)
+      .where(eq(platformSettingsTable.isPublic, 1));
+    return Object.fromEntries(rows.map((r) => [r.key, r.value]));
+  });
+  res.json(out);
 });
 
 router.get(
@@ -47,7 +50,7 @@ router.put(
   requireAuth,
   requireRole("admin"),
   async (req, res): Promise<void> => {
-    const key = req.params["key"] ?? "";
+    const key = String(req.params["key"] ?? "");
     if (!/^[a-z0-9_.]{2,64}$/.test(key)) {
       res.status(400).json({ error: "Invalid key" });
       return;
@@ -86,6 +89,7 @@ router.put(
     await audit(req, "setting.update", "platform_setting", null, {
       key,
     });
+    cacheDelete(PUBLIC_SETTINGS_KEY);
     res.json({
       key: row!.key,
       value: row!.value,

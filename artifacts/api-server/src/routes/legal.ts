@@ -8,6 +8,7 @@ import {
 } from "@workspace/db";
 import { requireAuth, requireRole, clientIp, clientUa } from "../lib/auth";
 import { audit } from "../lib/audit";
+import { cached, cacheDeletePrefix } from "../lib/cache";
 
 const router: IRouter = Router();
 
@@ -39,27 +40,31 @@ function publicDoc(d: typeof legalDocumentsTable.$inferSelect) {
 router.get("/legal/:slug", async (req, res): Promise<void> => {
   const slug = req.params["slug"] ?? "";
   const lang = req.query["lang"] === "ar" ? "ar" : "en";
-  const [doc] = await db
-    .select()
-    .from(legalDocumentsTable)
-    .where(and(eq(legalDocumentsTable.slug, slug), eq(legalDocumentsTable.isCurrent, true)));
-  if (!doc) {
+  const payload = await cached(`legal:${slug}:${lang}`, 5 * 60 * 1000, async () => {
+    const [doc] = await db
+      .select()
+      .from(legalDocumentsTable)
+      .where(and(eq(legalDocumentsTable.slug, slug), eq(legalDocumentsTable.isCurrent, true)));
+    if (!doc) return null;
+    return {
+      id: doc.id,
+      slug: doc.slug,
+      version: doc.version,
+      lang,
+      title: lang === "ar" ? doc.titleAr : doc.titleEn,
+      body: lang === "ar" ? doc.bodyAr : doc.bodyEn,
+      titleEn: doc.titleEn,
+      titleAr: doc.titleAr,
+      bodyEn: doc.bodyEn,
+      bodyAr: doc.bodyAr,
+      publishedAt: doc.publishedAt,
+    };
+  });
+  if (!payload) {
     res.status(404).json({ error: "Document not found" });
     return;
   }
-  res.json({
-    id: doc.id,
-    slug: doc.slug,
-    version: doc.version,
-    lang,
-    title: lang === "ar" ? doc.titleAr : doc.titleEn,
-    body: lang === "ar" ? doc.bodyAr : doc.bodyEn,
-    titleEn: doc.titleEn,
-    titleAr: doc.titleAr,
-    bodyEn: doc.bodyEn,
-    bodyAr: doc.bodyAr,
-    publishedAt: doc.publishedAt,
-  });
+  res.json(payload);
 });
 
 router.get(
@@ -67,7 +72,7 @@ router.get(
   requireAuth,
   requireRole("admin"),
   async (req, res): Promise<void> => {
-    const slug = req.params["slug"] ?? "";
+    const slug = String(req.params["slug"] ?? "");
     const rows = await db
       .select()
       .from(legalDocumentsTable)
@@ -117,6 +122,7 @@ router.post(
       slug: result.slug,
       version: result.version,
     });
+    cacheDeletePrefix(`legal:${result.slug}:`);
     res.json(publicDoc(result));
   },
 );

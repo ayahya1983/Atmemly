@@ -45,8 +45,34 @@ import {
   BLOCKED_STATUSES,
 } from "../lib/auth";
 import { audit } from "../lib/audit";
+import { rateLimit } from "../lib/rateLimit";
 
 const router: IRouter = Router();
+
+// Phase 3 — rate limits to slow brute force / abuse on the auth surface.
+const loginLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 20,
+  keyPrefix: "auth:login",
+  message: "Too many login attempts. Please try again in a few minutes.",
+});
+const registerLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  max: 10,
+  keyPrefix: "auth:register",
+  message: "Too many sign-ups from this IP. Try again later.",
+});
+const forgotLimiter = rateLimit({
+  windowMs: 60 * 60 * 1000,
+  max: 5,
+  keyPrefix: "auth:forgot",
+  message: "Too many password reset requests. Try again later.",
+});
+const refreshLimiter = rateLimit({
+  windowMs: 5 * 60 * 1000,
+  max: 60,
+  keyPrefix: "auth:refresh",
+});
 
 const isDev = process.env["NODE_ENV"] !== "production";
 
@@ -86,7 +112,7 @@ async function loadVerificationStatus(userId: number, role: string): Promise<str
   return "not_submitted";
 }
 
-router.post("/auth/register", async (req, res): Promise<void> => {
+router.post("/auth/register", registerLimiter, async (req, res): Promise<void> => {
   const parsed = RegisterBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.message });
@@ -148,7 +174,7 @@ router.post("/auth/register", async (req, res): Promise<void> => {
   );
 });
 
-router.post("/auth/login", async (req, res): Promise<void> => {
+router.post("/auth/login", loginLimiter, async (req, res): Promise<void> => {
   const parsed = LoginBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.message });
@@ -206,7 +232,7 @@ router.get("/auth/me", requireAuth, async (req, res): Promise<void> => {
   res.json(GetMeResponse.parse(meFromUser(u, verificationStatus)));
 });
 
-router.post("/auth/refresh", async (req, res): Promise<void> => {
+router.post("/auth/refresh", refreshLimiter, async (req, res): Promise<void> => {
   const parsed = RefreshTokenBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.message });
@@ -240,7 +266,7 @@ router.post("/auth/logout", async (req, res): Promise<void> => {
   res.json(LogoutResponse.parse({ ok: true, message: null }));
 });
 
-router.post("/auth/forgot-password", async (req, res): Promise<void> => {
+router.post("/auth/forgot-password", forgotLimiter, async (req, res): Promise<void> => {
   const parsed = ForgotPasswordBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.message });
@@ -264,7 +290,7 @@ router.post("/auth/forgot-password", async (req, res): Promise<void> => {
   res.json(ForgotPasswordResponse.parse({ ok: true, devToken }));
 });
 
-router.post("/auth/reset-password", async (req, res): Promise<void> => {
+router.post("/auth/reset-password", forgotLimiter, async (req, res): Promise<void> => {
   const parsed = ResetPasswordBody.safeParse(req.body);
   if (!parsed.success) {
     res.status(400).json({ error: parsed.error.message });

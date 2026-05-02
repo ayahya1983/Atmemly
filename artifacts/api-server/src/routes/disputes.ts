@@ -325,6 +325,14 @@ router.patch(
     await audit(req, "dispute.update_status", "dispute", id, {
       status: parsed.data.status,
     });
+    // Phase 3 — fire-and-forget score recompute when a dispute is resolved/rejected.
+    if (parsed.data.status === "resolved" || parsed.data.status === "rejected") {
+      const { recomputeForUserAsync } = await import("../lib/scoring");
+      for (const uid of [d.raisedById, d.raisedAgainstId]) {
+        const [u] = await db.select().from(usersTable).where(eq(usersTable.id, uid));
+        recomputeForUserAsync(uid, u?.role);
+      }
+    }
     for (const uid of [d.raisedById, d.raisedAgainstId]) {
       await notify({
         userId: uid,

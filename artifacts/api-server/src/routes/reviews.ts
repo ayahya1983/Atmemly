@@ -152,6 +152,12 @@ router.post("/reviews", requireAuth, async (req, res): Promise<void> => {
     jobId: d.jobId,
     rating: d.rating,
   });
+  // Phase 3 — fire-and-forget recompute for the receiver's score.
+  {
+    const [target] = await db.select().from(usersTable).where(eq(usersTable.id, d.toUserId));
+    const { recomputeForUserAsync } = await import("../lib/scoring");
+    recomputeForUserAsync(d.toUserId, target?.role);
+  }
   await notify({
     userId: d.toUserId,
     kind: "review",

@@ -198,6 +198,11 @@ router.patch(
           : `Your verification was rejected${parsed.data.reason ? `: ${parsed.data.reason}` : "."}`,
       link: "/dashboard",
     });
+    // Phase 3 — fire-and-forget score recompute on verification approval.
+    if (decision === "approve") {
+      const { recomputeForUserAsync } = await import("../lib/scoring");
+      recomputeForUserAsync(existing.u.id, existing.u.role);
+    }
     await audit(req, `verification.${decision}`, "verification", params.data.id, {
       reason: parsed.data.reason ?? null,
       targetUserId: existing.u.id,

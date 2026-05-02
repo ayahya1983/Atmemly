@@ -159,3 +159,89 @@ Phase 2 is a backend-only expansion. No frontend rebuild; existing Phase 1 endpo
 ### Phase 2 — known gaps / deferred
 - **OpenAPI/codegen not yet extended** (T114): Phase 2 endpoints work via direct Zod validation in each route file but `lib/api-spec/openapi.yaml` does not yet describe them. Frontend clients consuming new endpoints must hand-write the call until the OpenAPI spec is updated and `pnpm --filter @workspace/api-spec run codegen` is rerun. All Phase 1 endpoints remain in the spec and continue to generate hooks/types.
 - Disputes admin status changes do **not** move money in this MVP; treat resolution notes as the source of truth and adjust escrow via the existing milestone endpoints.
+
+## Phase 3 — scoring, recommendations, alerts, reporting, SEO, hardening
+
+Phase 3 extends the Phase 1/2 stack additively. **No rebuild, no breaking changes** to existing routes or schemas.
+
+### Schema additions (`drizzle-kit push` only — no destructive migrations)
+- `freelancer_profiles`: `trust_score int default 0`, `last_score_at timestamptz` + index `freelancer_profiles_trust_score_idx (trust_score desc)`.
+- `client_profiles`: `quality_score int default 0`, `last_score_at timestamptz` + index `client_profiles_quality_score_idx (quality_score desc)`.
+- `jobs`: indexes on `status`, `created_at desc`, `category_id`.
+- New tables `saved_searches` (`user_id, name, query jsonb, notify, last_run_at`) and `saved_search_alerts` (`saved_search_id, job_id, notified_at`).
+- Schema files use camelCase filenames matching the Phase 2 convention (e.g. `freelancerProfiles.ts`, `savedSearches.ts`). All re-exported from `lib/db/src/schema/index.ts`.
+
+### Scoring (`lib/scoring.ts`)
+- `recomputeFreelancerTrust(uid)` and `recomputeClientQuality(uid)` write to the `*_score` and `last_score_at` columns. Inputs are clamped 0–100.
+- Freelancer trust signals: completed contracts, dispute count (penalty), avg review rating × 10, verification bonus, on-time milestone-approval ratio.
+- Client quality signals: contracts funded, on-time approvals, dispute history, avg rating from freelancers, verification bonus.
+- `recomputeAll()` iterates all profiles and is exposed as `POST /admin/scoring/recompute-all` (admin-only, audit-logged).
+- **Triggers (best-effort, dynamic-imported so failures never break the request):** `routes/contracts.ts` on `complete` + auto-complete on milestone approval; `routes/reviews.ts` after create; `routes/verifications.ts` after approve; `routes/disputes.ts` after resolve/rejected.
+- Read-only: `GET /freelancers/:id/trust` and `GET /clients/:id/quality`.
+
+### Matching (`lib/matching.ts`)
+- `computeMatchScore(jobId, freelancerId)` returns `{ total, components }` weighted: skills overlap 40, budget fit 15, freelancer trust 20, rating count 10, location/category fit 10, recency boost 5.
+- `topFreelancersForJob(jobId, limit)`, `topJobsForFreelancer(freelancerId, limit)`, `similarFreelancers(freelancerId, limit)`.
+- Endpoints: `GET /jobs/:id/matches` (job owner OR admin only — non-owners get 403), `GET /me/recommended-jobs` (freelancer), `GET /me/recommended-freelancers` (client, aggregated across their open jobs), `GET /freelancers/:id/similar` (public), `GET /match/jobs/:jobId/freelancers/:freelancerId` (admin diagnostic).
+
+### Saved searches + alerts
+- `GET / POST / DELETE /me/saved-searches` (auth). Stored `query` is freeform JSON (`q`, `category`, `skill`, `budget`, etc).
+- `GET /me/saved-searches/:id/preview` runs the search live against `/jobs` filters.
+- `POST /admin/saved-searches/run` sweeps all saved searches with `notify=true`, finds jobs created since `last_run_at`, inserts into `saved_search_alerts`, and calls `notify({ kind: "saved_search_match", link: "/jobs?..." })` per match. Returns `{ searchesScanned, matchesNew }`.
+
+### Advanced admin reporting (`routes/reports.ts`)
+- `GET /admin/reports/revenue?from=&to=` — sums GMV, platform fees, freelancer net, VAT (from invoices.issued_at) over the window.
+- `GET /admin/reports/payouts?from=&to=` — count + total grouped by status (uses `payouts.requested_at`, **not** `created_at` which doesn't exist on that table).
+- `GET /admin/reports/cohorts?metric=signups|first_contract&months=N` — monthly cohorts via `date_trunc('month', ...)` and `generate_series`.
+- `GET /admin/reports/top-clients` and `/top-freelancers` — by GMV.
+- `GET /admin/reports/funnel` — signups → first proposal → first contract → completed contracts.
+- All require `requireRole("admin")` (verified 403 for non-admin in smoke).
+
+### SEO / public endpoints
+- `GET /api/sitemap.xml` and `/api/robots.txt` (5-min cache). Sitemap enumerates open jobs, public freelancers, legal slugs.
+- `GET /public/jobs/:id` returns SEO-safe payload `{ id, title, description, currency, budget, skills, seo: { title, description } }` — no PII, no proposals.
+- `GET /public/freelancers/:id` returns minimal public profile.
+- `GET /public/categories?lang=en|ar`.
+
+### Localization
+- `?lang=en|ar` accepted on `/meta/categories` and `/public/categories`. Server returns enriched rows with both `nameEn`/`nameAr` plus a resolved `name` field. The `ListCategoriesResponse` Zod (api-spec) only validates the canonical subset; the resolved `name` is added after validation so generated clients keep working.
+- Server returns raw monetary/date values; UI is responsible for `Intl.NumberFormat`/`Intl.DateTimeFormat` formatting.
+
+### Caching (`lib/cache.ts`)
+- Tiny in-process TTL cache. Wired:
+  - `/meta/categories` (lang-aware key) — 60 s, invalidated implicitly by TTL.
+  - `/meta/skills` — 60 s.
+  - `/settings/public` — 60 s, **invalidated on `PUT /admin/settings/:key`**.
+  - `/legal/:slug` — 60 s.
+  - `/public/categories` — 60 s.
+  - sitemap — 5 min.
+- Cache is process-local only — fine for single-instance dev; replace with Redis if horizontally scaled.
+
+### Security hardening
+- `lib/security.ts` — helmet-equivalent header middleware (HSTS in prod, `X-Content-Type-Options`, frameguard, referrer-policy, CORP). Verified via `headers.x-content-type-options === "nosniff"` in smoke.
+- `lib/rateLimit.ts` — sliding-window in-memory limiter applied to `/auth/register`, `/login`, `/refresh`, `/forgot-password`, `/reset-password`.
+- `app.ts`: `trust proxy 1`, `X-Request-Id` middleware (UUID per request, surfaced in pino logs), JSON body limit **1 MB** with explicit 413 handler. Multer uploads keep their existing 10 MB limit.
+
+### Production readiness
+- `lib/env.ts` — Zod-validated env at boot. Fails fast on missing `DATABASE_URL` / `SESSION_SECRET`.
+- `GET /healthz` — liveness only. `GET /readyz` — runs `SELECT 1` against Postgres and returns `{ status: "ready", db: "ok" }`.
+- `index.ts` registers SIGTERM/SIGINT handlers that close the HTTP server and call `shutdownRealtime()` (added to `lib/realtime.ts`) to drain Socket.IO.
+- pino still uses pretty in dev; production uses default JSON output.
+
+### Smoke test
+- `node artifacts/api-server/scripts/smoke-phase3.mjs` — 37 end-to-end checks covering health, security headers, localized categories, sitemap/robots, public job + freelancer, scoring recompute + read, recommendations + similar, job-match authorization, saved-searches CRUD + preview + admin sweep, every admin report (revenue/payouts/cohorts ×2/top-clients/top-freelancers/funnel), 403 enforcement on reports for non-admin, 1 MB body limit, match diagnostic (admin-only with non-admin 403). **Last run: 37/37 pass.**
+- Phase 2 `smoke-phase2.mjs` (35/35) still passes — Phase 3 is fully additive.
+
+### Phase 3 — code review hardening (post-architect fixes)
+- **Saved-search sweep is lossless:** rewritten as ascending-id cursor pagination (PAGE=100, MAX_PAGES_PER_SEARCH=20). No matching jobs can be skipped between sweeps. `cursor` is only persisted forward.
+- **Saved-search dedup is race-safe:** `saved_search_alerts` now has `UNIQUE(saved_search_id, job_id)` (`saved_search_alerts_pair_uidx`). The sweep does a single `INSERT ... ON CONFLICT DO NOTHING RETURNING job_id`, so concurrent sweeps cannot create duplicate alerts/notifications.
+- **Score recompute triggers are truly fire-and-forget:** `lib/scoring.ts` exposes `recomputeForUserAsync(userId, role)` and `recomputePairAsync(freelancerUserId, clientUserId)` which schedule via `setImmediate`. All four trigger sites (contracts.complete, milestone.approve auto-completion, reviews.create, disputes.resolve|rejected, verifications.approve) now call these helpers and return immediately. Failures log via `console.warn` and never propagate.
+- **Match diagnostic locked down:** `GET /match/jobs/:jobId/freelancers/:freelancerId` now requires `requireRole("admin")`. Non-admin auth is 403.
+- **Recommended freelancers filter:** `/me/recommended-freelancers` only considers the client's `status='open'` jobs (matches the original spec).
+- **Legal cache invalidation:** `POST /admin/legal` calls `cacheDeletePrefix(\`legal:${slug}:\`)` after publish so freshly published versions appear immediately.
+
+### Phase 3 — known gaps / deferred
+- **OpenAPI/codegen not extended for Phase 3** (T213, same precedent as Phase 2): scoring, matching, recommendations, saved-searches, reports, public, sitemap and health endpoints are not described in `lib/api-spec/openapi.yaml`. Frontends consuming them must hand-write fetch calls. All Phase 1 hooks remain valid.
+- **Cache and rate-limit are in-process.** Single-instance only — move to Redis before horizontal scale-out.
+- **Saved-search sweep is on-demand.** No internal cron yet — call `POST /admin/saved-searches/run` from an external scheduler (or add a `setInterval` if desired).
+- **Match scoring is computed live.** No materialised cache yet; fine at current data volumes (37 ms typical for diagnostic call). Add a background job + `match_cache` table if N×M grows beyond ~10k pairs.

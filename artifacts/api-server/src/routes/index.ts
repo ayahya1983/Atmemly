@@ -19,6 +19,11 @@ import uploadsRouter from "./uploads";
 import legalRouter from "./legal";
 import settingsRouter from "./settings";
 import analyticsRouter from "./analytics";
+import recommendationsRouter from "./recommendations";
+import savedSearchesRouter from "./savedSearches";
+import reportsRouter from "./reports";
+import seoRouter from "./seo";
+import scoringRouter from "./scoring";
 import { attachUser } from "../lib/auth";
 
 const router: IRouter = Router();
@@ -44,6 +49,12 @@ router.use(uploadsRouter);
 router.use(legalRouter);
 router.use(settingsRouter);
 router.use(analyticsRouter);
+// Phase 3
+router.use(recommendationsRouter);
+router.use(savedSearchesRouter);
+router.use(reportsRouter);
+router.use(seoRouter);
+router.use(scoringRouter);
 router.use(adminRouter);
 
 export default router;

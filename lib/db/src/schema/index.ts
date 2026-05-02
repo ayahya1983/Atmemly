@@ -28,4 +28,5 @@ export * from "./disputes";
 export * from "./legalDocuments";
 export * from "./consents";
 export * from "./platformSettings";
+export * from "./savedSearches";
 export * from "./attachments";
