@@ -1,0 +1,826 @@
+You are Replit Agent. Build the complete backend, frontend, and database for a Dubai Freelance Marketplace MVP.
+
+The project must be production-grade, modular, scalable, and ready for web and mobile API usage.
+
+Use this stack:
+- Frontend: Next.js, TypeScript, Tailwind CSS
+- Backend: Node.js, Express.js, TypeScript
+- Database: PostgreSQL
+- ORM: Prisma
+- Realtime: Socket.io
+- Auth: JWT access and refresh tokens
+- Payments: Stripe first, PayTabs/Telr abstraction prepared
+- File storage: local dev storage with S3/R2 adapter abstraction
+- Email: Nodemailer adapter
+- Validation: Zod
+- Security: Helmet, CORS, rate limiting, bcrypt, audit logs
+- Localization: English and Arabic with RTL support
+
+Create a monorepo:
+- apps/web
+- apps/api
+- packages/shared
+- prisma
+- docs
+- README.md
+- .env.example
+
+Main user roles:
+1. FREELANCER
+2. CLIENT
+3. ADMIN
+4. SUPER_ADMIN
+
+Build the following backend logic completely.
+
+1. Authentication and Identity Logic
+
+Implement:
+- Register
+- Login
+- Logout
+- Refresh token
+- Forgot password
+- Reset password
+- Email verification
+- Change password
+- Role-based middleware
+- Account status middleware
+
+User statuses:
+- PENDING_EMAIL_VERIFICATION
+- ACTIVE
+- SUSPENDED
+- BANNED
+- DELETED
+
+Authentication rules:
+- Passwords hashed with bcrypt
+- JWT access token short expiry
+- Refresh token stored securely in database
+- Invalidate refresh token on logout
+- Prevent suspended or banned users from login
+- Track last login IP and device
+- Store auth events in audit log
+
+2. User and Profile Logic
+
+User model:
+- id
+- email
+- passwordHash
+- role
+- status
+- emailVerifiedAt
+- phone
+- country
+- city
+- preferredLanguage
+- createdAt
+- updatedAt
+- lastLoginAt
+
+FreelancerProfile:
+- userId
+- fullName
+- title
+- bio
+- profilePhoto
+- hourlyRate
+- availabilityStatus
+- experienceLevel
+- languages
+- skills
+- categories
+- portfolioItems
+- profileCompletionScore
+- averageRating
+- totalReviews
+- totalJobsCompleted
+- totalEarnings
+- visibilityStatus
+- verificationStatus
+
+ClientProfile:
+- userId
+- companyName
+- companyLogo
+- businessOverview
+- industry
+- companySize
+- website
+- billingAddress
+- averageRating
+- totalReviews
+- totalJobsPosted
+- totalSpend
+- verificationStatus
+
+Profile backend logic:
+- Create profile after registration based on role
+- Update profile
+- Upload profile photo
+- Add/remove skills
+- Add/remove portfolio items
+- Calculate profile completion score
+- Public profile visibility rules
+- SEO slug generation
+- Profile search indexing fields
+
+3. Freelancer Verification and Trust Logic
+
+Implement verification workflow:
+- Submit identity documents
+- Submit trade license or freelance permit optionally
+- Admin review
+- Approve/reject verification
+- Store rejection reason
+- Show verification badge
+
+Verification statuses:
+- NOT_SUBMITTED
+- PENDING
+- VERIFIED
+- REJECTED
+- EXPIRED
+
+Trust score logic:
+Calculate freelancerTrustScore based on:
+- Profile completion
+- Verified identity
+- Completed jobs
+- Average rating
+- Response time
+- Dispute rate
+- On-time delivery rate
+- Repeat client rate
+
+4. Skills and Categories Logic
+
+Models:
+- Skill
+- Category
+- SubCategory
+
+Admin can:
+- Create skills
+- Edit skills
+- Delete skills
+- Merge duplicate skills
+- Create categories
+- Create subcategories
+- Mark featured categories
+
+Job and freelancer profiles must reference skills and categories.
+
+5. Job Posting Logic
+
+Job model:
+- id
+- clientId
+- title
+- slug
+- description
+- categoryId
+- subCategoryId
+- skillsRequired
+- budgetType: FIXED or HOURLY
+- minBudget
+- maxBudget
+- hourlyRateMin
+- hourlyRateMax
+- deadline
+- locationPreference
+- languagePreference
+- visibility
+- status
+- attachments
+- createdAt
+- updatedAt
+- publishedAt
+- closedAt
+
+Job statuses:
+- DRAFT
+- OPEN
+- PAUSED
+- IN_REVIEW
+- IN_PROGRESS
+- COMPLETED
+- CANCELLED
+- CLOSED
+- ARCHIVED
+
+Job logic:
+- Client creates draft job
+- Client publishes job
+- Validate required fields before publishing
+- Freelancers browse open jobs
+- Filter by category, skill, budget, date, language, client rating
+- Search by keyword
+- Bookmark/save job
+- Report job
+- Admin can moderate job
+- Auto-close expired jobs
+- SEO-friendly public job page
+
+6. Proposal Logic
+
+Proposal model:
+- id
+- jobId
+- freelancerId
+- coverLetter
+- proposedBudget
+- proposedHourlyRate
+- estimatedDuration
+- attachments
+- status
+- clientMessage
+- createdAt
+- updatedAt
+
+Proposal statuses:
+- SUBMITTED
+- VIEWED
+- SHORTLISTED
+- REJECTED
+- WITHDRAWN
+- ACCEPTED
+
+Proposal logic:
+- Freelancer can submit one proposal per job
+- Freelancer can edit proposal before client action
+- Freelancer can withdraw proposal
+- Client can view proposals
+- Client can shortlist/reject proposals
+- Client can accept one proposal
+- When proposal accepted, create Contract
+- Notify freelancer on proposal status changes
+- Store proposal activity history
+
+7. Contract Logic
+
+Contract model:
+- id
+- jobId
+- clientId
+- freelancerId
+- proposalId
+- contractType: FIXED_PRICE or HOURLY
+- title
+- scope
+- startDate
+- endDate
+- status
+- totalAmount
+- platformFee
+- freelancerNetAmount
+- createdAt
+- updatedAt
+
+Contract statuses:
+- DRAFT
+- PENDING_CLIENT_PAYMENT
+- ACTIVE
+- SUBMITTED_FOR_REVIEW
+- REVISION_REQUESTED
+- COMPLETED
+- CANCELLED
+- DISPUTED
+
+Contract logic:
+- Create contract automatically after accepted proposal
+- For fixed-price contract, create milestones
+- For hourly contract, create weekly billing records
+- Client must fund milestone or contract before work starts
+- Freelancer submits work
+- Client approves work
+- Payment released after approval
+- Client can request revision
+- Freelancer can resubmit
+- Contract completion triggers review eligibility
+
+8. Milestone and Deliverable Logic
+
+Milestone model:
+- id
+- contractId
+- title
+- description
+- amount
+- dueDate
+- status
+- fundedAt
+- submittedAt
+- approvedAt
+- releasedAt
+
+Milestone statuses:
+- PENDING_FUNDING
+- FUNDED
+- IN_PROGRESS
+- SUBMITTED
+- REVISION_REQUESTED
+- APPROVED
+- RELEASED
+- CANCELLED
+- DISPUTED
+
+Deliverable model:
+- id
+- milestoneId
+- freelancerId
+- message
+- files
+- submittedAt
+- revisionNumber
+
+Logic:
+- Client funds milestone
+- Freelancer works on funded milestone
+- Freelancer submits deliverable
+- Client approves or requests revision
+- Approval releases payment
+- Auto-release optional after defined approval window
+- Store all deliverable versions
+
+9. Payments, Escrow, Invoices, and Payout Logic
+
+Payment models:
+- Payment
+- PaymentIntent
+- Wallet
+- WalletTransaction
+- Invoice
+- Payout
+
+Payment statuses:
+- INITIATED
+- REQUIRES_ACTION
+- PAID
+- FAILED
+- REFUNDED
+- PARTIALLY_REFUNDED
+- RELEASED
+- DISPUTED
+
+Escrow logic:
+- Client pays milestone amount
+- Funds marked as HELD
+- Funds released to freelancer wallet after approval
+- Platform fee deducted
+- Freelancer payout remains manual in MVP
+- Admin can mark payout as processed
+- Keep gateway abstraction for Stripe, PayTabs, Telr
+
+Invoice logic:
+- Generate invoice number
+- Store client, freelancer, job, contract, amount, VAT/tax fields
+- Allow invoice download endpoint
+- Store payment reference and gateway transaction ID
+
+Platform fee logic:
+- Configurable fee percentage
+- Support freelancer fee, client fee, or zero-commission model
+- Store fee snapshot per transaction
+
+10. Messaging and Realtime Chat Logic
+
+Conversation model:
+- id
+- jobId
+- contractId optional
+- clientId
+- freelancerId
+- status
+- createdAt
+
+Message model:
+- id
+- conversationId
+- senderId
+- messageType: TEXT, FILE, SYSTEM
+- body
+- attachments
+- readAt
+- createdAt
+
+Chat logic:
+- Create conversation after proposal submission or acceptance
+- Real-time messaging using Socket.io
+- Persist every message
+- Mark read/unread
+- Typing indicator
+- New message notification
+- Block messaging if user suspended
+- System messages for proposal accepted, contract started, milestone submitted, payment released
+
+11. Notifications Logic
+
+Notification model:
+- id
+- userId
+- type
+- title
+- body
+- metadata
+- readAt
+- createdAt
+
+Notification triggers:
+- Email verification
+- Proposal received
+- Proposal shortlisted
+- Proposal rejected
+- Proposal accepted
+- Contract created
+- Milestone funded
+- Deliverable submitted
+- Revision requested
+- Payment released
+- Review received
+- Message received
+- Admin action
+- Complaint update
+
+Support:
+- In-app notifications
+- Email notifications
+- Future push notification adapter
+
+12. Reviews and Ratings Logic
+
+Review model:
+- id
+- contractId
+- reviewerId
+- revieweeId
+- rating
+- comment
+- isPublic
+- createdAt
+
+Rules:
+- Only completed contracts can be reviewed
+- Client reviews freelancer
+- Freelancer reviews client
+- One review per reviewer per contract
+- Recalculate average rating
+- Update trust score
+- Admin can hide abusive reviews
+
+13. Search, Ranking, and Discovery Logic
+
+Implement search APIs:
+- Search jobs
+- Search freelancers
+- Search categories
+- Search skills
+
+Freelancer ranking should consider:
+- Keyword match
+- Skill match
+- Category match
+- Profile completion
+- Verification status
+- Average rating
+- Completed jobs
+- Response time
+- Availability
+- Recency/activity
+- Trust score
+
+Job ranking should consider:
+- Recency
+- Budget quality
+- Client verification
+- Client rating
+- Skill match
+- Proposal count
+
+14. Admin Panel Backend Logic
+
+Admin APIs:
+- List users
+- View user details
+- Suspend/activate user
+- Ban user
+- Verify freelancer
+- Reject verification
+- View jobs
+- Moderate jobs
+- View proposals
+- View contracts
+- View payments
+- View payouts
+- Mark payout processed
+- View disputes
+- Resolve disputes
+- Manage categories
+- Manage skills
+- Manage platform fee settings
+- View analytics
+- View audit logs
+
+Admin analytics:
+- Total users
+- Total freelancers
+- Total clients
+- Active jobs
+- Open proposals
+- Active contracts
+- Completed contracts
+- Gross marketplace value
+- Platform revenue
+- Pending payouts
+- Disputes count
+- New users this month
+- Jobs posted this month
+
+15. Complaints and Dispute Logic
+
+Complaint model:
+- id
+- reporterId
+- reportedUserId
+- jobId optional
+- contractId optional
+- type
+- description
+- status
+- adminNotes
+- createdAt
+- resolvedAt
+
+Dispute model:
+- id
+- contractId
+- milestoneId optional
+- openedById
+- reason
+- description
+- status
+- resolution
+- createdAt
+- resolvedAt
+
+Dispute statuses:
+- OPEN
+- UNDER_REVIEW
+- NEEDS_MORE_INFO
+- RESOLVED_CLIENT_REFUND
+- RESOLVED_FREELANCER_RELEASE
+- RESOLVED_SPLIT
+- CLOSED
+
+Logic:
+- Client or freelancer can open dispute
+- Freeze milestone release
+- Admin reviews evidence
+- Admin decides refund, release, split, or close
+- Store dispute events and comments
+
+16. File Upload Logic
+
+File model:
+- id
+- ownerId
+- fileName
+- fileType
+- fileSize
+- storageKey
+- url
+- entityType
+- entityId
+- createdAt
+
+Used for:
+- Profile photos
+- Portfolio
+- Job attachments
+- Proposal attachments
+- Deliverables
+- Verification documents
+- Dispute evidence
+
+Rules:
+- Validate file type
+- Validate file size
+- Private files require signed access endpoint
+- Public profile images can be public
+- Storage adapter should support local now, S3/R2 later
+
+17. Localization Logic
+
+Implement:
+- English and Arabic labels
+- RTL support
+- User preferred language
+- Store multilingual category names
+- Store multilingual legal pages
+- API returns localized labels where applicable
+
+18. Legal and Compliance Logic
+
+Legal pages:
+- Terms of Use
+- Privacy Policy
+- Cancellation Policy
+
+Add:
+- User consent fields
+- Terms accepted timestamp
+- Privacy accepted timestamp
+- Marketing consent optional
+- Data deletion request endpoint
+- Account deletion endpoint
+
+19. Audit Logging Logic
+
+AuditLog model:
+- id
+- actorId
+- action
+- entityType
+- entityId
+- metadata
+- ipAddress
+- userAgent
+- createdAt
+
+Track:
+- Login
+- Failed login
+- Password reset
+- User suspension
+- Job moderation
+- Payment release
+- Payout processed
+- Dispute resolution
+- Admin setting changes
+
+20. Frontend Pages to Build
+
+Public:
+- Home
+- Browse jobs
+- Job details
+- Browse freelancers
+- Freelancer profile
+- Login
+- Register
+- Terms
+- Privacy
+- Cancellation
+- Contact
+
+Client dashboard:
+- Overview
+- Post job
+- My jobs
+- Job proposals
+- Contracts
+- Messages
+- Payments
+- Profile
+- Reviews
+
+Freelancer dashboard:
+- Overview
+- Browse jobs
+- Saved jobs
+- My proposals
+- Contracts
+- Messages
+- Earnings
+- Profile
+- Portfolio
+- Reviews
+
+Admin dashboard:
+- Overview
+- Users
+- Freelancers
+- Clients
+- Jobs
+- Proposals
+- Contracts
+- Payments
+- Payouts
+- Disputes
+- Complaints
+- Reviews
+- Categories
+- Skills
+- Settings
+- Audit logs
+
+21. Prisma Database Models
+
+Create complete Prisma schema with:
+- User
+- RefreshToken
+- FreelancerProfile
+- ClientProfile
+- Skill
+- Category
+- SubCategory
+- Job
+- JobSkill
+- SavedJob
+- Proposal
+- Contract
+- Milestone
+- Deliverable
+- Conversation
+- Message
+- Notification
+- Payment
+- Wallet
+- WalletTransaction
+- Invoice
+- Payout
+- Review
+- Complaint
+- Dispute
+- FileAsset
+- AuditLog
+- PlatformSetting
+- LegalPage
+- VerificationRequest
+
+22. API Route Groups
+
+Create backend routes:
+- /api/auth
+- /api/users
+- /api/freelancers
+- /api/clients
+- /api/skills
+- /api/categories
+- /api/jobs
+- /api/proposals
+- /api/contracts
+- /api/milestones
+- /api/deliverables
+- /api/conversations
+- /api/messages
+- /api/notifications
+- /api/payments
+- /api/invoices
+- /api/payouts
+- /api/reviews
+- /api/complaints
+- /api/disputes
+- /api/files
+- /api/legal
+- /api/admin
+- /api/search
+
+23. Seed Data
+
+Create seed script with:
+- 1 super admin
+- 1 admin
+- 5 clients
+- 15 freelancers
+- 20 skills
+- 8 categories
+- 30 jobs
+- 50 proposals
+- 10 contracts
+- Milestones
+- Messages
+- Reviews
+- Payments
+- Notifications
+
+24. Replit Requirements
+
+Make the project runnable in Replit:
+- Provide .env.example
+- Provide package scripts
+- Provide Prisma migration instructions
+- Provide seed command
+- Provide dev command
+- Provide README
+- Configure ports clearly
+- Backend should run on port 4000
+- Frontend should run on port 3000
+
+25. Output Requirements
+
+Generate actual files and code, not only explanation.
+
+After generating:
+- Show project tree
+- Explain how to install dependencies
+- Explain how to configure environment variables
+- Explain how to run Prisma migration
+- Explain how to seed database
+- Explain how to start backend
+- Explain how to start frontend
+- Explain demo login credentials
+
+Make the implementation clean, modular, and production-oriented.

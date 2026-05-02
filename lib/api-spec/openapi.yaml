@@ -1,22 +1,29 @@
 openapi: 3.1.0
 info:
-  # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: UAE Freelance Marketplace API
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
-    description: Health operations
+  - name: auth
+  - name: users
+  - name: jobs
+  - name: proposals
+  - name: conversations
+  - name: messages
+  - name: reviews
+  - name: notifications
+  - name: payments
+  - name: admin
+  - name: meta
 paths:
   /healthz:
     get:
       operationId: healthCheck
       tags: [health]
-      summary: Health check
-      description: Returns server health status
       responses:
         "200":
           description: Healthy
@@ -24,13 +31,1147 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthStatus"
+
+  /auth/register:
+    post:
+      operationId: register
+      tags: [auth]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RegisterBody"
+      responses:
+        "200":
+          description: Registered
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResponse"
+  /auth/login:
+    post:
+      operationId: login
+      tags: [auth]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginBody"
+      responses:
+        "200":
+          description: Logged in
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResponse"
+  /auth/me:
+    get:
+      operationId: getMe
+      tags: [auth]
+      responses:
+        "200":
+          description: Current user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Me"
+
+  /meta/stats:
+    get:
+      operationId: getMarketplaceStats
+      tags: [meta]
+      responses:
+        "200":
+          description: Marketplace stats
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MarketplaceStats"
+  /meta/categories:
+    get:
+      operationId: listCategories
+      tags: [meta]
+      responses:
+        "200":
+          description: Categories
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Category"
+  /meta/skills:
+    get:
+      operationId: listSkills
+      tags: [meta]
+      responses:
+        "200":
+          description: Skills
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Skill"
+
+  /freelancers:
+    get:
+      operationId: listFreelancers
+      tags: [users]
+      parameters:
+        - in: query
+          name: q
+          schema: { type: string }
+        - in: query
+          name: skill
+          schema: { type: string }
+        - in: query
+          name: minRate
+          schema: { type: number }
+        - in: query
+          name: maxRate
+          schema: { type: number }
+      responses:
+        "200":
+          description: Freelancers
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/FreelancerCard"
+  /freelancers/{id}:
+    get:
+      operationId: getFreelancer
+      tags: [users]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Freelancer profile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FreelancerDetail"
+  /profiles/freelancer:
+    put:
+      operationId: updateFreelancerProfile
+      tags: [users]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateFreelancerProfileBody"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FreelancerDetail"
+  /profiles/client:
+    put:
+      operationId: updateClientProfile
+      tags: [users]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateClientProfileBody"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ClientDetail"
+  /clients/{id}:
+    get:
+      operationId: getClient
+      tags: [users]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Client profile
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ClientDetail"
+
+  /jobs:
+    get:
+      operationId: listJobs
+      tags: [jobs]
+      parameters:
+        - in: query
+          name: q
+          schema: { type: string }
+        - in: query
+          name: category
+          schema: { type: string }
+        - in: query
+          name: skill
+          schema: { type: string }
+        - in: query
+          name: budgetType
+          schema: { type: string }
+        - in: query
+          name: minBudget
+          schema: { type: number }
+        - in: query
+          name: maxBudget
+          schema: { type: number }
+        - in: query
+          name: mine
+          schema: { type: boolean }
+      responses:
+        "200":
+          description: Jobs
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/JobCard"
+    post:
+      operationId: createJob
+      tags: [jobs]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateJobBody"
+      responses:
+        "200":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Job"
+  /jobs/{id}:
+    get:
+      operationId: getJob
+      tags: [jobs]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Job
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JobDetail"
+    patch:
+      operationId: updateJob
+      tags: [jobs]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateJobBody"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Job"
+    delete:
+      operationId: deleteJob
+      tags: [jobs]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: integer }
+      responses:
+        "204":
+          description: Deleted
+  /jobs/{id}/complete:
+    post:
+      operationId: completeJob
+      tags: [jobs]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Completed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Job"
+
+  /saved-jobs:
+    get:
+      operationId: listSavedJobs
+      tags: [jobs]
+      responses:
+        "200":
+          description: Saved jobs
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/JobCard"
+  /saved-jobs/{jobId}:
+    post:
+      operationId: saveJob
+      tags: [jobs]
+      parameters:
+        - in: path
+          name: jobId
+          required: true
+          schema: { type: integer }
+      responses:
+        "204":
+          description: Saved
+    delete:
+      operationId: unsaveJob
+      tags: [jobs]
+      parameters:
+        - in: path
+          name: jobId
+          required: true
+          schema: { type: integer }
+      responses:
+        "204":
+          description: Removed
+
+  /proposals:
+    get:
+      operationId: listProposals
+      tags: [proposals]
+      parameters:
+        - in: query
+          name: jobId
+          schema: { type: integer }
+        - in: query
+          name: mine
+          schema: { type: boolean }
+      responses:
+        "200":
+          description: Proposals
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ProposalDetail"
+    post:
+      operationId: createProposal
+      tags: [proposals]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateProposalBody"
+      responses:
+        "200":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Proposal"
+  /proposals/{id}/status:
+    patch:
+      operationId: updateProposalStatus
+      tags: [proposals]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateProposalStatusBody"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Proposal"
+
+  /conversations:
+    get:
+      operationId: listConversations
+      tags: [conversations]
+      responses:
+        "200":
+          description: Conversations
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ConversationSummary"
+    post:
+      operationId: createConversation
+      tags: [conversations]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateConversationBody"
+      responses:
+        "200":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ConversationSummary"
+  /conversations/{id}/messages:
+    get:
+      operationId: listMessages
+      tags: [messages]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Messages
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Message"
+    post:
+      operationId: sendMessage
+      tags: [messages]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SendMessageBody"
+      responses:
+        "200":
+          description: Sent
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Message"
+
+  /reviews:
+    get:
+      operationId: listReviews
+      tags: [reviews]
+      parameters:
+        - in: query
+          name: userId
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Reviews
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Review"
+    post:
+      operationId: createReview
+      tags: [reviews]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateReviewBody"
+      responses:
+        "200":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Review"
+
+  /notifications:
+    get:
+      operationId: listNotifications
+      tags: [notifications]
+      responses:
+        "200":
+          description: Notifications
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Notification"
+  /notifications/read-all:
+    post:
+      operationId: markAllNotificationsRead
+      tags: [notifications]
+      responses:
+        "204":
+          description: Read
+
+  /payments:
+    get:
+      operationId: listPayments
+      tags: [payments]
+      responses:
+        "200":
+          description: Payments
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Payment"
+  /payments/create-intent:
+    post:
+      operationId: createPaymentIntent
+      tags: [payments]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreatePaymentIntentBody"
+      responses:
+        "200":
+          description: Intent
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PaymentIntent"
+
+  /admin/users:
+    get:
+      operationId: adminListUsers
+      tags: [admin]
+      responses:
+        "200":
+          description: Users
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AdminUser"
+  /admin/users/{id}/status:
+    patch:
+      operationId: adminUpdateUserStatus
+      tags: [admin]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateUserStatusBody"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminUser"
+  /admin/jobs:
+    get:
+      operationId: adminListJobs
+      tags: [admin]
+      responses:
+        "200":
+          description: Jobs
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/JobCard"
+  /admin/payments:
+    get:
+      operationId: adminListPayments
+      tags: [admin]
+      responses:
+        "200":
+          description: Payments
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Payment"
+  /admin/analytics:
+    get:
+      operationId: adminAnalytics
+      tags: [admin]
+      responses:
+        "200":
+          description: Analytics
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminAnalytics"
+  /admin/complaints:
+    get:
+      operationId: adminListComplaints
+      tags: [admin]
+      responses:
+        "200":
+          description: Complaints
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/Complaint"
+
+  /complaints:
+    post:
+      operationId: createComplaint
+      tags: [admin]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateComplaintBody"
+      responses:
+        "200":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Complaint"
+
 components:
   schemas:
     HealthStatus:
       type: object
+      required: [status]
       properties:
-        status:
-          type: string
-      required:
-        - status
+        status: { type: string }
 
+    Role:
+      type: string
+      enum: [client, freelancer, admin]
+
+    UserStatus:
+      type: string
+      enum: [active, suspended]
+
+    RegisterBody:
+      type: object
+      required: [email, password, fullName, role]
+      properties:
+        email: { type: string }
+        password: { type: string }
+        fullName: { type: string }
+        role:
+          type: string
+          enum: [client, freelancer]
+        companyName: { type: ["string", "null"] }
+
+    LoginBody:
+      type: object
+      required: [email, password]
+      properties:
+        email: { type: string }
+        password: { type: string }
+
+    AuthResponse:
+      type: object
+      required: [token, user]
+      properties:
+        token: { type: string }
+        user: { $ref: "#/components/schemas/Me" }
+
+    Me:
+      type: object
+      required: [id, email, fullName, role, status, createdAt]
+      properties:
+        id: { type: integer }
+        email: { type: string }
+        fullName: { type: string }
+        role: { $ref: "#/components/schemas/Role" }
+        status: { $ref: "#/components/schemas/UserStatus" }
+        avatarUrl: { type: ["string", "null"] }
+        createdAt: { type: string, format: date-time }
+
+    Category:
+      type: object
+      required: [id, slug, nameEn, nameAr]
+      properties:
+        id: { type: integer }
+        slug: { type: string }
+        nameEn: { type: string }
+        nameAr: { type: string }
+
+    Skill:
+      type: object
+      required: [id, name]
+      properties:
+        id: { type: integer }
+        name: { type: string }
+
+    MarketplaceStats:
+      type: object
+      required: [activeJobs, totalFreelancers, totalClients, totalProposals, completedJobs]
+      properties:
+        activeJobs: { type: integer }
+        totalFreelancers: { type: integer }
+        totalClients: { type: integer }
+        totalProposals: { type: integer }
+        completedJobs: { type: integer }
+        totalPaidAed: { type: number }
+
+    FreelancerCard:
+      type: object
+      required: [id, fullName, headline, skills, hourlyRate, currency, ratingAvg, ratingCount, location]
+      properties:
+        id: { type: integer }
+        fullName: { type: string }
+        avatarUrl: { type: ["string", "null"] }
+        headline: { type: string }
+        skills:
+          type: array
+          items: { type: string }
+        hourlyRate: { type: number }
+        currency: { type: string }
+        ratingAvg: { type: number }
+        ratingCount: { type: integer }
+        location: { type: string }
+
+    FreelancerDetail:
+      allOf:
+        - $ref: "#/components/schemas/FreelancerCard"
+        - type: object
+          required: [bio, portfolio, completedJobs]
+          properties:
+            bio: { type: string }
+            portfolio:
+              type: array
+              items:
+                type: object
+                required: [title, url]
+                properties:
+                  title: { type: string }
+                  url: { type: string }
+                  description: { type: ["string", "null"] }
+            completedJobs: { type: integer }
+
+    UpdateFreelancerProfileBody:
+      type: object
+      properties:
+        fullName: { type: string }
+        avatarUrl: { type: ["string", "null"] }
+        headline: { type: string }
+        bio: { type: string }
+        skills:
+          type: array
+          items: { type: string }
+        hourlyRate: { type: number }
+        location: { type: string }
+        portfolio:
+          type: array
+          items:
+            type: object
+            required: [title, url]
+            properties:
+              title: { type: string }
+              url: { type: string }
+              description: { type: ["string", "null"] }
+
+    ClientDetail:
+      type: object
+      required: [id, fullName, companyName, overview, activeJobs, completedJobs, ratingAvg, ratingCount]
+      properties:
+        id: { type: integer }
+        fullName: { type: string }
+        avatarUrl: { type: ["string", "null"] }
+        companyName: { type: string }
+        logoUrl: { type: ["string", "null"] }
+        overview: { type: string }
+        location: { type: string }
+        activeJobs: { type: integer }
+        completedJobs: { type: integer }
+        ratingAvg: { type: number }
+        ratingCount: { type: integer }
+
+    UpdateClientProfileBody:
+      type: object
+      properties:
+        fullName: { type: string }
+        avatarUrl: { type: ["string", "null"] }
+        companyName: { type: string }
+        logoUrl: { type: ["string", "null"] }
+        overview: { type: string }
+        location: { type: string }
+
+    BudgetType:
+      type: string
+      enum: [fixed, hourly]
+
+    JobStatus:
+      type: string
+      enum: [open, in_progress, completed, closed]
+
+    JobCard:
+      type: object
+      required: [id, title, categorySlug, categoryNameEn, budgetType, budgetMin, budgetMax, currency, skills, status, createdAt, proposalCount, clientName]
+      properties:
+        id: { type: integer }
+        title: { type: string }
+        descriptionShort: { type: string }
+        categorySlug: { type: string }
+        categoryNameEn: { type: string }
+        categoryNameAr: { type: string }
+        budgetType: { $ref: "#/components/schemas/BudgetType" }
+        budgetMin: { type: number }
+        budgetMax: { type: number }
+        currency: { type: string }
+        skills:
+          type: array
+          items: { type: string }
+        status: { $ref: "#/components/schemas/JobStatus" }
+        deadline: { type: ["string", "null"], format: date-time }
+        createdAt: { type: string, format: date-time }
+        proposalCount: { type: integer }
+        clientId: { type: integer }
+        clientName: { type: string }
+        clientCompany: { type: ["string", "null"] }
+        clientLogoUrl: { type: ["string", "null"] }
+
+    JobDetail:
+      allOf:
+        - $ref: "#/components/schemas/JobCard"
+        - type: object
+          required: [description]
+          properties:
+            description: { type: string }
+            saved: { type: boolean }
+
+    Job:
+      type: object
+      required: [id, title, description, categorySlug, budgetType, budgetMin, budgetMax, currency, skills, status, createdAt, clientId]
+      properties:
+        id: { type: integer }
+        title: { type: string }
+        description: { type: string }
+        categorySlug: { type: string }
+        budgetType: { $ref: "#/components/schemas/BudgetType" }
+        budgetMin: { type: number }
+        budgetMax: { type: number }
+        currency: { type: string }
+        skills:
+          type: array
+          items: { type: string }
+        status: { $ref: "#/components/schemas/JobStatus" }
+        deadline: { type: ["string", "null"], format: date-time }
+        createdAt: { type: string, format: date-time }
+        clientId: { type: integer }
+
+    CreateJobBody:
+      type: object
+      required: [title, description, categorySlug, budgetType, budgetMin, budgetMax, skills]
+      properties:
+        title: { type: string }
+        description: { type: string }
+        categorySlug: { type: string }
+        budgetType: { $ref: "#/components/schemas/BudgetType" }
+        budgetMin: { type: number }
+        budgetMax: { type: number }
+        currency: { type: string }
+        skills:
+          type: array
+          items: { type: string }
+        deadline: { type: ["string", "null"], format: date-time }
+
+    UpdateJobBody:
+      type: object
+      properties:
+        title: { type: string }
+        description: { type: string }
+        categorySlug: { type: string }
+        budgetType: { $ref: "#/components/schemas/BudgetType" }
+        budgetMin: { type: number }
+        budgetMax: { type: number }
+        currency: { type: string }
+        skills:
+          type: array
+          items: { type: string }
+        deadline: { type: ["string", "null"], format: date-time }
+        status: { $ref: "#/components/schemas/JobStatus" }
+
+    ProposalStatus:
+      type: string
+      enum: [pending, shortlisted, accepted, rejected, withdrawn]
+
+    Proposal:
+      type: object
+      required: [id, jobId, freelancerId, coverLetter, expectedRate, deliveryDays, status, createdAt]
+      properties:
+        id: { type: integer }
+        jobId: { type: integer }
+        freelancerId: { type: integer }
+        coverLetter: { type: string }
+        expectedRate: { type: number }
+        deliveryDays: { type: integer }
+        portfolioLinks:
+          type: array
+          items: { type: string }
+        status: { $ref: "#/components/schemas/ProposalStatus" }
+        createdAt: { type: string, format: date-time }
+
+    ProposalDetail:
+      allOf:
+        - $ref: "#/components/schemas/Proposal"
+        - type: object
+          required: [freelancerName, jobTitle]
+          properties:
+            freelancerName: { type: string }
+            freelancerAvatarUrl: { type: ["string", "null"] }
+            freelancerHeadline: { type: ["string", "null"] }
+            freelancerRatingAvg: { type: number }
+            jobTitle: { type: string }
+            jobBudgetMin: { type: number }
+            jobBudgetMax: { type: number }
+            jobCurrency: { type: string }
+
+    CreateProposalBody:
+      type: object
+      required: [jobId, coverLetter, expectedRate, deliveryDays]
+      properties:
+        jobId: { type: integer }
+        coverLetter: { type: string }
+        expectedRate: { type: number }
+        deliveryDays: { type: integer }
+        portfolioLinks:
+          type: array
+          items: { type: string }
+
+    UpdateProposalStatusBody:
+      type: object
+      required: [status]
+      properties:
+        status: { $ref: "#/components/schemas/ProposalStatus" }
+
+    ConversationSummary:
+      type: object
+      required: [id, otherUserId, otherUserName, jobId, jobTitle, lastMessage, lastMessageAt, unreadCount]
+      properties:
+        id: { type: integer }
+        otherUserId: { type: integer }
+        otherUserName: { type: string }
+        otherUserAvatarUrl: { type: ["string", "null"] }
+        jobId: { type: integer }
+        jobTitle: { type: string }
+        lastMessage: { type: string }
+        lastMessageAt: { type: string, format: date-time }
+        unreadCount: { type: integer }
+
+    CreateConversationBody:
+      type: object
+      required: [jobId, otherUserId]
+      properties:
+        jobId: { type: integer }
+        otherUserId: { type: integer }
+
+    Message:
+      type: object
+      required: [id, conversationId, senderId, senderName, body, createdAt]
+      properties:
+        id: { type: integer }
+        conversationId: { type: integer }
+        senderId: { type: integer }
+        senderName: { type: string }
+        senderAvatarUrl: { type: ["string", "null"] }
+        body: { type: string }
+        createdAt: { type: string, format: date-time }
+
+    SendMessageBody:
+      type: object
+      required: [body]
+      properties:
+        body: { type: string }
+
+    Review:
+      type: object
+      required: [id, jobId, jobTitle, fromUserId, fromUserName, toUserId, rating, comment, createdAt]
+      properties:
+        id: { type: integer }
+        jobId: { type: integer }
+        jobTitle: { type: string }
+        fromUserId: { type: integer }
+        fromUserName: { type: string }
+        fromUserAvatarUrl: { type: ["string", "null"] }
+        toUserId: { type: integer }
+        rating: { type: integer }
+        comment: { type: string }
+        createdAt: { type: string, format: date-time }
+
+    CreateReviewBody:
+      type: object
+      required: [jobId, toUserId, rating, comment]
+      properties:
+        jobId: { type: integer }
+        toUserId: { type: integer }
+        rating: { type: integer }
+        comment: { type: string }
+
+    Notification:
+      type: object
+      required: [id, kind, title, body, read, createdAt]
+      properties:
+        id: { type: integer }
+        kind: { type: string }
+        title: { type: string }
+        body: { type: string }
+        link: { type: ["string", "null"] }
+        read: { type: boolean }
+        createdAt: { type: string, format: date-time }
+
+    Payment:
+      type: object
+      required: [id, jobId, jobTitle, amount, currency, status, payerName, payeeName, createdAt]
+      properties:
+        id: { type: integer }
+        jobId: { type: integer }
+        jobTitle: { type: string }
+        amount: { type: number }
+        currency: { type: string }
+        status: { type: string }
+        payerName: { type: string }
+        payeeName: { type: string }
+        invoiceNumber: { type: string }
+        createdAt: { type: string, format: date-time }
+
+    CreatePaymentIntentBody:
+      type: object
+      required: [jobId, proposalId, amount]
+      properties:
+        jobId: { type: integer }
+        proposalId: { type: integer }
+        amount: { type: number }
+        currency: { type: string }
+
+    PaymentIntent:
+      type: object
+      required: [paymentId, clientSecret, amount, currency, status]
+      properties:
+        paymentId: { type: integer }
+        clientSecret: { type: string }
+        amount: { type: number }
+        currency: { type: string }
+        status: { type: string }
+
+    AdminUser:
+      type: object
+      required: [id, email, fullName, role, status, createdAt, jobsCount, proposalsCount]
+      properties:
+        id: { type: integer }
+        email: { type: string }
+        fullName: { type: string }
+        role: { $ref: "#/components/schemas/Role" }
+        status: { $ref: "#/components/schemas/UserStatus" }
+        createdAt: { type: string, format: date-time }
+        jobsCount: { type: integer }
+        proposalsCount: { type: integer }
+
+    UpdateUserStatusBody:
+      type: object
+      required: [status]
+      properties:
+        status: { $ref: "#/components/schemas/UserStatus" }
+
+    AdminAnalytics:
+      type: object
+      required: [users, jobs, proposals, payments, revenueAed, recentSignups, jobsByCategory, paymentsByMonth]
+      properties:
+        users: { type: integer }
+        clients: { type: integer }
+        freelancers: { type: integer }
+        jobs: { type: integer }
+        activeJobs: { type: integer }
+        proposals: { type: integer }
+        payments: { type: integer }
+        revenueAed: { type: number }
+        recentSignups:
+          type: array
+          items:
+            type: object
+            required: [date, count]
+            properties:
+              date: { type: string }
+              count: { type: integer }
+        jobsByCategory:
+          type: array
+          items:
+            type: object
+            required: [category, count]
+            properties:
+              category: { type: string }
+              count: { type: integer }
+        paymentsByMonth:
+          type: array
+          items:
+            type: object
+            required: [month, total]
+            properties:
+              month: { type: string }
+              total: { type: number }
+
+    Complaint:
+      type: object
+      required: [id, fromUserId, fromUserName, subject, body, status, createdAt]
+      properties:
+        id: { type: integer }
+        fromUserId: { type: integer }
+        fromUserName: { type: string }
+        subject: { type: string }
+        body: { type: string }
+        status: { type: string }
+        createdAt: { type: string, format: date-time }
+
+    CreateComplaintBody:
+      type: object
+      required: [subject, body]
+      properties:
+        subject: { type: string }
+        body: { type: string }

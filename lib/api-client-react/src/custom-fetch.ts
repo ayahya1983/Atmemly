@@ -16,7 +16,16 @@ const DEFAULT_JSON_ACCEPT = "application/json, application/problem+json";
 // ---------------------------------------------------------------------------
 
 let _baseUrl: string | null = null;
-let _authTokenGetter: AuthTokenGetter | null = null;
+
+// Built-in token getter for local storage
+const defaultAuthTokenGetter = () => {
+  if (typeof window !== "undefined") {
+    return localStorage.getItem("auth_token");
+  }
+  return null;
+};
+
+let _authTokenGetter: AuthTokenGetter | null = defaultAuthTokenGetter;
 
 /**
  * Set a base URL that is prepended to every relative request URL
