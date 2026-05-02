@@ -35,6 +35,8 @@ import reconciliationRouter from "./reconciliation";
 import moderationRouter from "./moderation";
 import metricsRouter from "./metrics";
 import invoicesTaxRouter from "./invoicesTax";
+import paymentsV2Router from "./paymentsV2";
+import paymentsAdminRouter from "./paymentsAdmin";
 import { attachUser } from "../lib/auth";
 
 const router: IRouter = Router();
@@ -80,5 +82,9 @@ router.use(reconciliationRouter);
 router.use(moderationRouter);
 router.use(metricsRouter);
 router.use(invoicesTaxRouter);
+
+// Phase 5
+router.use(paymentsV2Router);
+router.use(paymentsAdminRouter);
 
 export default router;

@@ -319,9 +319,64 @@ Phase 4 is fully additive on top of Phases 1–3. **No rebuild, no breaking chan
 ### Phase 4 smoke
 - `node artifacts/api-server/scripts/smoke-phase4.mjs` — **61 end-to-end checks** covering envelope shape + headers, device CRUD + idempotency + cross-user 409, gateway list/set/webhook/refund, featured admin CRUD + public list + bad-range 400, subscription plan list + subscribe + supersede + cancel, invoice tax-pdf-data including platform TRN, currencies + fx single/list/convert/identity/upsert/refresh, reconciliation daily/wallets/escrow + 403 for non-admin, moderation report file/list/resolve, metrics admin-only, escrow events admin-only, payout batches no-candidates + paginated list, plus backward-compat checks against `/meta/categories` and `/auth/me`. **Last run: 61/61 pass.** Phase 2 (35/35) and Phase 3 (37/37) still pass — Phase 4 is additive.
 
+## Phase 5 — multi-gateway payments (real SDKs + manual bank transfer)
+
+Phase 5 is fully additive on top of Phases 1–4. **No rebuild, no breaking changes.** All Phase 1–4 routes (including the Phase 1 `POST /payments/create-intent` mock and the Phase 4 `POST /admin/payments/refund` + `GET /payments/gateway`) are untouched. Phase 5 introduces a payment-gateway abstraction with real adapters, idempotency, webhook dedup + signature verification, and manual bank-transfer proof workflow.
+
+### New schema (lib/db/src/schema)
+- `payment_gateways` — admin-managed registry: `name` (`stripe|paytabs|telr|manual|mock`), `providerCode`, `isActive`, `mode` (`TEST|LIVE`), `supportedCurrencies` (text[]), `configJson`, `sortOrder`. Seeded with all 5 adapters; only `manual` is active by default.
+- `payment_transactions` — per-attempt: `gateway`, `userId` (payer), `paymentPurpose` (`milestone_funding|subscription|featured|other`), `contractId?`, `milestoneId?`, `amount` (numeric), `currency`, `status` (`INITIATED|PENDING|REQUIRES_ACTION|PAID|FAILED|REFUNDED`), `gatewayReference` (the gateway-assigned id, e.g. `pi_…` for Stripe or `manual_<uuid>` for manual), `idempotencyKey`, `metadata` (jsonb — admin-entered `bankReference` for manual approvals lives here, NOT in `gatewayReference`), `failureReason`, `proofAttachmentId?`. **UNIQUE** on `(gateway, idempotency_key)` and **UNIQUE** on `(gateway, gateway_reference)` (Postgres NULL-distinct, so multiple in-flight INITIATED rows with NULL ref are fine; once a ref is assigned no two rows can share it within a gateway, making webhook lookup unambiguous).
+- `payment_intents` — gateway intent/session refs: `transactionId` (FK), `intentId`, `clientSecret?`, `redirectUrl?`, `status`, `rawResponse`. Allows multiple attempts per transaction.
+- `payment_webhooks` — raw events + idempotency: `gateway`, `eventId`, `eventType`, `signatureValid`, `payload`, `processed`, `processingError?`. UNIQUE on `(gateway, event_id)` for dedup.
+- `escrow_events` (existing Phase 4) is reused as the escrow ledger — manual approval fires `held` event via `markTransactionPaidAndFundEscrow()`.
+
+### Gateway adapter interface (`lib/payments/gateway.ts`)
+Each adapter implements: `name`, `configured`, `supportedCurrencies`, `mode`, `createIntent({ amount, currency, idempotencyKey, customerEmail, customerName, returnUrl, cancelUrl, callbackUrl, metadata, description })`, `webhookVerify({ rawBody, headers })`. Result types include `{ intentId, clientSecret?, redirectUrl?, status, rawResponse }` and `{ ok, eventId, eventType, signatureValid, payload, gatewayReference?, mappedStatus? }`. `mappedStatus` is one of the canonical PT statuses.
+
+### Adapters (`artifacts/api-server/src/lib/payments/`)
+- `stripe.ts` — **real `Stripe` SDK** (`pnpm add stripe`). `createIntent` calls `stripe.paymentIntents.create(...)` with `idempotencyKey` header. `refund` calls `stripe.refunds.create`. `webhookVerify` calls `stripe.webhooks.constructEvent(rawBuffer, signatureHeader, STRIPE_WEBHOOK_SECRET)`. `configured` iff `STRIPE_SECRET_KEY` is set.
+- `paytabs.ts` — **real `fetch` POST** to `https://secure.paytabs.com/payment/request` (region selectable via `PAYTABS_REGION`: `ARE|SAU|EGY|JOR|OMN|GLOBAL`) with the documented `profile_id`/`tran_type`/`tran_class`/`cart_*`/`customer_details`/`callback`/`return` body. Webhook verifies HMAC-SHA256 over the canonical JSON payload using `PAYTABS_SERVER_KEY` (TODO note for any per-merchant signing-secret variants).
+- `telr.ts` — **real `fetch` POST** to `https://secure.telr.com/gateway/order.json` with `ivp_method=create`, `ivp_store`, `ivp_authkey`, `ivp_test`, `ivp_amount`, `ivp_currency`, `ivp_desc`, `ivp_cart`, `return_*`. Webhook handler reads `tran_status` and maps to canonical status.
+- `manual.ts` — env-driven bank instructions (`MANUAL_BANK_ACCOUNT_NAME|BANK_NAME|IBAN|SWIFT`) + per-tx `manual_<uuid>` reference. Always `configured: true`. Webhook is admin-driven (no external callback).
+- `mock.ts` — kept and updated to satisfy the new interface; webhook accepts `{ id, type, gatewayReference, mappedStatus }` so the smoke can drive PT through PAID.
+- `index.ts` registry exports `getGateway(name)`, `ALL_GATEWAY_NAMES`, `getManualBankDetails()`.
+- `processing.ts` exposes `markTransactionPaidAndFundEscrow({ transactionId, paidAt, gatewayReference?, bankReference?, actorUserId, reason })`. Uses a **conditional UPDATE** (`WHERE status IN (INITIATED, PENDING, REQUIRES_ACTION)`) to claim the transaction atomically before inserting the `payments` row, generating the invoice, calling `addPendingBalance`, and recording an `escrow_events {toState: 'held'}` row. Idempotent: returns `false` if another worker already claimed the row.
+
+### Routes (`artifacts/api-server/src/routes/`)
+- `paymentsV2.ts`:
+  - `GET /payments/gateways` — public, returns the configured registry rows merged with adapter `configured` flag, supportedCurrencies, mode.
+  - `POST /payments/intents` — auth required. Body: `{ gateway, paymentPurpose, contractId?, milestoneId?, amount, currency, idempotencyKey?, customerEmail?, returnUrl?, cancelUrl?, callbackUrl?, description?, metadata? }`. Replays existing transaction on idempotency-key match (returns `replayed: true`). Calls adapter `createIntent`, persists transaction + intent rows, returns `{ transaction, intent, bankDetails? }`. Unconfigured gateway → `503 gateway_not_configured`.
+  - `GET /payments/transactions` — auth, paginated, scoped to caller (admin sees all).
+  - `GET /payments/transactions/:id` — auth, owner-or-admin. Returns `{ transaction, intents[], webhooks[] (admin only) }`.
+  - `POST /payments/manual/submit-proof` — owner-only. Body: `{ transactionId, attachmentId, note? }`. Marks PT `PENDING`, attaches proof.
+  - Webhooks: `POST /payments/stripe/webhook`, `POST /payments/paytabs/callback`, `POST /payments/telr/callback`, `POST /payments/mock/webhook`. All four routes are mounted with path-scoped `express.raw({type:'*/*',limit:'1mb'})` BEFORE the global `express.json` so HMAC verification runs over the exact bytes the gateway signed (re-serializing via `JSON.stringify(req.body)` would break HMAC). Each handler runs adapter `webhookVerify`, then **hard-fails (400) when `signatureValid !== true` for stripe/paytabs/telr** — the unverified event is still persisted (`processed=false`, `processError="signature verification failed"`) for audit, but no PT state mutation runs. Verified events are deduped by inserting into `payment_webhooks` and catching the UNIQUE-violation on `(gateway, event_id)`; duplicates short-circuit with `{received:true, duplicate:true}`. First delivery with `mappedStatus === 'PAID'` calls `markTransactionPaidAndFundEscrow`. The mock gateway is intentionally unsigned and bypasses the security gate (dev-only).
+- `paymentsAdmin.ts` (mounted under `/admin`):
+  - `GET /admin/payments/transactions` — filters: `gateway`, `status`, `paymentPurpose`, `payerId`, `dateFrom`, `dateTo`, paginated.
+  - `GET /admin/payments/webhooks` — filters: `gateway`, `processed`, paginated.
+  - `POST /admin/payments/manual/approve` — body: `{ transactionId, bankReference?, note? }`. State guard: only `PENDING|REQUIRES_ACTION|INITIATED`, else `409 invalid_state`. Calls `markTransactionPaidAndFundEscrow`.
+  - `POST /admin/payments/manual/reject` — body: `{ transactionId, reason }`. Marks PT `FAILED`.
+  - `GET /admin/payments/summary` — financial dashboard: counts by status, totals by gateway/currency, pending manual queue depth, last 7-day volume.
+  - `GET /admin/payments/gateways` — full registry rows (includes inactive).
+  - `POST /admin/payments/gateways` — admin insert.
+  - `PATCH /admin/payments/gateways/:id` — toggle `isActive`, `mode`, `configJson`, `sortOrder`.
+- All Phase 5 mutations call `audit()`. Stripe raw-body middleware is registered in `app.ts` BEFORE `express.json()` and is path-scoped to `/api/payments/stripe/webhook` so other routes still receive parsed JSON.
+
+### Phase 5 env
+`.env.example` lists: `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_PUBLISHABLE_KEY`, `PAYTABS_PROFILE_ID`, `PAYTABS_SERVER_KEY`, `PAYTABS_REGION`, `TELR_STORE_ID`, `TELR_AUTH_KEY`, `TELR_TEST_MODE`, `MANUAL_BANK_ACCOUNT_NAME`, `MANUAL_BANK_NAME`, `MANUAL_BANK_IBAN`, `MANUAL_BANK_SWIFT`. None are required for the test environment — gateways simply report `configured: false` and `POST /payments/intents` returns `503 gateway_not_configured`.
+
+### Phase 5 smoke
+- `node artifacts/api-server/scripts/smoke-phase5.mjs` — **39 end-to-end checks** covering: gateway listing shape (5 adapters, manual active+configured), unconfigured Stripe/PayTabs/Telr → clean 503, mock create-intent + idempotency replay (same key → same tx id, `replayed:true`), manual create-intent returns bank details, proof upload via `/uploads`, owner-only submit-proof (non-owner → 403/404), admin approve transitions PT to PAID, re-approve already-PAID → 409 `invalid_state`, admin reject transitions PT to FAILED, mine-vs-admin transactions scoping, admin filters + summary shape (verifies `paid >= 1`), non-admin → 403 on summary, **security regressions**: approved manual tx keeps `manual_<uuid>` as `gatewayReference` while the human bank reference lives in `metadata.bankReference`, PayTabs and Telr forged callbacks → 400/503 with no state change, Stripe webhook bad signature → 400/503, mock webhook duplicate event id → `duplicate:true` and persisted exactly once, admin gateway PATCH toggle (Stripe `isActive` → true → revert), legacy `POST /payments/create-intent` still reaches its Phase 1 handler. **Last run: 39/39 pass.** Phase 4 (61/61), Phase 3 (37/37) and Phase 2 (35/35) still pass — Phase 5 is additive (cumulative: 172/172).
+
+### Phase 5 — known gaps / deferred
+- **Frontend pages explicitly deferred** to a follow-up session: payment method picker, manual proof upload UX, admin payments dashboard, gateway-config screens. Backend routes are complete and stable.
+- **OpenAPI/codegen not extended for Phase 5** (same precedent as Phase 2–4): all Phase 5 routes are direct Zod-validated handlers.
+- **PayTabs HMAC verification covers the documented `signature` header**; some merchant accounts use a per-channel secret rather than the server key — adapter has a TODO noting where to swap if needed.
+- **Telr's webhook signature verification is best-effort** based on the public docs (no shared HMAC secret in the standard flow); production deployments should additionally pin `tran_ref` lookups to the original `cart_id` (already done) and consider IP allow-listing.
+- **No background reconciliation job yet** — `payment_transactions` left in `INITIATED|PENDING|REQUIRES_ACTION` for >24h are not auto-failed. Add a cron in Phase 6 if desired.
+
 ### Phase 4 — known gaps / deferred
 - **OpenAPI/codegen not extended for Phase 4** (same precedent as Phase 2/3): all Phase 4 routes are direct Zod-validated handlers; mobile/web clients consuming them must hand-write the call.
-- **Real payment gateways (Stripe, PayTabs, Telr) are stubs.** Adapters return `not configured` until env keys are wired. The default `payment_gateway` setting is `mock`.
+- ~~**Real payment gateways (Stripe, PayTabs, Telr) are stubs.**~~ → **Resolved in Phase 5.** Stripe now uses the real SDK with webhook signature verification; PayTabs/Telr issue real HTTP requests; Manual bank transfer with proof upload + admin approve/reject is fully wired.
 - **`sendPush` is a no-op stub.** No FCM/APNs/Expo client wired yet — registering devices and inserting notifications works, the push fan-out logs and returns `{ delivered: 0 }`.
 - **FX refresh is a stub.** No external provider wired; `POST /admin/fx-rates/refresh` only reports the latest rate age. Use `POST /admin/fx-rates` to upsert manually.
 - **Subscriptions don't take real money.** `/me/subscription` records the row; no charge, no proration, no auto-renew enforcement.

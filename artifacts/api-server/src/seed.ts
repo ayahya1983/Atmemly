@@ -18,6 +18,7 @@ import {
   currenciesTable,
   fxRatesTable,
   subscriptionPlansTable,
+  paymentGatewaysTable,
 } from "@workspace/db";
 
 async function hash(p: string) {
@@ -33,7 +34,8 @@ async function main() {
     freelancer_profiles, client_profiles, users, skills, categories,
     device_tokens, escrow_events, payout_batch_items, payout_batches,
     featured_listings, user_subscriptions, subscription_plans,
-    moderation_reports, currencies, fx_rates
+    moderation_reports, currencies, fx_rates,
+    payment_webhooks, payment_intents, payment_transactions, payment_gateways
     RESTART IDENTITY CASCADE`);
 
   const categories = [
@@ -469,6 +471,83 @@ async function main() {
       isPublic: 1,
       description: "Khidma UAE Tax Registration Number for invoices",
       updatedById: admin!.id,
+    },
+    {
+      key: "manual_bank_account_name",
+      value: process.env["MANUAL_BANK_ACCOUNT_NAME"] ?? "Khidma Marketplace LLC",
+      isPublic: 1,
+      description: "Bank account holder name for manual transfers",
+      updatedById: admin!.id,
+    },
+    {
+      key: "manual_bank_name",
+      value: process.env["MANUAL_BANK_NAME"] ?? "Emirates NBD",
+      isPublic: 1,
+      description: "Bank name for manual transfers",
+      updatedById: admin!.id,
+    },
+    {
+      key: "manual_bank_iban",
+      value: process.env["MANUAL_BANK_IBAN"] ?? "AE000000000000000000000",
+      isPublic: 1,
+      description: "IBAN for manual transfers",
+      updatedById: admin!.id,
+    },
+    {
+      key: "manual_bank_swift",
+      value: process.env["MANUAL_BANK_SWIFT"] ?? "EBILAEAD",
+      isPublic: 1,
+      description: "SWIFT/BIC code for manual transfers",
+      updatedById: admin!.id,
+    },
+  ]);
+
+  // ---------- Phase 5: Payment gateway registry ----------
+  await db.insert(paymentGatewaysTable).values([
+    {
+      name: "Stripe (cards)",
+      providerCode: "stripe",
+      isActive: false,
+      mode: "TEST",
+      supportedCurrencies: ["AED", "USD", "EUR", "GBP", "SAR"],
+      configJson: { docs: "https://stripe.com/docs/api" },
+      sortOrder: 10,
+    },
+    {
+      name: "PayTabs",
+      providerCode: "paytabs",
+      isActive: false,
+      mode: "TEST",
+      supportedCurrencies: ["AED", "SAR", "USD", "EUR", "OMR", "JOD", "EGP"],
+      configJson: { region: process.env["PAYTABS_REGION"] ?? "ARE" },
+      sortOrder: 20,
+    },
+    {
+      name: "Telr",
+      providerCode: "telr",
+      isActive: false,
+      mode: "TEST",
+      supportedCurrencies: ["AED", "SAR", "USD", "EUR", "GBP"],
+      configJson: { docs: "https://telr.com/support/api/" },
+      sortOrder: 30,
+    },
+    {
+      name: "Manual bank transfer",
+      providerCode: "manual",
+      isActive: true,
+      mode: "LIVE",
+      supportedCurrencies: ["AED", "USD", "EUR", "SAR", "GBP"],
+      configJson: { instructions: "Client uploads transfer proof; admin approves." },
+      sortOrder: 40,
+    },
+    {
+      name: "Mock gateway (development)",
+      providerCode: "mock",
+      isActive: false,
+      mode: "TEST",
+      supportedCurrencies: ["AED", "USD", "EUR"],
+      configJson: { note: "For local smoke tests only." },
+      sortOrder: 99,
     },
   ]);
 

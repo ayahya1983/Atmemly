@@ -26,10 +26,18 @@ export const mockGateway: PaymentGateway = {
     } catch {
       // ignore — empty event
     }
+    const mappedRaw = String(parsed["mappedStatus"] ?? "");
+    const allowed = ["PAID","FAILED","CANCELLED","REFUNDED","PARTIALLY_REFUNDED","REQUIRES_ACTION","PENDING"] as const;
+    const mappedStatus = (allowed as readonly string[]).includes(mappedRaw)
+      ? (mappedRaw as (typeof allowed)[number])
+      : undefined;
     return {
       id: String(parsed["id"] ?? `mock_evt_${randomUUID()}`),
       type: String(parsed["type"] ?? "mock.event"),
       payload: parsed,
+      signatureValid: true,
+      gatewayReference: typeof parsed["gatewayReference"] === "string" ? (parsed["gatewayReference"] as string) : undefined,
+      mappedStatus,
     };
   },
 };

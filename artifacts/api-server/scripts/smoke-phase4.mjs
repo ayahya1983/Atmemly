@@ -83,7 +83,7 @@ const FREELANCER = ["layla@khidma.ae", "freelancer1234"];
   // ---- Payment gateway ----
   const gw = await req("GET", "/payments/gateway");
   ok("gateway info returns active+available", gw.status === 200 && gw.data?.data?.active && Array.isArray(gw.data?.data?.available));
-  ok("gateway adapters include mock,stripe,paytabs,telr", gw.data?.data?.available?.length === 4);
+  ok("gateway adapters include mock,stripe,paytabs,telr,manual", gw.data?.data?.available?.length === 5);
   ok("default active gateway is mock", gw.data?.data?.active === "mock");
   const setGwClient = await req("POST", "/admin/payments/gateway", { name: "telr" }, clientTok);
   ok("set gateway as non-admin → 403", setGwClient.status === 403);

@@ -47,3 +47,6 @@ Thumbs.db
 # Replit
 .cache/
 .local/
+
+# API server file uploads (test artifacts + runtime user uploads)
+artifacts/api-server/uploads/

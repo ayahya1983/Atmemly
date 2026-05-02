@@ -47,6 +47,23 @@ app.use(
   }),
 );
 app.use(cors({ exposedHeaders: ["X-Request-Id", "X-API-Version"] }));
+
+// Webhook routes MUST receive the raw request body so signature verification
+// runs over the exact bytes the gateway signed (Stripe HMAC, PayTabs HMAC,
+// Telr/manual best-effort). Register raw-body parsers BEFORE express.json()
+// for every webhook path; otherwise express.json() consumes the stream and
+// JSON.stringify(req.body) produces a different byte sequence than what was
+// signed.
+app.use(
+  [
+    "/api/payments/stripe/webhook",
+    "/api/payments/paytabs/callback",
+    "/api/payments/telr/callback",
+    "/api/payments/mock/webhook",
+  ],
+  express.raw({ type: "*/*", limit: "1mb" }),
+);
+
 // JSON / form bodies capped at 1mb. Multer file uploads are handled per-route at 10mb.
 app.use(express.json({ limit: "1mb" }));
 app.use(express.urlencoded({ extended: true, limit: "1mb" }));
