@@ -21,6 +21,9 @@ import Contact from "@/pages/contact";
 import Terms from "@/pages/terms";
 import Privacy from "@/pages/privacy";
 import Cancellation from "@/pages/cancellation";
+import Blog from "@/pages/blog";
+import BlogDetail from "@/pages/blog-detail";
+import Faq from "@/pages/faq";
 
 import { ClientDashboardLayout } from "@/pages/dashboard/client/layout";
 import ClientOverview from "@/pages/dashboard/client/overview";
@@ -41,12 +44,29 @@ import FreelancerEarnings from "@/pages/dashboard/freelancer/earnings";
 import FreelancerProfileEdit from "@/pages/dashboard/freelancer/profile";
 
 import { AdminLayout } from "@/pages/admin/layout";
+import AdminDashboard from "@/pages/admin/dashboard";
 import AdminAnalytics from "@/pages/admin/analytics";
+import AdminReports from "@/pages/admin/reports";
 import AdminUsers from "@/pages/admin/users";
+import AdminFreelancers from "@/pages/admin/freelancers";
+import AdminClients from "@/pages/admin/clients";
+import AdminVerifications from "@/pages/admin/verifications";
 import AdminJobs from "@/pages/admin/jobs";
-import AdminPayments from "@/pages/admin/payments";
-import AdminReviews from "@/pages/admin/reviews";
+import AdminContracts from "@/pages/admin/contracts";
+import AdminDisputes from "@/pages/admin/disputes";
 import AdminComplaints from "@/pages/admin/complaints";
+import AdminReviews from "@/pages/admin/reviews";
+import AdminPayments from "@/pages/admin/payments";
+import AdminPayouts from "@/pages/admin/payouts";
+import AdminCmsPages from "@/pages/admin/cms-pages";
+import AdminCmsBlocks from "@/pages/admin/cms-blocks";
+import AdminBlog from "@/pages/admin/blog-admin";
+import AdminFaqs from "@/pages/admin/faqs";
+import AdminTestimonials from "@/pages/admin/testimonials";
+import AdminBannedWords from "@/pages/admin/banned-words";
+import AdminBroadcasts from "@/pages/admin/broadcasts";
+import AdminAuditLogs from "@/pages/admin/audit-logs";
+import AdminSettings from "@/pages/admin/settings";
 
 const queryClient = new QueryClient();
 
@@ -90,12 +110,15 @@ function Router() {
       <Route path="/freelancers" component={Freelancers} />
       <Route path="/freelancers/:id" component={FreelancerProfile} />
       <Route path="/clients/:id" component={ClientProfile} />
-      
+
       <Route path="/about" component={About} />
       <Route path="/contact" component={Contact} />
       <Route path="/terms" component={Terms} />
       <Route path="/privacy" component={Privacy} />
       <Route path="/cancellation" component={Cancellation} />
+      <Route path="/blog" component={Blog} />
+      <Route path="/blog/:slug" component={BlogDetail} />
+      <Route path="/faq" component={Faq} />
 
       <Route path="/login" component={Login} />
       <Route path="/register" component={Register} />
@@ -118,13 +141,40 @@ function Router() {
       <Route path="/dashboard/freelancer/earnings"><ProtectedFreelancerRoute component={FreelancerEarnings} /></Route>
       <Route path="/dashboard/freelancer/profile"><ProtectedFreelancerRoute component={FreelancerProfileEdit} /></Route>
 
-      {/* Admin Dashboard */}
-      <Route path="/admin"><ProtectedAdminRoute component={AdminAnalytics} /></Route>
+      {/* Admin Dashboard — Overview */}
+      <Route path="/admin"><ProtectedAdminRoute component={AdminDashboard} /></Route>
+      <Route path="/admin/analytics"><ProtectedAdminRoute component={AdminAnalytics} /></Route>
+      <Route path="/admin/reports"><ProtectedAdminRoute component={AdminReports} /></Route>
+
+      {/* Admin Dashboard — People */}
       <Route path="/admin/users"><ProtectedAdminRoute component={AdminUsers} /></Route>
+      <Route path="/admin/freelancers"><ProtectedAdminRoute component={AdminFreelancers} /></Route>
+      <Route path="/admin/clients"><ProtectedAdminRoute component={AdminClients} /></Route>
+      <Route path="/admin/verifications"><ProtectedAdminRoute component={AdminVerifications} /></Route>
+
+      {/* Admin Dashboard — Operations */}
       <Route path="/admin/jobs"><ProtectedAdminRoute component={AdminJobs} /></Route>
-      <Route path="/admin/payments"><ProtectedAdminRoute component={AdminPayments} /></Route>
-      <Route path="/admin/reviews"><ProtectedAdminRoute component={AdminReviews} /></Route>
+      <Route path="/admin/contracts"><ProtectedAdminRoute component={AdminContracts} /></Route>
+      <Route path="/admin/disputes"><ProtectedAdminRoute component={AdminDisputes} /></Route>
       <Route path="/admin/complaints"><ProtectedAdminRoute component={AdminComplaints} /></Route>
+      <Route path="/admin/reviews"><ProtectedAdminRoute component={AdminReviews} /></Route>
+
+      {/* Admin Dashboard — Finance */}
+      <Route path="/admin/payments"><ProtectedAdminRoute component={AdminPayments} /></Route>
+      <Route path="/admin/payouts"><ProtectedAdminRoute component={AdminPayouts} /></Route>
+
+      {/* Admin Dashboard — Content */}
+      <Route path="/admin/cms-pages"><ProtectedAdminRoute component={AdminCmsPages} /></Route>
+      <Route path="/admin/cms-blocks"><ProtectedAdminRoute component={AdminCmsBlocks} /></Route>
+      <Route path="/admin/blog"><ProtectedAdminRoute component={AdminBlog} /></Route>
+      <Route path="/admin/faqs"><ProtectedAdminRoute component={AdminFaqs} /></Route>
+      <Route path="/admin/testimonials"><ProtectedAdminRoute component={AdminTestimonials} /></Route>
+
+      {/* Admin Dashboard — System */}
+      <Route path="/admin/banned-words"><ProtectedAdminRoute component={AdminBannedWords} /></Route>
+      <Route path="/admin/broadcasts"><ProtectedAdminRoute component={AdminBroadcasts} /></Route>
+      <Route path="/admin/audit-logs"><ProtectedAdminRoute component={AdminAuditLogs} /></Route>
+      <Route path="/admin/settings"><ProtectedAdminRoute component={AdminSettings} /></Route>
 
       <Route component={NotFound} />
     </Switch>

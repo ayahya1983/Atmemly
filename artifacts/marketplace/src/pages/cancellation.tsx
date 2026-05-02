@@ -1,14 +1,12 @@
 import { useTranslation } from "@/lib/i18n";
+import { StaticCmsPage } from "@/components/StaticCmsPage";
 
 export default function Cancellation() {
-  const { t } = useTranslation();
-  return (
-    <div className="container mx-auto px-4 py-16 max-w-3xl">
-      <h1 className="text-4xl font-bold mb-8">Cancellation & Refund Policy</h1>
-      <div className="prose prose-slate max-w-none text-muted-foreground">
-        <p>Last updated: {new Date().toLocaleDateString()}</p>
-        <p>Jobs can be cancelled before milestones are completed...</p>
-      </div>
-    </div>
-  );
+  const { lang } = useTranslation();
+  const fallbackTitle = lang === "ar" ? "سياسة الإلغاء والاسترداد" : "Cancellation & Refund Policy";
+  const fallbackBody =
+    lang === "ar"
+      ? "آخر تحديث: " + new Date().toLocaleDateString("ar-AE") + "\n\nيمكن إلغاء الوظائف قبل اكتمال المراحل. يتم استرداد المبالغ المحجوزة وفقاً لشروط العقد."
+      : "Last updated: " + new Date().toLocaleDateString() + "\n\nJobs can be cancelled before milestones are completed. Escrowed funds are refunded according to the contract terms.";
+  return <StaticCmsPage slug="cancellation" fallbackTitle={fallbackTitle} fallbackBody={fallbackBody} />;
 }

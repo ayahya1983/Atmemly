@@ -1,20 +1,12 @@
 import { useTranslation } from "@/lib/i18n";
+import { StaticCmsPage } from "@/components/StaticCmsPage";
 
 export default function About() {
-  const { t } = useTranslation();
-  
-  return (
-    <div className="container mx-auto px-4 py-16 max-w-3xl">
-      <h1 className="text-4xl font-bold mb-8">About Khidma</h1>
-      <div className="prose prose-slate max-w-none text-muted-foreground space-y-6">
-        <p>
-          Khidma is the premier platform connecting visionary clients with the finest freelance talent across the GCC.
-          Built specifically for the regional market, we understand the nuances of business in Dubai and the wider Middle East.
-        </p>
-        <p>
-          Our mission is to empower professionals to work flexibly while providing businesses access to vetted, high-quality expertise.
-        </p>
-      </div>
-    </div>
-  );
+  const { lang } = useTranslation();
+  const fallbackTitle = lang === "ar" ? "عن خِدمة" : "About Khidma";
+  const fallbackBody =
+    lang === "ar"
+      ? "خِدمة هي المنصة الرائدة التي تربط بين العملاء وأمهر المستقلين في دول الخليج. مبنية خصيصاً للسوق الإقليمي، نفهم خصوصية الأعمال في الإمارات والشرق الأوسط.\n\nمهمتنا هي تمكين المحترفين من العمل بمرونة، وتوفير الوصول إلى خبرات موثوقة وعالية الجودة للشركات."
+      : "Khidma is the premier platform connecting visionary clients with the finest freelance talent across the GCC. Built specifically for the regional market, we understand the nuances of business in the UAE and the wider Middle East.\n\nOur mission is to empower professionals to work flexibly while providing businesses access to vetted, high-quality expertise.";
+  return <StaticCmsPage slug="about-us" fallbackTitle={fallbackTitle} fallbackBody={fallbackBody} />;
 }

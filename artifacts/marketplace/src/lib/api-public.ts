@@ -100,3 +100,34 @@ export function useCmsPage(slug: string, locale: "ar" | "en") {
     retry: false,
   });
 }
+
+export interface CmsBlock {
+  id: number;
+  key: string;
+  locale: string;
+  title: string | null;
+  body: string;
+}
+
+export function useCmsBlock(key: string, locale: "ar" | "en") {
+  return useQuery({
+    queryKey: ["public-cms-block", key, locale],
+    queryFn: () => getJson<CmsBlock>(`/cms/blocks/${key}?locale=${locale}`),
+    staleTime: 60_000,
+    retry: false,
+  });
+}
+
+export function useBlogPost(slug: string, locale: "ar" | "en") {
+  return useQuery({
+    queryKey: ["public-blog-post", slug, locale],
+    queryFn: async () => {
+      const list = await getJson<BlogPost[]>(`/blog?locale=${locale}`);
+      const found = list.find((p) => p.slug === slug);
+      if (!found) throw new Error("Blog post not found");
+      return found;
+    },
+    staleTime: 60_000,
+    retry: false,
+  });
+}

@@ -1,14 +1,12 @@
 import { useTranslation } from "@/lib/i18n";
+import { StaticCmsPage } from "@/components/StaticCmsPage";
 
 export default function Privacy() {
-  const { t } = useTranslation();
-  return (
-    <div className="container mx-auto px-4 py-16 max-w-3xl">
-      <h1 className="text-4xl font-bold mb-8">Privacy Policy</h1>
-      <div className="prose prose-slate max-w-none text-muted-foreground">
-        <p>Last updated: {new Date().toLocaleDateString()}</p>
-        <p>We respect your privacy and protect your data...</p>
-      </div>
-    </div>
-  );
+  const { lang } = useTranslation();
+  const fallbackTitle = lang === "ar" ? "سياسة الخصوصية" : "Privacy Policy";
+  const fallbackBody =
+    lang === "ar"
+      ? "آخر تحديث: " + new Date().toLocaleDateString("ar-AE") + "\n\nنحن نحترم خصوصيتك ونحمي بياناتك وفقاً لقوانين دولة الإمارات العربية المتحدة."
+      : "Last updated: " + new Date().toLocaleDateString() + "\n\nWe respect your privacy and protect your data in accordance with UAE law.";
+  return <StaticCmsPage slug="privacy" fallbackTitle={fallbackTitle} fallbackBody={fallbackBody} />;
 }
