@@ -37,6 +37,14 @@ import metricsRouter from "./metrics";
 import invoicesTaxRouter from "./invoicesTax";
 import paymentsV2Router from "./paymentsV2";
 import paymentsAdminRouter from "./paymentsAdmin";
+// Phase 6 — admin panel
+import adminDashboardRouter from "./adminDashboard";
+import adminUsersV2Router from "./adminUsersV2";
+import adminPeopleRouter from "./adminPeople";
+import adminWorkflowRouter from "./adminWorkflow";
+import adminContentRouter from "./adminContent";
+import adminBroadcastRouter from "./adminBroadcast";
+import adminReportsRouter from "./adminReports";
 import { attachUser } from "../lib/auth";
 
 const router: IRouter = Router();
@@ -86,5 +94,14 @@ router.use(invoicesTaxRouter);
 // Phase 5
 router.use(paymentsV2Router);
 router.use(paymentsAdminRouter);
+
+// Phase 6 — admin panel
+router.use(adminDashboardRouter);
+router.use(adminUsersV2Router);
+router.use(adminPeopleRouter);
+router.use(adminWorkflowRouter);
+router.use(adminContentRouter);
+router.use(adminBroadcastRouter);
+router.use(adminReportsRouter);
 
 export default router;

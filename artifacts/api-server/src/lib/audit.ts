@@ -8,6 +8,8 @@ export async function audit(
   entityType: string,
   entityId: number | null = null,
   metadata: Record<string, unknown> = {},
+  oldValue: unknown = null,
+  newValue: unknown = null,
 ): Promise<void> {
   try {
     await db.insert(auditLogsTable).values({
@@ -16,6 +18,8 @@ export async function audit(
       entityType,
       entityId,
       metadata,
+      oldValue,
+      newValue,
       ip: req ? clientIp(req) || null : null,
       userAgent: req ? clientUa(req) || null : null,
     });

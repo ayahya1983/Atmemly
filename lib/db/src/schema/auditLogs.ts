@@ -9,6 +9,9 @@ export const auditLogsTable = pgTable(
     entityType: text("entity_type").notNull(),
     entityId: integer("entity_id"),
     metadata: jsonb("metadata").$type<Record<string, unknown>>().notNull().default({}),
+    // Phase 6 — diff of resource before/after the action; both nullable.
+    oldValue: jsonb("old_value").$type<unknown>(),
+    newValue: jsonb("new_value").$type<unknown>(),
     ip: text("ip"),
     userAgent: text("user_agent"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),

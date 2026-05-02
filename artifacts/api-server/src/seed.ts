@@ -19,6 +19,12 @@ import {
   fxRatesTable,
   subscriptionPlansTable,
   paymentGatewaysTable,
+  cmsPagesTable,
+  cmsBlocksTable,
+  blogPostsTable,
+  faqItemsTable,
+  testimonialsTable,
+  bannedWordsTable,
 } from "@workspace/db";
 
 async function hash(p: string) {
@@ -35,7 +41,8 @@ async function main() {
     device_tokens, escrow_events, payout_batch_items, payout_batches,
     featured_listings, user_subscriptions, subscription_plans,
     moderation_reports, currencies, fx_rates,
-    payment_webhooks, payment_intents, payment_transactions, payment_gateways
+    payment_webhooks, payment_intents, payment_transactions, payment_gateways,
+    admin_notes, cms_pages, cms_blocks, blog_posts, faq_items, testimonials, banned_words
     RESTART IDENTITY CASCADE`);
 
   const categories = [
@@ -594,6 +601,130 @@ async function main() {
       features: ["featured_job_credits_5", "advanced_search", "team_seats_3", "dedicated_manager"],
       sortOrder: 2,
     },
+  ]);
+
+  // ---------- Phase 6: Admin role + content ----------
+  // Promote primary admin to super_admin (admin role + adminRole = super_admin).
+  await db.execute(sql`UPDATE users SET admin_role = 'super_admin' WHERE email = 'admin@khidma.ae'`);
+
+  await db.insert(cmsPagesTable).values([
+    {
+      slug: "about-us",
+      locale: "en",
+      title: "About Khidma",
+      body: "Khidma is the UAE's bilingual freelance marketplace connecting top regional talent with growing companies across the GCC.",
+      seoTitle: "About Khidma — UAE freelance marketplace",
+      seoDescription: "Learn about Khidma's mission to power the UAE freelance economy.",
+      isPublished: true,
+      updatedById: 1,
+    },
+    {
+      slug: "about-us",
+      locale: "ar",
+      title: "عن خدمة",
+      body: "خدمة هي منصة العمل الحر ثنائية اللغة في الإمارات تربط أفضل المواهب الإقليمية بالشركات النامية في دول الخليج.",
+      seoTitle: "عن خدمة — منصة العمل الحر في الإمارات",
+      seoDescription: "تعرف على رسالة خدمة في تمكين اقتصاد العمل الحر في الإمارات.",
+      isPublished: true,
+      updatedById: 1,
+    },
+  ]);
+
+  await db.insert(cmsBlocksTable).values([
+    {
+      key: "homepage_hero",
+      locale: "en",
+      title: "Hire trusted freelancers in the UAE",
+      body: "Connect with verified Arabic and English speaking freelancers across the GCC.",
+      updatedById: 1,
+    },
+    {
+      key: "homepage_hero",
+      locale: "ar",
+      title: "وظف مستقلين موثوقين في الإمارات",
+      body: "تواصل مع مستقلين موثقين يتحدثون العربية والإنجليزية في جميع أنحاء الخليج.",
+      updatedById: 1,
+    },
+  ]);
+
+  await db.insert(blogPostsTable).values([
+    {
+      slug: "welcome-to-khidma",
+      locale: "en",
+      title: "Welcome to Khidma",
+      excerpt: "We're launching the UAE's bilingual freelance marketplace.",
+      body: "Today we're proud to launch Khidma — the marketplace built for UAE freelancers and clients...",
+      category: "announcements",
+      tags: ["launch", "uae", "freelance"],
+      isPublished: true,
+      publishedAt: new Date(),
+      authorId: 1,
+    },
+    {
+      slug: "welcome-to-khidma",
+      locale: "ar",
+      title: "مرحباً بكم في خدمة",
+      excerpt: "نطلق منصة العمل الحر ثنائية اللغة في الإمارات.",
+      body: "اليوم نفخر بإطلاق خدمة — المنصة المبنية للمستقلين والعملاء في الإمارات...",
+      category: "announcements",
+      tags: ["إطلاق", "الإمارات", "عمل-حر"],
+      isPublished: true,
+      publishedAt: new Date(),
+      authorId: 1,
+    },
+  ]);
+
+  await db.insert(faqItemsTable).values([
+    {
+      locale: "en",
+      category: "getting-started",
+      question: "How do I create a Khidma account?",
+      answer: "Click Sign Up, enter your email, verify it, and complete your profile.",
+      sortOrder: 10,
+    },
+    {
+      locale: "en",
+      category: "payments",
+      question: "How does escrow work on Khidma?",
+      answer: "Clients fund a milestone in advance. Funds are released when work is approved.",
+      sortOrder: 20,
+    },
+    {
+      locale: "ar",
+      category: "البدء",
+      question: "كيف أنشئ حساباً في خدمة؟",
+      answer: "انقر على إنشاء حساب، أدخل بريدك الإلكتروني، وأكد التحقق وأكمل ملفك الشخصي.",
+      sortOrder: 10,
+    },
+  ]);
+
+  await db.insert(testimonialsTable).values([
+    {
+      locale: "en",
+      authorName: "Aisha Al-Mansoori",
+      authorTitle: "Founder, Noor Agency",
+      body: "Khidma helped us hire a top-tier Arabic copywriter in two days.",
+      rating: 5,
+      isFeatured: true,
+      sortOrder: 10,
+    },
+    {
+      locale: "ar",
+      authorName: "ليلى حسن",
+      authorTitle: "مصممة جرافيك مستقلة",
+      body: "وجدت أفضل عملائي عبر خدمة. النظام الآمن للضمان يجعلني مرتاحة.",
+      rating: 5,
+      isFeatured: true,
+      sortOrder: 10,
+    },
+  ]);
+
+  await db.insert(bannedWordsTable).values([
+    { word: "scam", locale: "en", severity: "high", createdById: 1 },
+    { word: "fraud", locale: "en", severity: "high", createdById: 1 },
+    { word: "spam", locale: "en", severity: "med", createdById: 1 },
+    { word: "احتيال", locale: "ar", severity: "high", createdById: 1 },
+    { word: "نصب", locale: "ar", severity: "high", createdById: 1 },
   ]);
 
   console.log("Done.");

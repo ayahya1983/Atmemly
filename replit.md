@@ -389,3 +389,46 @@ Each adapter implements: `name`, `configured`, `supportedCurrencies`, `mode`, `c
 - **Cache and rate-limit are in-process.** Single-instance only — move to Redis before horizontal scale-out.
 - **Saved-search sweep is on-demand.** No internal cron yet — call `POST /admin/saved-searches/run` from an external scheduler (or add a `setInterval` if desired).
 - **Match scoring is computed live.** No materialised cache yet; fine at current data volumes (37 ms typical for diagnostic call). Add a background job + `match_cache` table if N×M grows beyond ~10k pairs.
+
+## Phase 6 — Admin control panel backend (route layer + RBAC + content)
+
+Backend foundation for the unified admin control panel (frontend pages deferred to a follow-up session). All new admin routes are gated by both `requireAuth` and `requirePermission(resource, action)` from `lib/permissions.ts`.
+
+### Granular admin RBAC
+- New nullable column `users.admin_role` for staff sub-roles. NULL = not staff. Values: `super_admin`, `admin`, `moderator`, `finance_admin`, `content_manager`, `support_agent`. The legacy `users.role='admin'` flag is treated as `admin_role='admin'` if the column is NULL, so all pre-existing admin endpoints keep working at the same access level (NOT super_admin — least-privilege).
+- `lib/permissions.ts` exports `ADMIN_ROLES`, `PERMISSIONS` (resource × action matrix), `effectiveAdminRole(user)`, `hasPermission(user, resource, action)`, and Express middleware `requirePermission(resource, action)` (403 with `{error,resource,action}`). Only `super_admin` bypasses every check; other roles (including `admin`) are matrix-driven. Unknown `adminRole` values fail closed (deny everything).
+- Seed promotes `admin@khidma.ae` to `admin_role='super_admin'`.
+- **Privilege-escalation hardening on `PATCH /admin/users/:id`:** changing the public `role` or staff `adminRole` of any user requires `admin_users:write` (only `super_admin` and `admin` adminRoles), granting `adminRole='super_admin'` requires the caller already be `super_admin`, and a user can never change their own `role` or `adminRole` regardless of permission.
+
+### Audit log v2
+- `audit_logs` gained `old_value jsonb` and `new_value jsonb`. The `audit()` helper now accepts optional `oldValue` + `newValue` params (existing call sites compile unchanged) so every admin mutation persists a clean before/after diff.
+
+### New admin tables (`lib/db/src/schema`)
+- `admin_notes` (subjectKind, subjectId, authorId, body, createdAt) — internal staff notes attached to any entity (currently exposed for users).
+- `cms_pages` (slug+locale UNIQUE, title, body, seoTitle/Description, isPublished, updatedById).
+- `cms_blocks` (key+locale UNIQUE, title, body, updatedById) — small reusable copy snippets.
+- `blog_posts` (slug+locale UNIQUE, title, excerpt, body, coverUrl, category, tags[], seo*, isPublished, publishedAt, authorId).
+- `faq_items` (locale, category, question, answer, sortOrder, isActive).
+- `testimonials` (locale, authorName, authorTitle, body, rating 1–5, avatarUrl, isFeatured, sortOrder).
+- `banned_words` (word+locale UNIQUE, severity low/med/high, isActive, createdById).
+
+### Route groups (all under `/api`)
+- `routes/adminDashboard.ts` — `GET /admin/dashboard` returns one snapshot (totals, revenue, last-30 audit timeline). 30 s in-memory cache.
+- `routes/adminUsersV2.ts` — `GET /admin/users/search` (q, role, status, verified, dateFrom/To, paging), `GET/PATCH/DELETE /admin/users/:id`, `POST /admin/users/:id/reset-password` (returns `tempPassword` once and revokes all refresh tokens), `GET/POST /admin/users/:id/notes`. Self-protect rules: an admin cannot demote/ban/delete themselves.
+- `routes/adminPeople.ts` — `GET /admin/freelancers` (filters, sort by createdAt|trustScore), `PATCH /admin/freelancers/:userId/trust-score` (`{set?, delta?}`), `PATCH /admin/freelancers/:userId/visibility` (`{hidden}`); `GET /admin/clients`, `POST /admin/clients/:userId/verify`; `GET /admin/verifications`, `POST /admin/verifications/:id/(approve|reject)`. Verification decisions mirror onto `freelancer_profiles.verificationStatus` / `client_profiles.verificationStatus` based on document `kind`.
+- `routes/adminWorkflow.ts` — `GET /admin/jobs/search`, `POST /admin/jobs/:id/(approve|reject|pause|close)`, `POST /admin/jobs/:id/feature` (creates a 30-day `featured_listings` row, since `jobs` has no `is_featured` column), `DELETE /admin/jobs/:id` (soft delete). `GET /admin/proposals`, `PATCH /admin/proposals/:id/visibility`. `GET /admin/contracts/search`, `POST /admin/contracts/:id/(hold|cancel|mark-disputed)`. The original `/admin/users` and `/admin/jobs` endpoints from earlier phases are intentionally untouched — the new search endpoints sit at `/admin/users/search` and `/admin/jobs/search` to avoid clobbering them.
+- `routes/adminContent.ts` — admin CRUD `GET/POST/PATCH/DELETE /admin/cms/pages`, upsert `PUT /admin/cms/blocks`, full CRUD for `/admin/blog`, `/admin/faqs`, `/admin/testimonials`. Public read endpoints (no auth): `GET /cms/pages/:slug?locale=`, `GET /cms/blocks/:key?locale=`, `GET /blog?locale=`, `GET /faqs?locale=`, `GET /testimonials?locale=`. Pages are only public when `isPublished=true`; blocks and FAQs gate by `isActive`. Unique-violation handling reads both `e.code` and `e.cause?.code` (drizzle wraps pg errors).
+- `routes/adminBroadcast.ts` — `POST /admin/notifications/broadcast` body `{audience: all|freelancers|clients|user_ids, userIds?, kind, title, body, link?}`. Active-only recipients, bulk-inserted in 500-row chunks. Returns `{count, audience}`. Banned-words CRUD at `GET/POST/DELETE /admin/moderation/banned-words`.
+- `routes/adminReports.ts` — adds `GET /admin/reports/users-growth?bucket=day|month`, `/admin/reports/revenue-timeseries?bucket=…`, `/admin/reports/top-categories`. All accept `Accept: text/csv` or `?format=csv` to download as CSV with spreadsheet-injection escaping (rows starting with `= + - @ \t \r` are prefixed with `'`). The pre-existing `/admin/reports/revenue`, `/top-freelancers`, `/top-clients` from `routes/reports.ts` (Phase 3) are untouched and continue to serve their original shapes.
+
+### Smoke
+- `artifacts/api-server/scripts/smoke-phase6.mjs` — 59 checks covering RBAC denials, dashboard cache stability, user lifecycle (register → search → patch → notes → reset-password → soft-delete), self-protect rules (incl. own-`adminRole` immutability), freelancer trust-score / visibility, client verify, verifications list, job feature/pause/close + soft-delete, proposal hide/unhide, contract hold, CMS pages + blocks (incl. duplicate slug 409), blog/FAQ/testimonial CRUD + public list, broadcast (audience=freelancers and audience=user_ids) + non-admin 403, banned-words CRUD, reports JSON + CSV (with content-type assertion) including legacy endpoints, and the seeded About-Us page + homepage hero block.
+- Regression: phases 2 (29) + 3 (37) + 4 (61) + 5 (39) + 6 (59) = **225/225 passing**.
+
+### Phase 6 — known gaps / deferred
+- **No admin frontend yet.** Per user instruction, all 22 admin pages are deferred to the follow-up session; this phase ships only the API surface.
+- **Notification broadcast is best-effort.** Bulk-inserts notification rows but does not push fan-out via Socket.IO. Connected clients still poll `/notifications` for unread. There is no global cap on `audience='all'` — a runaway broadcast could insert one row per active user; consider a rate limit or admin confirmation prompt before exposing this in the UI.
+- **Legacy `routes/admin.ts` endpoints still gate by `requireRole('admin')` only.** Any staff user (regardless of granular `adminRole`) can reach the older endpoints via the legacy admin role. New endpoints in Phase 6 use `requirePermission()` and respect the matrix; migrating the legacy admin.ts surface to the matrix is a follow-up.
+- **CSV export currently covers 3 reports.** The legacy `/admin/reports/revenue|top-freelancers|top-clients` endpoints (from Phase 3) still return JSON only — adding CSV there is a future tweak and would require touching `routes/reports.ts`.
+- **`featuredListings` rows from `POST /admin/jobs/:id/feature` are not yet read by the public job listing.** The board can audit/track features today; surfacing the boost on the marketplace is a frontend follow-up.
+- **OpenAPI/codegen not extended for Phase 6** (same precedent as Phases 2–5). All admin endpoints are hand-fetched from the eventual admin frontend.

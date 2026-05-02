@@ -6,6 +6,10 @@ export const usersTable = pgTable("users", {
   passwordHash: text("password_hash").notNull(),
   fullName: text("full_name").notNull(),
   role: text("role").notNull(),
+  // Phase 6 — granular admin sub-role for staff users.
+  // Values: super_admin | admin | moderator | finance_admin | content_manager | support_agent
+  // NULL = not staff. Independent of `role` so both gates can be enforced.
+  adminRole: text("admin_role"),
   status: text("status").notNull().default("active"),
   avatarUrl: text("avatar_url"),
   emailVerifiedAt: timestamp("email_verified_at", { withTimezone: true }),
