@@ -8,7 +8,6 @@ import {
   jobsTable,
   usersTable,
   paymentsTable,
-  notificationsTable,
   invoicesTable,
 } from "@workspace/db";
 import {
@@ -42,6 +41,7 @@ import {
   releaseToWallet,
   generateInvoice,
 } from "../lib/escrow";
+import { notify } from "../lib/notify";
 import { randomUUID } from "node:crypto";
 
 const router: IRouter = Router();
@@ -475,13 +475,6 @@ router.post(
           `Funded: ${m.title}`,
           tx,
         );
-        await tx.insert(notificationsTable).values({
-          userId: c.freelancerId,
-          kind: "milestone",
-          title: "Milestone funded",
-          body: `Client funded "${m.title}" — you can start work.`,
-          link: `/dashboard/freelancer/contracts/${c.id}`,
-        });
       });
     } catch (e) {
       const err = e as { code?: string; message?: string };
@@ -491,6 +484,13 @@ router.post(
       }
       throw e;
     }
+    await notify({
+      userId: c.freelancerId,
+      kind: "milestone",
+      title: "Milestone funded",
+      body: `Client funded "${m.title}" — you can start work.`,
+      link: `/dashboard/freelancer/contracts/${c.id}`,
+    });
     await audit(req, "milestone.fund", "milestone", m.id, {
       contractId: c.id,
       paymentId,
@@ -576,7 +576,7 @@ router.post(
       }
       throw e;
     }
-    await db.insert(notificationsTable).values({
+    await notify({
       userId: c.clientId,
       kind: "milestone",
       title: "Deliverable submitted",
@@ -696,7 +696,7 @@ router.post(
       }
       throw e;
     }
-    await db.insert(notificationsTable).values({
+    await notify({
       userId: c.freelancerId,
       kind: "payment",
       title: "Milestone approved & payment released",
@@ -764,7 +764,7 @@ router.post(
       .update(contractsTable)
       .set({ status: "revision_requested", updatedAt: new Date() })
       .where(eq(contractsTable.id, c.id));
-    await db.insert(notificationsTable).values({
+    await notify({
       userId: c.freelancerId,
       kind: "milestone",
       title: "Revision requested",

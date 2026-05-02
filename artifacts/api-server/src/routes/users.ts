@@ -62,6 +62,10 @@ router.get("/freelancers", async (req, res): Promise<void> => {
     return;
   }
   const { q, skill, minRate, maxRate } = parsed.data;
+  const sort =
+    typeof req.query["sort"] === "string" ? (req.query["sort"] as string) : "relevance";
+  const limit = Math.min(Math.max(Number(req.query["limit"] ?? 100), 1), 200);
+  const offset = Math.max(Number(req.query["offset"] ?? 0), 0);
   const conditions = [eq(usersTable.role, "freelancer"), eq(usersTable.status, "active")];
   if (q) {
     conditions.push(
@@ -82,18 +86,52 @@ router.get("/freelancers", async (req, res): Promise<void> => {
     conditions.push(lte(freelancerProfilesTable.hourlyRate, String(maxRate)));
   }
 
+  // Weighted relevance score = (avg rating * 2) + review_count + recency boost.
+  const scoreSql = sql<string>`(
+    (coalesce((select avg(rating) from reviews where to_user_id = ${usersTable.id}), 0) * 2)
+    + (select count(*) from reviews where to_user_id = ${usersTable.id})
+    + (case when ${usersTable.createdAt} > now() - interval '30 days' then 1 else 0 end)
+  )::text`;
+
+  let orderBy;
+  switch (sort) {
+    case "rating":
+      orderBy = sql`(select coalesce(avg(rating),0) from reviews where to_user_id = ${usersTable.id}) DESC`;
+      break;
+    case "rate_low":
+      orderBy = sql`${freelancerProfilesTable.hourlyRate} ASC`;
+      break;
+    case "rate_high":
+      orderBy = sql`${freelancerProfilesTable.hourlyRate} DESC`;
+      break;
+    case "newest":
+      orderBy = desc(usersTable.createdAt);
+      break;
+    case "relevance":
+    default:
+      orderBy = sql`(
+        (coalesce((select avg(rating) from reviews where to_user_id = ${usersTable.id}), 0) * 2)
+        + (select count(*) from reviews where to_user_id = ${usersTable.id})
+        + (case when ${usersTable.createdAt} > now() - interval '30 days' then 1 else 0 end)
+      ) DESC`;
+      break;
+  }
+
   const rows = await db
     .select({
       user: usersTable,
       profile: freelancerProfilesTable,
+      score: scoreSql,
     })
     .from(usersTable)
     .innerJoin(freelancerProfilesTable, eq(freelancerProfilesTable.userId, usersTable.id))
     .where(and(...conditions))
-    .limit(100);
+    .orderBy(orderBy)
+    .limit(limit)
+    .offset(offset);
 
   const cards = await Promise.all(
-    rows.map(async ({ user, profile }) => {
+    rows.map(async ({ user, profile, score }) => {
       const [agg] = await db
         .select({
           avg: sql<string>`coalesce(avg(rating)::text, '0')`,
@@ -112,6 +150,7 @@ router.get("/freelancers", async (req, res): Promise<void> => {
         ratingAvg: Number(agg?.avg ?? 0),
         ratingCount: agg?.count ?? 0,
         location: profile.location,
+        score: Number(score ?? 0),
       };
     }),
   );

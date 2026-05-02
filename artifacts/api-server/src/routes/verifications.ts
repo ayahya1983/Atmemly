@@ -6,7 +6,6 @@ import {
   verificationsTable,
   freelancerProfilesTable,
   clientProfilesTable,
-  notificationsTable,
 } from "@workspace/db";
 import {
   SubmitVerificationBody,
@@ -20,6 +19,7 @@ import {
 } from "@workspace/api-zod";
 import { requireAuth, requireRole } from "../lib/auth";
 import { audit } from "../lib/audit";
+import { notify } from "../lib/notify";
 
 const router: IRouter = Router();
 
@@ -188,7 +188,7 @@ router.patch(
       })
       .where(eq(verificationsTable.id, params.data.id));
     await setProfileVerificationStatus(existing.u.id, existing.u.role, newStatus);
-    await db.insert(notificationsTable).values({
+    await notify({
       userId: existing.u.id,
       kind: "verification",
       title: decision === "approve" ? "Verification approved" : "Verification rejected",

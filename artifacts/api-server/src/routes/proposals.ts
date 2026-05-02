@@ -6,11 +6,11 @@ import {
   jobsTable,
   usersTable,
   freelancerProfilesTable,
-  notificationsTable,
   reviewsTable,
   contractsTable,
 } from "@workspace/db";
 import { audit } from "../lib/audit";
+import { notify } from "../lib/notify";
 import {
   ListProposalsQueryParams,
   ListProposalsResponse,
@@ -144,7 +144,7 @@ router.post(
       res.status(500).json({ error: "Failed" });
       return;
     }
-    await db.insert(notificationsTable).values({
+    await notify({
       userId: job.clientId,
       kind: "proposal",
       title: "New proposal received",
@@ -255,7 +255,7 @@ router.patch(
         if (err.code !== "23505") throw e;
       }
       if (createdContractId !== null) {
-        await db.insert(notificationsTable).values({
+        await notify({
           userId: existing.p.freelancerId,
           kind: "contract",
           title: "Contract created",
@@ -269,7 +269,7 @@ router.patch(
         });
       }
     }
-    await db.insert(notificationsTable).values({
+    await notify({
       userId: existing.p.freelancerId,
       kind: "proposal_status",
       title: `Proposal ${newStatus}`,

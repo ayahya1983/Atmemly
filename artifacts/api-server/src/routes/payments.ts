@@ -7,7 +7,6 @@ import {
   jobsTable,
   proposalsTable,
   usersTable,
-  notificationsTable,
 } from "@workspace/db";
 import {
   ListPaymentsResponse,
@@ -15,6 +14,7 @@ import {
   CreatePaymentIntentResponse,
 } from "@workspace/api-zod";
 import { requireAuth, requireRole } from "../lib/auth";
+import { notify } from "../lib/notify";
 
 const router: IRouter = Router();
 
@@ -94,7 +94,7 @@ router.post(
       .update(jobsTable)
       .set({ status: "completed" })
       .where(eq(jobsTable.id, jobId));
-    await db.insert(notificationsTable).values({
+    await notify({
       userId: proposal.freelancerId,
       kind: "payment",
       title: "Payment received",

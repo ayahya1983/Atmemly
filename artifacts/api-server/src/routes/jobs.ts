@@ -81,6 +81,10 @@ router.get("/jobs", attachUser, async (req, res): Promise<void> => {
     return;
   }
   const { q, category, skill, budgetType, minBudget, maxBudget, mine } = parsed.data;
+  const sort =
+    typeof req.query["sort"] === "string" ? (req.query["sort"] as string) : "newest";
+  const limit = Math.min(Math.max(Number(req.query["limit"] ?? 100), 1), 200);
+  const offset = Math.max(Number(req.query["offset"] ?? 0), 0);
   const conditions = [];
   if (q) {
     conditions.push(or(ilike(jobsTable.title, `%${q}%`), ilike(jobsTable.description, `%${q}%`))!);
@@ -93,12 +97,22 @@ router.get("/jobs", attachUser, async (req, res): Promise<void> => {
   if (mine && req.user) {
     conditions.push(eq(jobsTable.clientId, req.user.id));
   }
+  let orderBy;
+  if (sort === "budget_high") {
+    orderBy = sql`${jobsTable.budgetMax} DESC NULLS LAST, ${jobsTable.createdAt} DESC`;
+  } else if (sort === "relevance" && q) {
+    // Title matches rank above description matches; fall back to recency.
+    orderBy = sql`(case when ${jobsTable.title} ilike ${"%" + q + "%"} then 0 else 1 end), ${jobsTable.createdAt} DESC`;
+  } else {
+    orderBy = desc(jobsTable.createdAt);
+  }
   const rows = await db
     .select({ id: jobsTable.id })
     .from(jobsTable)
     .where(conditions.length > 0 ? and(...conditions) : undefined)
-    .orderBy(desc(jobsTable.createdAt))
-    .limit(100);
+    .orderBy(orderBy)
+    .limit(limit)
+    .offset(offset);
   const cards = await Promise.all(rows.map((r) => buildJobCard(r.id)));
   res.json(ListJobsResponse.parse(cards.filter(Boolean)));
 });

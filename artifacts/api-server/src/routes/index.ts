@@ -14,6 +14,11 @@ import verificationsRouter from "./verifications";
 import contractsRouter from "./contracts";
 import walletRouter from "./wallet";
 import invoicesRouter from "./invoices";
+import disputesRouter from "./disputes";
+import uploadsRouter from "./uploads";
+import legalRouter from "./legal";
+import settingsRouter from "./settings";
+import analyticsRouter from "./analytics";
 import { attachUser } from "../lib/auth";
 
 const router: IRouter = Router();
@@ -34,6 +39,11 @@ router.use(verificationsRouter);
 router.use(contractsRouter);
 router.use(walletRouter);
 router.use(invoicesRouter);
+router.use(disputesRouter);
+router.use(uploadsRouter);
+router.use(legalRouter);
+router.use(settingsRouter);
+router.use(analyticsRouter);
 router.use(adminRouter);
 
 export default router;

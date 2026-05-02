@@ -24,3 +24,8 @@ export * from "./invoices";
 export * from "./wallets";
 export * from "./walletTransactions";
 export * from "./payouts";
+export * from "./disputes";
+export * from "./legalDocuments";
+export * from "./consents";
+export * from "./platformSettings";
+export * from "./attachments";

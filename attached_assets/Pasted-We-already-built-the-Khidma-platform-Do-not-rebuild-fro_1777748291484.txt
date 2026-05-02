@@ -1,0 +1,180 @@
+We already built the Khidma platform. Do not rebuild from scratch.
+
+Your task is to upgrade and complete the existing project into an enterprise-grade marketplace by extending the current backend, frontend, and database.
+
+Keep the existing architecture:
+- Existing Khidma backend
+- Existing frontend
+- Existing database structure
+- Existing Drizzle/Express setup
+- Existing UI direction based on Atmemli
+- Existing routes where possible
+
+Do not replace Drizzle.
+Do not replace Express.
+Do not migrate to Prisma.
+Do not recreate the project.
+Do not delete working modules.
+Do not break current APIs.
+
+Upgrade the current system with enterprise-grade completeness.
+
+Scope:
+1. Review the current codebase first
+2. Identify existing backend modules, frontend pages, database tables, and APIs
+3. Extend only missing modules
+4. Improve weak modules without rewriting stable ones
+5. Add missing Drizzle migrations safely
+6. Keep backward compatibility
+7. Connect frontend screens to real backend APIs
+8. Add admin controls for the full platform
+9. Add tests, validation, security, and documentation
+
+Enterprise upgrade modules:
+- Auth hardening
+- Role and permission management
+- Freelancer/client verification
+- User management
+- Freelancer profiles
+- Client profiles
+- Services
+- Projects/jobs
+- Proposals
+- Contracts
+- Milestones
+- Deliverables
+- Escrow logic
+- Payment gateways
+- Manual bank transfer
+- Invoices
+- Wallets
+- Payouts
+- Messaging
+- Notifications
+- Reviews and ratings
+- Disputes and complaints
+- Categories and skills
+- CMS/homepage control
+- Blog
+- FAQs
+- Testimonials
+- Localization Arabic/English
+- SEO settings
+- Platform settings
+- Moderation
+- Reports and analytics
+- Audit logs
+- Admin dashboard
+
+Implementation rules:
+1. Before coding, inspect the current project structure.
+2. Reuse existing tables and routes wherever possible.
+3. Add migrations only for missing fields/tables.
+4. Add Zod validation to new and updated endpoints.
+5. Add permission checks to all admin APIs.
+6. Add audit logging to all sensitive mutations.
+7. Keep Arabic-first and RTL-first UI.
+8. Match the existing Atmemli-style frontend already built.
+9. Do not introduce unnecessary new frameworks.
+10. Do not break frontend pages already working.
+
+Backend upgrade requirements:
+- Add missing services under the existing backend structure
+- Add missing API routes under existing routing style
+- Add role-based and permission-based middleware
+- Add admin-only route guards
+- Add payment gateway abstraction
+- Add escrow state machine
+- Add notification service
+- Add audit log service
+- Add file upload abstraction
+- Add reporting aggregation services
+
+Frontend upgrade requirements:
+- Wire all existing UI screens to backend APIs
+- Replace mock data with real API calls
+- Add loading, empty, and error states
+- Add admin control screens
+- Add filters, pagination, search, and status badges
+- Add confirmation modals for risky admin actions
+- Keep current design language
+- Preserve Arabic-first RTL layout
+
+Database upgrade requirements:
+- Use Drizzle migrations only
+- Preserve existing data
+- Add missing columns safely
+- Add indexes for search and filtering
+- Add soft delete fields where needed
+- Add audit log tables if missing
+- Add settings/CMS tables if missing
+- Add financial tables if missing
+
+Security requirements:
+- Harden JWT access and refresh token handling
+- Hash passwords securely
+- Rate-limit auth and admin-sensitive routes
+- Validate all inputs with Zod
+- Prevent privilege escalation
+- Prevent frontend-controlled payment status changes
+- Verify payment webhooks
+- Add idempotency for payments
+- Add audit logs for admin actions
+
+Admin panel requirements:
+The admin panel must control:
+- Users
+- Freelancers
+- Clients
+- Services
+- Projects/jobs
+- Proposals
+- Contracts
+- Milestones
+- Payments
+- Escrow
+- Invoices
+- Payouts
+- Disputes
+- Complaints
+- Reviews
+- Categories
+- Skills
+- Homepage CMS
+- Blog
+- FAQs
+- Testimonials
+- Notifications
+- Localization
+- SEO
+- Platform settings
+- Reports
+- Audit logs
+- Admin roles and permissions
+
+Payment requirements:
+- Stripe
+- PayTabs-ready adapter
+- Telr-ready adapter
+- Manual bank transfer
+- Gateway enable/disable from admin
+- Default gateway from admin
+- Escrow ledger
+- Wallet transactions
+- Payout workflow
+- Invoice generation
+
+Final deliverables:
+1. Updated backend code
+2. Updated frontend code
+3. Drizzle migrations
+4. Updated seed data
+5. Updated .env.example
+6. Updated README
+7. API documentation
+8. Admin user credentials
+9. Testing instructions
+10. Clear summary of what was added and what already existed
+
+Final instruction:
+Upgrade the current Khidma project into a complete enterprise-grade marketplace. Do not rebuild. Extend, connect, harden, and complete the existing system.

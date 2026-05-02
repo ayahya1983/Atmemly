@@ -6,7 +6,6 @@ import {
   messagesTable,
   jobsTable,
   usersTable,
-  notificationsTable,
 } from "@workspace/db";
 import {
   ListConversationsResponse,
@@ -19,6 +18,8 @@ import {
   SendMessageResponse,
 } from "@workspace/api-zod";
 import { requireAuth } from "../lib/auth";
+import { emitToConversation, emitToUser } from "../lib/realtime";
+import { notify } from "../lib/notify";
 
 const router: IRouter = Router();
 
@@ -208,24 +209,28 @@ router.post("/conversations/:id/messages", requireAuth, async (req, res): Promis
     .set({ lastMessageAt: new Date() })
     .where(eq(conversationsTable.id, params.data.id));
   const otherId = convo.clientId === uid ? convo.freelancerId : convo.clientId;
-  await db.insert(notificationsTable).values({
+  await notify({
     userId: otherId,
     kind: "message",
     title: "New message",
     body: parsed.data.body.slice(0, 120),
-    link: req.user!.role === "client" ? "/dashboard/freelancer/messages" : "/dashboard/client/messages",
+    link:
+      req.user!.role === "client"
+        ? "/dashboard/freelancer/messages"
+        : "/dashboard/client/messages",
   });
-  res.json(
-    SendMessageResponse.parse({
-      id: message!.id,
-      conversationId: message!.conversationId,
-      senderId: message!.senderId,
-      senderName: req.user!.fullName,
-      senderAvatarUrl: req.user!.avatarUrl,
-      body: message!.body,
-      createdAt: message!.createdAt,
-    }),
-  );
+  const payload = SendMessageResponse.parse({
+    id: message!.id,
+    conversationId: message!.conversationId,
+    senderId: message!.senderId,
+    senderName: req.user!.fullName,
+    senderAvatarUrl: req.user!.avatarUrl,
+    body: message!.body,
+    createdAt: message!.createdAt,
+  });
+  emitToConversation(params.data.id, "message:new", payload);
+  emitToUser(otherId, "message:new", payload);
+  res.json(payload);
 });
 
 export default router;

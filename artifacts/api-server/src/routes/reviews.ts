@@ -1,6 +1,12 @@
 import { Router, type IRouter } from "express";
-import { and, eq, desc } from "drizzle-orm";
-import { db, reviewsTable, jobsTable, usersTable } from "@workspace/db";
+import { and, eq, desc, sql } from "drizzle-orm";
+import {
+  db,
+  reviewsTable,
+  jobsTable,
+  usersTable,
+  contractsTable,
+} from "@workspace/db";
 import {
   ListReviewsQueryParams,
   ListReviewsResponse,
@@ -8,6 +14,8 @@ import {
   CreateReviewResponse,
 } from "@workspace/api-zod";
 import { requireAuth } from "../lib/auth";
+import { audit } from "../lib/audit";
+import { notify } from "../lib/notify";
 
 const router: IRouter = Router();
 
@@ -44,6 +52,38 @@ router.get("/reviews", async (req, res): Promise<void> => {
   );
 });
 
+router.get("/reviews/summary", async (req, res): Promise<void> => {
+  const userId = Number(req.query["userId"]);
+  if (!Number.isFinite(userId)) {
+    res.status(400).json({ error: "userId required" });
+    return;
+  }
+  const [agg] = await db
+    .select({
+      avg: sql<string>`coalesce(avg(rating)::text, '0')`,
+      count: sql<number>`count(*)::int`,
+      r5: sql<number>`count(*) filter (where rating = 5)::int`,
+      r4: sql<number>`count(*) filter (where rating = 4)::int`,
+      r3: sql<number>`count(*) filter (where rating = 3)::int`,
+      r2: sql<number>`count(*) filter (where rating = 2)::int`,
+      r1: sql<number>`count(*) filter (where rating = 1)::int`,
+    })
+    .from(reviewsTable)
+    .where(eq(reviewsTable.toUserId, userId));
+  res.json({
+    userId,
+    ratingAvg: Number(agg?.avg ?? 0),
+    ratingCount: agg?.count ?? 0,
+    distribution: {
+      5: agg?.r5 ?? 0,
+      4: agg?.r4 ?? 0,
+      3: agg?.r3 ?? 0,
+      2: agg?.r2 ?? 0,
+      1: agg?.r1 ?? 0,
+    },
+  });
+});
+
 router.post("/reviews", requireAuth, async (req, res): Promise<void> => {
   const parsed = CreateReviewBody.safeParse(req.body);
   if (!parsed.success) {
@@ -60,13 +100,36 @@ router.post("/reviews", requireAuth, async (req, res): Promise<void> => {
     res.status(404).json({ error: "Job not found" });
     return;
   }
+  const fromId = req.user!.id;
+  // Reviews are now gated to a completed contract between the two parties on this job.
+  // This prevents spam/random reviews while keeping the existing data shape.
+  const [contract] = await db
+    .select()
+    .from(contractsTable)
+    .where(
+      and(
+        eq(contractsTable.jobId, d.jobId),
+        eq(contractsTable.status, "completed"),
+        sql`(
+          (${contractsTable.clientId} = ${fromId} and ${contractsTable.freelancerId} = ${d.toUserId})
+          or
+          (${contractsTable.freelancerId} = ${fromId} and ${contractsTable.clientId} = ${d.toUserId})
+        )`,
+      ),
+    );
+  if (!contract) {
+    res
+      .status(403)
+      .json({ error: "Reviews require a completed contract between the two parties" });
+    return;
+  }
   const [existing] = await db
     .select()
     .from(reviewsTable)
     .where(
       and(
         eq(reviewsTable.jobId, d.jobId),
-        eq(reviewsTable.fromUserId, req.user!.id),
+        eq(reviewsTable.fromUserId, fromId),
         eq(reviewsTable.toUserId, d.toUserId),
       ),
     );
@@ -78,13 +141,24 @@ router.post("/reviews", requireAuth, async (req, res): Promise<void> => {
     .insert(reviewsTable)
     .values({
       jobId: d.jobId,
-      fromUserId: req.user!.id,
+      fromUserId: fromId,
       toUserId: d.toUserId,
       rating: d.rating,
       comment: d.comment,
     })
     .returning();
-  const [from] = await db.select().from(usersTable).where(eq(usersTable.id, req.user!.id));
+  const [from] = await db.select().from(usersTable).where(eq(usersTable.id, fromId));
+  await audit(req, "review.create", "review", review!.id, {
+    jobId: d.jobId,
+    rating: d.rating,
+  });
+  await notify({
+    userId: d.toUserId,
+    kind: "review",
+    title: `New ${d.rating}★ review`,
+    body: d.comment.slice(0, 120),
+    link: "/dashboard/reviews",
+  });
   res.json(
     CreateReviewResponse.parse({
       id: review!.id,

@@ -1,5 +1,5 @@
 import { Router, type IRouter } from "express";
-import { eq, sql, desc, and } from "drizzle-orm";
+import { eq, sql, desc, and, gte, lte } from "drizzle-orm";
 import {
   db,
   usersTable,
@@ -267,22 +267,52 @@ router.get(
   },
 );
 
+function buildAuditLogConditions(query: Record<string, unknown>) {
+  const conditions = [];
+  const action = typeof query["action"] === "string" ? query["action"] : null;
+  const entityType =
+    typeof query["entityType"] === "string" ? query["entityType"] : null;
+  const entityIdStr = typeof query["entityId"] === "string" ? query["entityId"] : null;
+  const userIdStr = typeof query["userId"] === "string" ? query["userId"] : null;
+  const fromDate = typeof query["fromDate"] === "string" ? query["fromDate"] : null;
+  const toDate = typeof query["toDate"] === "string" ? query["toDate"] : null;
+  if (action) conditions.push(eq(auditLogsTable.action, action));
+  if (entityType) conditions.push(eq(auditLogsTable.entityType, entityType));
+  if (entityIdStr) {
+    const eid = Number(entityIdStr);
+    if (Number.isFinite(eid)) conditions.push(eq(auditLogsTable.entityId, eid));
+  }
+  if (userIdStr) {
+    const uid = Number(userIdStr);
+    if (Number.isFinite(uid)) conditions.push(eq(auditLogsTable.userId, uid));
+  }
+  if (fromDate) {
+    const d = new Date(fromDate);
+    if (!isNaN(d.getTime())) conditions.push(gte(auditLogsTable.createdAt, d));
+  }
+  if (toDate) {
+    const d = new Date(toDate);
+    if (!isNaN(d.getTime())) conditions.push(lte(auditLogsTable.createdAt, d));
+  }
+  return conditions;
+}
+
 router.get(
   "/admin/audit-logs",
   requireAuth,
   requireRole("admin"),
   async (req, res): Promise<void> => {
     const limit = Math.min(Math.max(Number(req.query["limit"] ?? 100), 1), 500);
-    const action = typeof req.query["action"] === "string" ? req.query["action"] : null;
-    const conditions = [];
-    if (action) conditions.push(eq(auditLogsTable.action, action));
+    const offset = Math.max(Number(req.query["offset"] ?? 0), 0);
+    const conditions = buildAuditLogConditions(req.query as Record<string, unknown>);
     const rows = await db
       .select({ a: auditLogsTable, u: usersTable })
       .from(auditLogsTable)
       .leftJoin(usersTable, eq(usersTable.id, auditLogsTable.userId))
       .where(conditions.length ? and(...conditions) : undefined)
       .orderBy(desc(auditLogsTable.createdAt))
-      .limit(limit);
+      .limit(limit)
+      .offset(offset);
     res.json(
       rows.map(({ a, u }) => ({
         id: a.id,
@@ -297,6 +327,52 @@ router.get(
         createdAt: a.createdAt,
       })),
     );
+  },
+);
+
+router.get(
+  "/admin/audit-logs.csv",
+  requireAuth,
+  requireRole("admin"),
+  async (req, res): Promise<void> => {
+    const conditions = buildAuditLogConditions(req.query as Record<string, unknown>);
+    const rows = await db
+      .select({ a: auditLogsTable, u: usersTable })
+      .from(auditLogsTable)
+      .leftJoin(usersTable, eq(usersTable.id, auditLogsTable.userId))
+      .where(conditions.length ? and(...conditions) : undefined)
+      .orderBy(desc(auditLogsTable.createdAt))
+      .limit(10000);
+    const esc = (v: unknown) => {
+      let s = v == null ? "" : String(v);
+      // Neutralize spreadsheet formula injection (Excel/Sheets/LibreOffice)
+      // by prefixing leading =, +, -, @, tab, or CR with a single quote.
+      if (/^[=+\-@\t\r]/.test(s)) s = "'" + s;
+      return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+    };
+    const header =
+      "id,createdAt,userId,userName,action,entityType,entityId,ip,userAgent,metadata\n";
+    const body = rows
+      .map(({ a, u }) =>
+        [
+          a.id,
+          a.createdAt instanceof Date ? a.createdAt.toISOString() : a.createdAt,
+          a.userId ?? "",
+          u?.fullName ?? "",
+          a.action,
+          a.entityType ?? "",
+          a.entityId ?? "",
+          a.ip ?? "",
+          a.userAgent ?? "",
+          JSON.stringify(a.metadata ?? {}),
+        ]
+          .map(esc)
+          .join(","),
+      )
+      .join("\n");
+    res.setHeader("Content-Type", "text/csv; charset=utf-8");
+    res.setHeader("Content-Disposition", `attachment; filename="audit-logs.csv"`);
+    res.send(header + body + "\n");
   },
 );
 

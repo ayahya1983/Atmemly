@@ -13,6 +13,8 @@ import {
   reviewsTable,
   paymentsTable,
   notificationsTable,
+  legalDocumentsTable,
+  platformSettingsTable,
 } from "@workspace/db";
 
 async function hash(p: string) {
@@ -22,6 +24,7 @@ async function hash(p: string) {
 async function main() {
   console.log("Seeding…");
   await db.execute(sql`TRUNCATE TABLE
+    consents, dispute_messages, disputes, attachments, legal_documents, platform_settings,
     notifications, payments, reviews, messages, conversations,
     saved_jobs, proposals, jobs, complaints,
     freelancer_profiles, client_profiles, users, skills, categories
@@ -349,6 +352,105 @@ async function main() {
       link: "/dashboard/freelancer/profile",
     });
   }
+
+  // ---------- Phase 2: Legal documents (Terms, Privacy, NDA) ----------
+  await db.insert(legalDocumentsTable).values([
+    {
+      slug: "terms",
+      version: 1,
+      titleEn: "Terms of Service",
+      titleAr: "شروط الخدمة",
+      bodyEn:
+        "These Terms of Service govern your access to and use of the Khidma platform, " +
+        "a UAE-based marketplace for freelance services. By accessing or using Khidma you " +
+        "agree to be bound by these terms, our Privacy Policy and applicable UAE laws " +
+        "including the Federal Decree-Law No. 45 of 2021 on Personal Data Protection.",
+      bodyAr:
+        "تحكم شروط الخدمة هذه وصولك إلى منصة خدمة واستخدامك لها، وهي منصة مقرها الإمارات " +
+        "العربية المتحدة لخدمات العمل الحر. باستخدامك للمنصة فإنك توافق على هذه الشروط " +
+        "وعلى سياسة الخصوصية والقوانين المعمول بها في دولة الإمارات.",
+      isCurrent: true,
+      publishedById: admin!.id,
+    },
+    {
+      slug: "privacy",
+      version: 1,
+      titleEn: "Privacy Policy",
+      titleAr: "سياسة الخصوصية",
+      bodyEn:
+        "Khidma collects only the personal data needed to operate the marketplace: account " +
+        "information, profile details, payment records and communications. Data is stored " +
+        "securely and is not shared with third parties except as required to provide the " +
+        "service or as required by UAE law.",
+      bodyAr:
+        "تجمع منصة خدمة البيانات الشخصية اللازمة فقط لتشغيل السوق: معلومات الحساب وتفاصيل " +
+        "الملف الشخصي وسجلات الدفع والمراسلات. يتم تخزين البيانات بشكل آمن ولا تتم مشاركتها " +
+        "مع أطراف ثالثة إلا حسب ما يقتضيه القانون.",
+      isCurrent: true,
+      publishedById: admin!.id,
+    },
+    {
+      slug: "nda",
+      version: 1,
+      titleEn: "Confidentiality Notice",
+      titleAr: "إشعار السرية",
+      bodyEn:
+        "All briefs, files and communications exchanged on Khidma are considered confidential " +
+        "between the contracting parties. Sharing client material outside the engagement " +
+        "without written consent is prohibited.",
+      bodyAr:
+        "تعتبر جميع الملفات والمراسلات المتبادلة على منصة خدمة سرية بين الأطراف المتعاقدة. " +
+        "يحظر مشاركة مواد العميل خارج نطاق التعاقد دون موافقة كتابية.",
+      isCurrent: true,
+      publishedById: admin!.id,
+    },
+  ]);
+
+  // ---------- Phase 2: Platform settings ----------
+  await db.insert(platformSettingsTable).values([
+    {
+      key: "platform_fee_pct",
+      value: 10,
+      isPublic: 1,
+      description: "Platform service fee charged on milestone release",
+      updatedById: admin!.id,
+    },
+    {
+      key: "vat_pct",
+      value: 5,
+      isPublic: 1,
+      description: "UAE VAT applied to platform fee invoices",
+      updatedById: admin!.id,
+    },
+    {
+      key: "default_currency",
+      value: "AED",
+      isPublic: 1,
+      description: "Default platform currency",
+      updatedById: admin!.id,
+    },
+    {
+      key: "support_email",
+      value: "support@khidma.ae",
+      isPublic: 1,
+      description: "Public-facing support contact",
+      updatedById: admin!.id,
+    },
+    {
+      key: "max_upload_mb",
+      value: 10,
+      isPublic: 1,
+      description: "Maximum upload size per file (MB)",
+      updatedById: admin!.id,
+    },
+    {
+      key: "min_payout_aed",
+      value: 100,
+      isPublic: 0,
+      description: "Minimum withdrawable balance for freelancer payout",
+      updatedById: admin!.id,
+    },
+  ]);
 
   console.log("Done.");
   await pool.end();

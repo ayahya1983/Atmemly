@@ -1,0 +1,228 @@
+Add complete payment gateway support to the existing Khidma backend and frontend.
+
+Do not rebuild the project.
+Keep the current Drizzle/Express backend and existing frontend architecture.
+
+Payment gateway scope:
+1. Stripe
+2. PayTabs
+3. Telr
+4. Manual bank transfer
+5. Cash or offline admin-confirmed payment
+
+Main requirement:
+Create a payment gateway abstraction layer so the platform can support multiple payment providers without changing the contract, milestone, escrow, invoice, or payout logic.
+
+Backend requirements:
+- Create a unified PaymentGateway interface
+- Implement Stripe adapter
+- Implement PayTabs adapter placeholder with real request structure
+- Implement Telr adapter placeholder with real request structure
+- Implement manual payment adapter
+- Add gateway configuration through environment variables
+- Add platform setting for active gateway
+- Allow admin to enable/disable gateways
+
+Payment workflows:
+1. Client funds contract or milestone
+2. Backend creates payment intent/session with selected gateway
+3. Payment provider redirects or confirms payment
+4. Webhook/callback updates payment status
+5. Funds move into escrow-held state
+6. Freelancer submits work
+7. Client approves milestone
+8. Escrow release creates wallet transaction
+9. Admin processes payout manually or through future payout API
+10. Invoice is generated after successful payment
+
+Required database updates using Drizzle migrations:
+- payment_gateways
+- payment_transactions
+- payment_intents
+- payment_webhooks
+- invoices
+- wallets
+- wallet_transactions
+- payouts
+- escrow_ledger
+
+PaymentGateway fields:
+- id
+- name
+- providerCode
+- isActive
+- mode: TEST or LIVE
+- supportedCurrencies
+- configJson
+- createdAt
+- updatedAt
+
+PaymentTransaction fields:
+- id
+- userId
+- contractId
+- milestoneId
+- invoiceId
+- gateway
+- gatewayReference
+- amount
+- currency
+- status
+- paymentPurpose
+- metadata
+- createdAt
+- updatedAt
+
+Payment statuses:
+- INITIATED
+- PENDING
+- REQUIRES_ACTION
+- PAID
+- FAILED
+- CANCELLED
+- REFUNDED
+- PARTIALLY_REFUNDED
+- ESCROW_HELD
+- RELEASED
+- DISPUTED
+
+Escrow ledger statuses:
+- HELD
+- RELEASE_PENDING
+- RELEASED_TO_WALLET
+- REFUNDED_TO_CLIENT
+- DISPUTED
+- ADMIN_ADJUSTED
+
+API endpoints to create or update:
+- GET /api/payments/gateways
+- POST /api/payments/create-intent
+- POST /api/payments/stripe/webhook
+- POST /api/payments/paytabs/callback
+- POST /api/payments/telr/callback
+- POST /api/payments/manual/submit-proof
+- GET /api/payments/transactions
+- GET /api/payments/transactions/:id
+- GET /api/invoices/:id
+- GET /api/wallet
+- GET /api/wallet/transactions
+- POST /api/admin/payments/gateways
+- PATCH /api/admin/payments/gateways/:id
+- GET /api/admin/payments/transactions
+- POST /api/admin/payments/manual/approve
+- POST /api/admin/payments/manual/reject
+- POST /api/admin/escrow/release
+- POST /api/admin/escrow/refund
+- GET /api/admin/payouts
+- POST /api/admin/payouts/:id/mark-processed
+
+Security requirements:
+- Validate all payment requests with Zod
+- Verify Stripe webhook signature
+- Add webhook idempotency handling
+- Store raw webhook event safely
+- Prevent duplicate payment processing
+- Use idempotency keys for payment creation
+- Never trust frontend payment status
+- Only backend/webhook/admin confirmation can mark payment as paid
+- Add audit logs for all payment, escrow, refund, and payout actions
+
+Frontend requirements:
+- Add payment method selection page
+- Show available gateways from backend
+- Add Stripe payment flow
+- Add manual bank transfer proof upload
+- Add payment status page
+- Add invoice download/view page
+- Add client wallet/payment history page
+- Add freelancer earnings/wallet page
+- Add admin payment management pages
+- Add admin gateway settings page
+- Add payout management page
+
+Manual bank transfer flow:
+1. Client selects bank transfer
+2. System generates pending transaction
+3. Client sees bank account instructions
+4. Client uploads transfer proof
+5. Admin reviews proof
+6. Admin approves or rejects
+7. If approved, transaction becomes PAID and escrow becomes HELD
+8. If rejected, transaction becomes FAILED with rejection reason
+
+Stripe flow:
+1. Client selects Stripe
+2. Backend creates Stripe Checkout Session or PaymentIntent
+3. Frontend redirects user or confirms payment
+4. Stripe webhook confirms payment
+5. Backend marks transaction as PAID
+6. Backend creates escrow ledger entry
+7. Backend generates invoice
+
+PayTabs/Telr flow:
+- Build adapters with clean placeholders and documented TODOs
+- Use environment variables for merchant IDs, server keys, profile IDs, callback URLs
+- Create redirect/callback structure
+- Do not hardcode secrets
+
+Environment variables:
+- STRIPE_SECRET_KEY
+- STRIPE_WEBHOOK_SECRET
+- STRIPE_PUBLIC_KEY
+- PAYTABS_PROFILE_ID
+- PAYTABS_SERVER_KEY
+- PAYTABS_REGION
+- TELR_STORE_ID
+- TELR_AUTH_KEY
+- TELR_TEST_MODE
+- DEFAULT_PAYMENT_GATEWAY
+- PLATFORM_CURRENCY
+- PLATFORM_FEE_PERCENTAGE
+- MANUAL_BANK_ACCOUNT_NAME
+- MANUAL_BANK_IBAN
+- MANUAL_BANK_NAME
+- MANUAL_BANK_SWIFT
+
+Invoice requirements:
+- Generate unique invoice number
+- Include client details
+- Include freelancer details
+- Include job/contract/milestone reference
+- Include subtotal
+- Include platform fee
+- Include VAT/tax fields
+- Include total
+- Include payment status
+- Include gateway reference
+- Support PDF-ready invoice view
+
+Admin requirements:
+- View all transactions
+- Filter by gateway, status, date, client, freelancer
+- View webhook logs
+- Approve/reject manual payments
+- Release escrow
+- Refund escrow
+- Mark payouts as processed
+- Configure active gateway
+- Enable/disable payment methods
+- View financial summary:
+  - Gross marketplace volume
+  - Platform fees
+  - Held escrow
+  - Released earnings
+  - Pending payouts
+  - Failed payments
+  - Refunds
+
+Important:
+- Keep the system modular.
+- Do not break existing contract/milestone logic.
+- Do not allow payment status to be changed from frontend.
+- Use Drizzle migrations only.
+- Update seed data.
+- Update README and .env.example.
+- Add clear test instructions for Stripe test mode and manual payment flow.
+
+Final goal:
+The platform should support Stripe now, prepare PayTabs and Telr for UAE payments, and allow manual bank transfer payments for MVP launch.
