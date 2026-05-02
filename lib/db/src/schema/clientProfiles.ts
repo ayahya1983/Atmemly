@@ -7,6 +7,7 @@ export const clientProfilesTable = pgTable("client_profiles", {
   logoUrl: text("logo_url"),
   overview: text("overview").notNull().default(""),
   location: text("location").notNull().default("Dubai, UAE"),
+  verificationStatus: text("verification_status").notNull().default("not_submitted"),
 });
 
 export type ClientProfile = typeof clientProfilesTable.$inferSelect;

@@ -7,6 +7,7 @@
  */
 import type { Role } from "./role";
 import type { UserStatus } from "./userStatus";
+import type { VerificationStatus } from "./verificationStatus";
 
 export interface Me {
   id: number;
@@ -17,4 +18,15 @@ export interface Me {
   /** @nullable */
   avatarUrl?: string | null;
   createdAt: Date;
+  /** @nullable */
+  emailVerifiedAt?: Date | null;
+  /** @nullable */
+  lastLoginAt?: Date | null;
+  /** @nullable */
+  phone?: string | null;
+  /** @nullable */
+  country?: string | null;
+  /** @nullable */
+  city?: string | null;
+  verificationStatus?: VerificationStatus;
 }

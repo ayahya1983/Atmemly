@@ -7,6 +7,12 @@ import {
   proposalsTable,
   paymentsTable,
   complaintsTable,
+  auditLogsTable,
+  contractsTable,
+  milestonesTable,
+  payoutsTable,
+  walletsTable,
+  walletTransactionsTable,
 } from "@workspace/db";
 import {
   AdminListUsersResponse,
@@ -21,6 +27,7 @@ import {
   CreateComplaintResponse,
 } from "@workspace/api-zod";
 import { requireAuth, requireRole } from "../lib/auth";
+import { audit } from "../lib/audit";
 
 const router: IRouter = Router();
 
@@ -257,6 +264,208 @@ router.get(
         })),
       ),
     );
+  },
+);
+
+router.get(
+  "/admin/audit-logs",
+  requireAuth,
+  requireRole("admin"),
+  async (req, res): Promise<void> => {
+    const limit = Math.min(Math.max(Number(req.query["limit"] ?? 100), 1), 500);
+    const action = typeof req.query["action"] === "string" ? req.query["action"] : null;
+    const conditions = [];
+    if (action) conditions.push(eq(auditLogsTable.action, action));
+    const rows = await db
+      .select({ a: auditLogsTable, u: usersTable })
+      .from(auditLogsTable)
+      .leftJoin(usersTable, eq(usersTable.id, auditLogsTable.userId))
+      .where(conditions.length ? and(...conditions) : undefined)
+      .orderBy(desc(auditLogsTable.createdAt))
+      .limit(limit);
+    res.json(
+      rows.map(({ a, u }) => ({
+        id: a.id,
+        userId: a.userId,
+        userName: u?.fullName ?? null,
+        action: a.action,
+        entityType: a.entityType,
+        entityId: a.entityId,
+        metadata: (a.metadata as Record<string, unknown>) ?? {},
+        ip: a.ip,
+        userAgent: a.userAgent,
+        createdAt: a.createdAt,
+      })),
+    );
+  },
+);
+
+router.get(
+  "/admin/contracts",
+  requireAuth,
+  requireRole("admin"),
+  async (_req, res): Promise<void> => {
+    const rows = await db
+      .select({ c: contractsTable, j: jobsTable })
+      .from(contractsTable)
+      .leftJoin(jobsTable, eq(jobsTable.id, contractsTable.jobId))
+      .orderBy(desc(contractsTable.createdAt))
+      .limit(500);
+    const out = await Promise.all(
+      rows.map(async ({ c, j }) => {
+        const [client] = await db.select().from(usersTable).where(eq(usersTable.id, c.clientId));
+        const [freelancer] = await db
+          .select()
+          .from(usersTable)
+          .where(eq(usersTable.id, c.freelancerId));
+        const [agg] = await db
+          .select({
+            n: sql<number>`count(*)::int`,
+            funded: sql<string>`coalesce(sum(case when ${milestonesTable.status} in ('funded','in_progress','submitted','revision_requested','approved') then ${milestonesTable.amount} else 0 end),0)::text`,
+            released: sql<string>`coalesce(sum(case when ${milestonesTable.status} = 'released' then ${milestonesTable.amount} else 0 end),0)::text`,
+          })
+          .from(milestonesTable)
+          .where(eq(milestonesTable.contractId, c.id));
+        return {
+          id: c.id,
+          jobId: c.jobId,
+          jobTitle: j?.title ?? "",
+          proposalId: c.proposalId,
+          clientId: c.clientId,
+          clientName: client?.fullName ?? "",
+          freelancerId: c.freelancerId,
+          freelancerName: freelancer?.fullName ?? "",
+          title: c.title,
+          contractType: c.contractType,
+          status: c.status,
+          totalAmount: Number(c.totalAmount),
+          currency: c.currency,
+          platformFeePct: Number(c.platformFeePct),
+          startDate: c.startDate,
+          endDate: c.endDate,
+          createdAt: c.createdAt,
+          milestoneCount: agg?.n ?? 0,
+          fundedAmount: Number(agg?.funded ?? 0),
+          releasedAmount: Number(agg?.released ?? 0),
+        };
+      }),
+    );
+    res.json(out);
+  },
+);
+
+router.get(
+  "/admin/payouts",
+  requireAuth,
+  requireRole("admin"),
+  async (_req, res): Promise<void> => {
+    const rows = await db
+      .select({ p: payoutsTable, u: usersTable })
+      .from(payoutsTable)
+      .leftJoin(usersTable, eq(usersTable.id, payoutsTable.freelancerId))
+      .orderBy(desc(payoutsTable.requestedAt))
+      .limit(500);
+    res.json(
+      rows.map(({ p, u }) => ({
+        id: p.id,
+        freelancerId: p.freelancerId,
+        freelancerName: u?.fullName ?? "",
+        amount: Number(p.amount),
+        currency: p.currency,
+        status: p.status,
+        method: p.method,
+        note: p.note,
+        reference: p.reference,
+        requestedAt: p.requestedAt,
+        processedAt: p.processedAt,
+        processedBy: p.processedBy,
+      })),
+    );
+  },
+);
+
+router.post(
+  "/admin/payouts/:id/process",
+  requireAuth,
+  requireRole("admin"),
+  async (req, res): Promise<void> => {
+    const id = Number(req.params["id"]);
+    if (!Number.isFinite(id)) {
+      res.status(400).json({ error: "Invalid id" });
+      return;
+    }
+    const reference =
+      typeof req.body?.reference === "string" ? req.body.reference : null;
+    const note = typeof req.body?.note === "string" ? req.body.note : null;
+    const [payout] = await db.select().from(payoutsTable).where(eq(payoutsTable.id, id));
+    if (!payout) {
+      res.status(404).json({ error: "Payout not found" });
+      return;
+    }
+    if (payout.status !== "requested" && payout.status !== "processing") {
+      res.status(400).json({ error: "Payout cannot be processed in current state" });
+      return;
+    }
+    const amount = Number(payout.amount);
+    // Conditional UPDATE: only the first admin to process a given payout wins.
+    const [updated] = await db
+      .update(payoutsTable)
+      .set({
+        status: "paid",
+        processedAt: new Date(),
+        processedBy: req.user!.id,
+        reference,
+        note: note ?? payout.note,
+      })
+      .where(
+        and(
+          eq(payoutsTable.id, id),
+          sql`${payoutsTable.status} in ('requested','processing')`,
+        ),
+      )
+      .returning();
+    if (!updated) {
+      res.status(409).json({ error: "Payout was processed concurrently" });
+      return;
+    }
+    // Record a settlement transaction so wallet ledger reflects the actual payout
+    const [wallet] = await db
+      .select()
+      .from(walletsTable)
+      .where(eq(walletsTable.userId, payout.freelancerId));
+    if (wallet) {
+      await db.insert(walletTransactionsTable).values({
+        walletId: wallet.id,
+        type: "adjustment",
+        amount: "0",
+        currency: wallet.currency,
+        refType: "payout",
+        refId: payout.id,
+        note: `Payout processed${reference ? ` (ref: ${reference})` : ""}`,
+      });
+    }
+    await audit(req, "payout.process", "payout", id, {
+      amount,
+      reference,
+    });
+    const [u] = await db
+      .select()
+      .from(usersTable)
+      .where(eq(usersTable.id, payout.freelancerId));
+    res.json({
+      id: updated!.id,
+      freelancerId: updated!.freelancerId,
+      freelancerName: u?.fullName ?? "",
+      amount: Number(updated!.amount),
+      currency: updated!.currency,
+      status: updated!.status,
+      method: updated!.method,
+      note: updated!.note,
+      reference: updated!.reference,
+      requestedAt: updated!.requestedAt,
+      processedAt: updated!.processedAt,
+      processedBy: updated!.processedBy,
+    });
   },
 );
 

@@ -1,0 +1,126 @@
+We need to match the UI/UX of https://www.atmemli.com/ exactly as the reference frontend, while wiring it to the existing Khidma backend.
+
+Do not redesign the platform.
+
+Use Atmemli as the visual and functional reference:
+- Arabic-first layout
+- RTL by default
+- English/Arabic language switcher
+- AED/USD currency switcher
+- Top navigation:
+  - الخدمات
+  - المشاريع
+  - الأعمال
+  - المستقلين
+  - مجتمع أتمملي
+  - مدونة أتمملي
+  - مركز المساعدة
+- Auth buttons:
+  - دخول
+  - حساب جديد
+
+Home page sections to replicate:
+1. Hero section
+   - Arabic headline
+   - Search bar
+   - Category tabs/services/projects/works/freelancers
+
+2. Services categories
+   - Category cards
+   - Service count per category
+   - Icons/images
+
+3. Recommended services
+   - Service cards
+   - Title
+   - Starting price
+   - Rating
+   - Freelancer name
+   - Image
+
+4. Best freelancers
+   - Freelancer cards
+   - Name
+   - Profession
+   - Rating
+   - Location
+   - Job success percentage
+   - View profile button
+
+5. Latest projects
+   - Project list/cards wired from backend jobs/projects API
+
+6. CTA section
+   - Register/login buttons
+
+7. Testimonials
+   - Arabic testimonial cards
+
+8. Blog/articles
+   - Latest article cards
+
+9. FAQ section
+
+10. Mobile app download section
+
+11. Footer
+   - Logo
+   - Platform description
+   - Links
+   - Contact CTA
+   - Terms and privacy links
+
+Backend wiring requirements:
+- Services section should use categories/services APIs
+- Recommended services should use service listing endpoint
+- Best freelancers should use freelancer search/ranking endpoint
+- Latest projects should use jobs/projects endpoint
+- Blog cards can use static seed data first unless backend already has CMS/posts
+- FAQ/legal pages can use static seed data first
+- Auth buttons must connect to existing login/register
+- Profile buttons must link to freelancer public profile
+- Service cards must link to service detail
+- Project cards must link to project/job detail
+
+Important implementation rules:
+- Keep current Khidma backend, Drizzle, and Express.
+- Do not rebuild with Prisma.
+- Do not break existing APIs.
+- Add missing endpoints only if required.
+- Add seed/demo data to make homepage look populated.
+- Use backend data wherever possible, not hardcoded frontend-only data.
+- Keep UI Arabic-first and RTL.
+- Add English support only through existing localization structure or lightweight i18n.
+- Match spacing, card structure, homepage order, typography feel, and navigation behavior as close as possible.
+
+Suggested API mapping:
+- GET /api/categories
+- GET /api/services/featured
+- GET /api/freelancers/featured
+- GET /api/jobs/latest
+- GET /api/articles/latest
+- GET /api/faqs
+- GET /api/settings/public
+
+If these endpoints do not exist, create them using existing Drizzle schema and services.
+
+Additional backend models if missing:
+- services
+- service_categories
+- articles
+- faqs
+- testimonials
+- public_settings
+
+Seed data:
+Add Arabic sample data for:
+- Categories
+- Services
+- Freelancers
+- Projects
+- Testimonials
+- Blog articles
+- FAQs
+
+Final goal:
+The frontend should visually look like Atmemli, but powered by the Khidma backend.

@@ -9,5 +9,9 @@ import type { Me } from "./me";
 
 export interface AuthResponse {
   token: string;
+  /** @nullable */
+  refreshToken?: string | null;
+  /** @nullable */
+  emailVerificationDevToken?: string | null;
   user: Me;
 }

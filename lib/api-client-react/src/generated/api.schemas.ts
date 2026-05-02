@@ -22,6 +22,77 @@ export type UserStatus = (typeof UserStatus)[keyof typeof UserStatus];
 export const UserStatus = {
   active: "active",
   suspended: "suspended",
+  pending_email_verification: "pending_email_verification",
+  banned: "banned",
+  deleted: "deleted",
+} as const;
+
+export type VerificationStatus =
+  (typeof VerificationStatus)[keyof typeof VerificationStatus];
+
+export const VerificationStatus = {
+  not_submitted: "not_submitted",
+  pending: "pending",
+  verified: "verified",
+  rejected: "rejected",
+  expired: "expired",
+} as const;
+
+export type ContractStatus =
+  (typeof ContractStatus)[keyof typeof ContractStatus];
+
+export const ContractStatus = {
+  draft: "draft",
+  pending_client_payment: "pending_client_payment",
+  active: "active",
+  submitted_for_review: "submitted_for_review",
+  revision_requested: "revision_requested",
+  completed: "completed",
+  cancelled: "cancelled",
+  disputed: "disputed",
+} as const;
+
+export type ContractType = (typeof ContractType)[keyof typeof ContractType];
+
+export const ContractType = {
+  fixed_price: "fixed_price",
+  hourly: "hourly",
+} as const;
+
+export type MilestoneStatus =
+  (typeof MilestoneStatus)[keyof typeof MilestoneStatus];
+
+export const MilestoneStatus = {
+  pending_funding: "pending_funding",
+  funded: "funded",
+  in_progress: "in_progress",
+  submitted: "submitted",
+  revision_requested: "revision_requested",
+  approved: "approved",
+  released: "released",
+  cancelled: "cancelled",
+  disputed: "disputed",
+} as const;
+
+export type PaymentStatus = (typeof PaymentStatus)[keyof typeof PaymentStatus];
+
+export const PaymentStatus = {
+  pending: "pending",
+  held: "held",
+  released: "released",
+  refunded: "refunded",
+  failed: "failed",
+  succeeded: "succeeded",
+} as const;
+
+export type PayoutStatus = (typeof PayoutStatus)[keyof typeof PayoutStatus];
+
+export const PayoutStatus = {
+  requested: "requested",
+  processing: "processing",
+  paid: "paid",
+  rejected: "rejected",
+  cancelled: "cancelled",
 } as const;
 
 export type RegisterBodyRole =
@@ -55,10 +126,25 @@ export interface Me {
   /** @nullable */
   avatarUrl?: string | null;
   createdAt: string;
+  /** @nullable */
+  emailVerifiedAt?: string | null;
+  /** @nullable */
+  lastLoginAt?: string | null;
+  /** @nullable */
+  phone?: string | null;
+  /** @nullable */
+  country?: string | null;
+  /** @nullable */
+  city?: string | null;
+  verificationStatus?: VerificationStatus;
 }
 
 export interface AuthResponse {
   token: string;
+  /** @nullable */
+  refreshToken?: string | null;
+  /** @nullable */
+  emailVerificationDevToken?: string | null;
   user: Me;
 }
 
@@ -369,6 +455,16 @@ export interface Payment {
   payerName: string;
   payeeName: string;
   invoiceNumber?: string;
+  /** @nullable */
+  contractId?: number | null;
+  /** @nullable */
+  milestoneId?: number | null;
+  platformFeeAmount?: number;
+  freelancerNetAmount?: number;
+  /** @nullable */
+  heldAt?: string | null;
+  /** @nullable */
+  releasedAt?: string | null;
   createdAt: string;
 }
 
@@ -446,6 +542,316 @@ export interface CreateComplaintBody {
   body: string;
 }
 
+export interface SimpleOk {
+  ok: boolean;
+  /** @nullable */
+  message?: string | null;
+}
+
+export interface RefreshTokenBody {
+  refreshToken: string;
+}
+
+export interface LogoutBody {
+  /** @nullable */
+  refreshToken?: string | null;
+}
+
+export interface ForgotPasswordBody {
+  email: string;
+}
+
+export interface ForgotPasswordResponse {
+  ok: boolean;
+  /** @nullable */
+  devToken?: string | null;
+}
+
+export interface ResetPasswordBody {
+  token: string;
+  newPassword: string;
+}
+
+export interface VerifyEmailBody {
+  token: string;
+}
+
+export interface ChangePasswordBody {
+  currentPassword: string;
+  newPassword: string;
+}
+
+export type SubmitVerificationBodyKind =
+  (typeof SubmitVerificationBodyKind)[keyof typeof SubmitVerificationBodyKind];
+
+export const SubmitVerificationBodyKind = {
+  identity: "identity",
+  trade_license: "trade_license",
+} as const;
+
+export interface SubmitVerificationBody {
+  kind: SubmitVerificationBodyKind;
+  documentUrls: string[];
+  /** @nullable */
+  fullLegalName?: string | null;
+  /** @nullable */
+  documentNumber?: string | null;
+  /** @nullable */
+  notes?: string | null;
+}
+
+export interface VerificationDetail {
+  id: number;
+  userId: number;
+  userName: string;
+  userEmail?: string;
+  userRole?: Role;
+  kind: string;
+  documentUrls: string[];
+  /** @nullable */
+  fullLegalName?: string | null;
+  /** @nullable */
+  documentNumber?: string | null;
+  /** @nullable */
+  notes?: string | null;
+  status: VerificationStatus;
+  /** @nullable */
+  rejectionReason?: string | null;
+  submittedAt: string;
+  /** @nullable */
+  reviewedAt?: string | null;
+  /** @nullable */
+  reviewedBy?: number | null;
+}
+
+export type AdminReviewVerificationBodyDecision =
+  (typeof AdminReviewVerificationBodyDecision)[keyof typeof AdminReviewVerificationBodyDecision];
+
+export const AdminReviewVerificationBodyDecision = {
+  approve: "approve",
+  reject: "reject",
+} as const;
+
+export interface AdminReviewVerificationBody {
+  decision: AdminReviewVerificationBodyDecision;
+  /** @nullable */
+  reason?: string | null;
+}
+
+export interface ContractSummary {
+  id: number;
+  jobId: number;
+  jobTitle: string;
+  proposalId?: number;
+  clientId: number;
+  clientName: string;
+  freelancerId: number;
+  freelancerName: string;
+  title?: string;
+  contractType: ContractType;
+  status: ContractStatus;
+  totalAmount: number;
+  currency: string;
+  platformFeePct?: number;
+  startDate?: string;
+  /** @nullable */
+  endDate?: string | null;
+  createdAt: string;
+  milestoneCount?: number;
+  fundedAmount?: number;
+  releasedAmount?: number;
+}
+
+export interface DeliverableDetail {
+  id: number;
+  milestoneId: number;
+  freelancerId: number;
+  freelancerName?: string;
+  message: string;
+  files: string[];
+  revisionNumber: number;
+  submittedAt: string;
+}
+
+export interface MilestoneDetail {
+  id: number;
+  contractId: number;
+  title: string;
+  description?: string;
+  amount: number;
+  currency: string;
+  /** @nullable */
+  dueDate?: string | null;
+  status: MilestoneStatus;
+  sortOrder: number;
+  /** @nullable */
+  fundedAt?: string | null;
+  /** @nullable */
+  submittedAt?: string | null;
+  /** @nullable */
+  approvedAt?: string | null;
+  /** @nullable */
+  releasedAt?: string | null;
+  /** @nullable */
+  paymentId?: number | null;
+  /** @nullable */
+  invoiceId?: number | null;
+  /** @nullable */
+  invoiceNumber?: string | null;
+  deliverables?: DeliverableDetail[];
+  createdAt: string;
+}
+
+export type ContractDetail = ContractSummary & {
+  scope: string;
+  /** @nullable */
+  cancelledAt?: string | null;
+  /** @nullable */
+  cancellationReason?: string | null;
+  /** @nullable */
+  completedAt?: string | null;
+  milestones: MilestoneDetail[];
+};
+
+export type UpdateContractBodyAction =
+  (typeof UpdateContractBodyAction)[keyof typeof UpdateContractBodyAction];
+
+export const UpdateContractBodyAction = {
+  cancel: "cancel",
+  complete: "complete",
+} as const;
+
+export interface UpdateContractBody {
+  action: UpdateContractBodyAction;
+  /** @nullable */
+  reason?: string | null;
+}
+
+export interface CreateMilestoneBody {
+  title: string;
+  description?: string;
+  amount: number;
+  /** @nullable */
+  dueDate?: string | null;
+}
+
+export interface SubmitDeliverableBody {
+  message: string;
+  files?: string[];
+}
+
+export interface RequestRevisionBody {
+  reason: string;
+}
+
+export interface WalletTransactionEntry {
+  id: number;
+  type: string;
+  amount: number;
+  currency: string;
+  /** @nullable */
+  refType?: string | null;
+  /** @nullable */
+  refId?: number | null;
+  /** @nullable */
+  note?: string | null;
+  createdAt: string;
+}
+
+export interface WalletDetail {
+  userId: number;
+  currency: string;
+  availableBalance: number;
+  pendingBalance: number;
+  lifetimeEarnings: number;
+  transactions: WalletTransactionEntry[];
+}
+
+export interface RequestPayoutBody {
+  amount: number;
+  /** @nullable */
+  note?: string | null;
+}
+
+export interface PayoutDetail {
+  id: number;
+  freelancerId: number;
+  freelancerName?: string;
+  amount: number;
+  currency: string;
+  status: PayoutStatus;
+  method?: string;
+  /** @nullable */
+  note?: string | null;
+  /** @nullable */
+  reference?: string | null;
+  requestedAt: string;
+  /** @nullable */
+  processedAt?: string | null;
+  /** @nullable */
+  processedBy?: number | null;
+}
+
+export interface ProcessPayoutBody {
+  /** @nullable */
+  reference?: string | null;
+  /** @nullable */
+  note?: string | null;
+}
+
+export interface InvoiceSummary {
+  id: number;
+  invoiceNumber: string;
+  /** @nullable */
+  contractId?: number | null;
+  /** @nullable */
+  milestoneId?: number | null;
+  /** @nullable */
+  paymentId?: number | null;
+  clientId: number;
+  clientName?: string;
+  freelancerId: number;
+  freelancerName?: string;
+  description?: string;
+  subtotal?: number;
+  vatPct?: number;
+  vatAmount?: number;
+  total: number;
+  currency: string;
+  issuedAt: string;
+}
+
+export type InvoiceDetail = InvoiceSummary & {
+  /** @nullable */
+  jobId?: number | null;
+  /** @nullable */
+  jobTitle?: string | null;
+  /** @nullable */
+  milestoneTitle?: string | null;
+  /** @nullable */
+  paymentStatus?: string | null;
+};
+
+export type AuditLogEntryMetadata = { [key: string]: unknown };
+
+export interface AuditLogEntry {
+  id: number;
+  /** @nullable */
+  userId?: number | null;
+  /** @nullable */
+  userName?: string | null;
+  action: string;
+  entityType: string;
+  /** @nullable */
+  entityId?: number | null;
+  metadata?: AuditLogEntryMetadata;
+  /** @nullable */
+  ip?: string | null;
+  /** @nullable */
+  userAgent?: string | null;
+  createdAt: string;
+}
+
 export type ListFreelancersParams = {
   q?: string;
   skill?: string;
@@ -470,4 +876,13 @@ export type ListProposalsParams = {
 
 export type ListReviewsParams = {
   userId?: number;
+};
+
+export type AdminListVerificationsParams = {
+  status?: string;
+};
+
+export type AdminListAuditLogsParams = {
+  limit?: number;
+  action?: string;
 };

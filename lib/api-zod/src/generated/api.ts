@@ -21,14 +21,30 @@ export const RegisterBody = zod.object({
 
 export const RegisterResponse = zod.object({
   token: zod.string(),
+  refreshToken: zod.string().nullish(),
+  emailVerificationDevToken: zod.string().nullish(),
   user: zod.object({
     id: zod.number(),
     email: zod.string(),
     fullName: zod.string(),
     role: zod.enum(["client", "freelancer", "admin"]),
-    status: zod.enum(["active", "suspended"]),
+    status: zod.enum([
+      "active",
+      "suspended",
+      "pending_email_verification",
+      "banned",
+      "deleted",
+    ]),
     avatarUrl: zod.string().nullish(),
     createdAt: zod.coerce.date(),
+    emailVerifiedAt: zod.coerce.date().nullish(),
+    lastLoginAt: zod.coerce.date().nullish(),
+    phone: zod.string().nullish(),
+    country: zod.string().nullish(),
+    city: zod.string().nullish(),
+    verificationStatus: zod
+      .enum(["not_submitted", "pending", "verified", "rejected", "expired"])
+      .optional(),
   }),
 });
 
@@ -39,14 +55,30 @@ export const LoginBody = zod.object({
 
 export const LoginResponse = zod.object({
   token: zod.string(),
+  refreshToken: zod.string().nullish(),
+  emailVerificationDevToken: zod.string().nullish(),
   user: zod.object({
     id: zod.number(),
     email: zod.string(),
     fullName: zod.string(),
     role: zod.enum(["client", "freelancer", "admin"]),
-    status: zod.enum(["active", "suspended"]),
+    status: zod.enum([
+      "active",
+      "suspended",
+      "pending_email_verification",
+      "banned",
+      "deleted",
+    ]),
     avatarUrl: zod.string().nullish(),
     createdAt: zod.coerce.date(),
+    emailVerifiedAt: zod.coerce.date().nullish(),
+    lastLoginAt: zod.coerce.date().nullish(),
+    phone: zod.string().nullish(),
+    country: zod.string().nullish(),
+    city: zod.string().nullish(),
+    verificationStatus: zod
+      .enum(["not_submitted", "pending", "verified", "rejected", "expired"])
+      .optional(),
   }),
 });
 
@@ -55,9 +87,23 @@ export const GetMeResponse = zod.object({
   email: zod.string(),
   fullName: zod.string(),
   role: zod.enum(["client", "freelancer", "admin"]),
-  status: zod.enum(["active", "suspended"]),
+  status: zod.enum([
+    "active",
+    "suspended",
+    "pending_email_verification",
+    "banned",
+    "deleted",
+  ]),
   avatarUrl: zod.string().nullish(),
   createdAt: zod.coerce.date(),
+  emailVerifiedAt: zod.coerce.date().nullish(),
+  lastLoginAt: zod.coerce.date().nullish(),
+  phone: zod.string().nullish(),
+  country: zod.string().nullish(),
+  city: zod.string().nullish(),
+  verificationStatus: zod
+    .enum(["not_submitted", "pending", "verified", "rejected", "expired"])
+    .optional(),
 });
 
 export const GetMarketplaceStatsResponse = zod.object({
@@ -625,6 +671,12 @@ export const ListPaymentsResponseItem = zod.object({
   payerName: zod.string(),
   payeeName: zod.string(),
   invoiceNumber: zod.string().optional(),
+  contractId: zod.number().nullish(),
+  milestoneId: zod.number().nullish(),
+  platformFeeAmount: zod.number().optional(),
+  freelancerNetAmount: zod.number().optional(),
+  heldAt: zod.coerce.date().nullish(),
+  releasedAt: zod.coerce.date().nullish(),
   createdAt: zod.coerce.date(),
 });
 export const ListPaymentsResponse = zod.array(ListPaymentsResponseItem);
@@ -649,7 +701,13 @@ export const AdminListUsersResponseItem = zod.object({
   email: zod.string(),
   fullName: zod.string(),
   role: zod.enum(["client", "freelancer", "admin"]),
-  status: zod.enum(["active", "suspended"]),
+  status: zod.enum([
+    "active",
+    "suspended",
+    "pending_email_verification",
+    "banned",
+    "deleted",
+  ]),
   createdAt: zod.coerce.date(),
   jobsCount: zod.number(),
   proposalsCount: zod.number(),
@@ -661,7 +719,13 @@ export const AdminUpdateUserStatusParams = zod.object({
 });
 
 export const AdminUpdateUserStatusBody = zod.object({
-  status: zod.enum(["active", "suspended"]),
+  status: zod.enum([
+    "active",
+    "suspended",
+    "pending_email_verification",
+    "banned",
+    "deleted",
+  ]),
 });
 
 export const AdminUpdateUserStatusResponse = zod.object({
@@ -669,7 +733,13 @@ export const AdminUpdateUserStatusResponse = zod.object({
   email: zod.string(),
   fullName: zod.string(),
   role: zod.enum(["client", "freelancer", "admin"]),
-  status: zod.enum(["active", "suspended"]),
+  status: zod.enum([
+    "active",
+    "suspended",
+    "pending_email_verification",
+    "banned",
+    "deleted",
+  ]),
   createdAt: zod.coerce.date(),
   jobsCount: zod.number(),
   proposalsCount: zod.number(),
@@ -708,6 +778,12 @@ export const AdminListPaymentsResponseItem = zod.object({
   payerName: zod.string(),
   payeeName: zod.string(),
   invoiceNumber: zod.string().optional(),
+  contractId: zod.number().nullish(),
+  milestoneId: zod.number().nullish(),
+  platformFeeAmount: zod.number().optional(),
+  freelancerNetAmount: zod.number().optional(),
+  heldAt: zod.coerce.date().nullish(),
+  releasedAt: zod.coerce.date().nullish(),
   createdAt: zod.coerce.date(),
 });
 export const AdminListPaymentsResponse = zod.array(
@@ -769,4 +845,938 @@ export const CreateComplaintResponse = zod.object({
   body: zod.string(),
   status: zod.string(),
   createdAt: zod.coerce.date(),
+});
+
+export const RefreshTokenBody = zod.object({
+  refreshToken: zod.string(),
+});
+
+export const RefreshTokenResponse = zod.object({
+  token: zod.string(),
+  refreshToken: zod.string().nullish(),
+  emailVerificationDevToken: zod.string().nullish(),
+  user: zod.object({
+    id: zod.number(),
+    email: zod.string(),
+    fullName: zod.string(),
+    role: zod.enum(["client", "freelancer", "admin"]),
+    status: zod.enum([
+      "active",
+      "suspended",
+      "pending_email_verification",
+      "banned",
+      "deleted",
+    ]),
+    avatarUrl: zod.string().nullish(),
+    createdAt: zod.coerce.date(),
+    emailVerifiedAt: zod.coerce.date().nullish(),
+    lastLoginAt: zod.coerce.date().nullish(),
+    phone: zod.string().nullish(),
+    country: zod.string().nullish(),
+    city: zod.string().nullish(),
+    verificationStatus: zod
+      .enum(["not_submitted", "pending", "verified", "rejected", "expired"])
+      .optional(),
+  }),
+});
+
+export const LogoutBody = zod.object({
+  refreshToken: zod.string().nullish(),
+});
+
+export const LogoutResponse = zod.object({
+  ok: zod.boolean(),
+  message: zod.string().nullish(),
+});
+
+export const ForgotPasswordBody = zod.object({
+  email: zod.string(),
+});
+
+export const ForgotPasswordResponse = zod.object({
+  ok: zod.boolean(),
+  devToken: zod.string().nullish(),
+});
+
+export const ResetPasswordBody = zod.object({
+  token: zod.string(),
+  newPassword: zod.string(),
+});
+
+export const ResetPasswordResponse = zod.object({
+  ok: zod.boolean(),
+  message: zod.string().nullish(),
+});
+
+export const VerifyEmailBody = zod.object({
+  token: zod.string(),
+});
+
+export const VerifyEmailResponse = zod.object({
+  ok: zod.boolean(),
+  message: zod.string().nullish(),
+});
+
+export const ResendVerificationResponse = zod.object({
+  ok: zod.boolean(),
+  devToken: zod.string().nullish(),
+});
+
+export const ChangePasswordBody = zod.object({
+  currentPassword: zod.string(),
+  newPassword: zod.string(),
+});
+
+export const ChangePasswordResponse = zod.object({
+  ok: zod.boolean(),
+  message: zod.string().nullish(),
+});
+
+export const GetMyVerificationResponse = zod.object({
+  id: zod.number(),
+  userId: zod.number(),
+  userName: zod.string(),
+  userEmail: zod.string().optional(),
+  userRole: zod.enum(["client", "freelancer", "admin"]).optional(),
+  kind: zod.string(),
+  documentUrls: zod.array(zod.string()),
+  fullLegalName: zod.string().nullish(),
+  documentNumber: zod.string().nullish(),
+  notes: zod.string().nullish(),
+  status: zod.enum([
+    "not_submitted",
+    "pending",
+    "verified",
+    "rejected",
+    "expired",
+  ]),
+  rejectionReason: zod.string().nullish(),
+  submittedAt: zod.coerce.date(),
+  reviewedAt: zod.coerce.date().nullish(),
+  reviewedBy: zod.number().nullish(),
+});
+
+export const SubmitVerificationBody = zod.object({
+  kind: zod.enum(["identity", "trade_license"]),
+  documentUrls: zod.array(zod.string()),
+  fullLegalName: zod.string().nullish(),
+  documentNumber: zod.string().nullish(),
+  notes: zod.string().nullish(),
+});
+
+export const SubmitVerificationResponse = zod.object({
+  id: zod.number(),
+  userId: zod.number(),
+  userName: zod.string(),
+  userEmail: zod.string().optional(),
+  userRole: zod.enum(["client", "freelancer", "admin"]).optional(),
+  kind: zod.string(),
+  documentUrls: zod.array(zod.string()),
+  fullLegalName: zod.string().nullish(),
+  documentNumber: zod.string().nullish(),
+  notes: zod.string().nullish(),
+  status: zod.enum([
+    "not_submitted",
+    "pending",
+    "verified",
+    "rejected",
+    "expired",
+  ]),
+  rejectionReason: zod.string().nullish(),
+  submittedAt: zod.coerce.date(),
+  reviewedAt: zod.coerce.date().nullish(),
+  reviewedBy: zod.number().nullish(),
+});
+
+export const AdminListVerificationsQueryParams = zod.object({
+  status: zod.coerce.string().optional(),
+});
+
+export const AdminListVerificationsResponseItem = zod.object({
+  id: zod.number(),
+  userId: zod.number(),
+  userName: zod.string(),
+  userEmail: zod.string().optional(),
+  userRole: zod.enum(["client", "freelancer", "admin"]).optional(),
+  kind: zod.string(),
+  documentUrls: zod.array(zod.string()),
+  fullLegalName: zod.string().nullish(),
+  documentNumber: zod.string().nullish(),
+  notes: zod.string().nullish(),
+  status: zod.enum([
+    "not_submitted",
+    "pending",
+    "verified",
+    "rejected",
+    "expired",
+  ]),
+  rejectionReason: zod.string().nullish(),
+  submittedAt: zod.coerce.date(),
+  reviewedAt: zod.coerce.date().nullish(),
+  reviewedBy: zod.number().nullish(),
+});
+export const AdminListVerificationsResponse = zod.array(
+  AdminListVerificationsResponseItem,
+);
+
+export const AdminReviewVerificationParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const AdminReviewVerificationBody = zod.object({
+  decision: zod.enum(["approve", "reject"]),
+  reason: zod.string().nullish(),
+});
+
+export const AdminReviewVerificationResponse = zod.object({
+  id: zod.number(),
+  userId: zod.number(),
+  userName: zod.string(),
+  userEmail: zod.string().optional(),
+  userRole: zod.enum(["client", "freelancer", "admin"]).optional(),
+  kind: zod.string(),
+  documentUrls: zod.array(zod.string()),
+  fullLegalName: zod.string().nullish(),
+  documentNumber: zod.string().nullish(),
+  notes: zod.string().nullish(),
+  status: zod.enum([
+    "not_submitted",
+    "pending",
+    "verified",
+    "rejected",
+    "expired",
+  ]),
+  rejectionReason: zod.string().nullish(),
+  submittedAt: zod.coerce.date(),
+  reviewedAt: zod.coerce.date().nullish(),
+  reviewedBy: zod.number().nullish(),
+});
+
+export const ListMyContractsResponseItem = zod.object({
+  id: zod.number(),
+  jobId: zod.number(),
+  jobTitle: zod.string(),
+  proposalId: zod.number().optional(),
+  clientId: zod.number(),
+  clientName: zod.string(),
+  freelancerId: zod.number(),
+  freelancerName: zod.string(),
+  title: zod.string().optional(),
+  contractType: zod.enum(["fixed_price", "hourly"]),
+  status: zod.enum([
+    "draft",
+    "pending_client_payment",
+    "active",
+    "submitted_for_review",
+    "revision_requested",
+    "completed",
+    "cancelled",
+    "disputed",
+  ]),
+  totalAmount: zod.number(),
+  currency: zod.string(),
+  platformFeePct: zod.number().optional(),
+  startDate: zod.coerce.date().optional(),
+  endDate: zod.coerce.date().nullish(),
+  createdAt: zod.coerce.date(),
+  milestoneCount: zod.number().optional(),
+  fundedAmount: zod.number().optional(),
+  releasedAmount: zod.number().optional(),
+});
+export const ListMyContractsResponse = zod.array(ListMyContractsResponseItem);
+
+export const GetContractParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const GetContractResponse = zod
+  .object({
+    id: zod.number(),
+    jobId: zod.number(),
+    jobTitle: zod.string(),
+    proposalId: zod.number().optional(),
+    clientId: zod.number(),
+    clientName: zod.string(),
+    freelancerId: zod.number(),
+    freelancerName: zod.string(),
+    title: zod.string().optional(),
+    contractType: zod.enum(["fixed_price", "hourly"]),
+    status: zod.enum([
+      "draft",
+      "pending_client_payment",
+      "active",
+      "submitted_for_review",
+      "revision_requested",
+      "completed",
+      "cancelled",
+      "disputed",
+    ]),
+    totalAmount: zod.number(),
+    currency: zod.string(),
+    platformFeePct: zod.number().optional(),
+    startDate: zod.coerce.date().optional(),
+    endDate: zod.coerce.date().nullish(),
+    createdAt: zod.coerce.date(),
+    milestoneCount: zod.number().optional(),
+    fundedAmount: zod.number().optional(),
+    releasedAmount: zod.number().optional(),
+  })
+  .and(
+    zod.object({
+      scope: zod.string(),
+      cancelledAt: zod.coerce.date().nullish(),
+      cancellationReason: zod.string().nullish(),
+      completedAt: zod.coerce.date().nullish(),
+      milestones: zod.array(
+        zod.object({
+          id: zod.number(),
+          contractId: zod.number(),
+          title: zod.string(),
+          description: zod.string().optional(),
+          amount: zod.number(),
+          currency: zod.string(),
+          dueDate: zod.coerce.date().nullish(),
+          status: zod.enum([
+            "pending_funding",
+            "funded",
+            "in_progress",
+            "submitted",
+            "revision_requested",
+            "approved",
+            "released",
+            "cancelled",
+            "disputed",
+          ]),
+          sortOrder: zod.number(),
+          fundedAt: zod.coerce.date().nullish(),
+          submittedAt: zod.coerce.date().nullish(),
+          approvedAt: zod.coerce.date().nullish(),
+          releasedAt: zod.coerce.date().nullish(),
+          paymentId: zod.number().nullish(),
+          invoiceId: zod.number().nullish(),
+          invoiceNumber: zod.string().nullish(),
+          deliverables: zod
+            .array(
+              zod.object({
+                id: zod.number(),
+                milestoneId: zod.number(),
+                freelancerId: zod.number(),
+                freelancerName: zod.string().optional(),
+                message: zod.string(),
+                files: zod.array(zod.string()),
+                revisionNumber: zod.number(),
+                submittedAt: zod.coerce.date(),
+              }),
+            )
+            .optional(),
+          createdAt: zod.coerce.date(),
+        }),
+      ),
+    }),
+  );
+
+export const UpdateContractParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const UpdateContractBody = zod.object({
+  action: zod.enum(["cancel", "complete"]),
+  reason: zod.string().nullish(),
+});
+
+export const UpdateContractResponse = zod
+  .object({
+    id: zod.number(),
+    jobId: zod.number(),
+    jobTitle: zod.string(),
+    proposalId: zod.number().optional(),
+    clientId: zod.number(),
+    clientName: zod.string(),
+    freelancerId: zod.number(),
+    freelancerName: zod.string(),
+    title: zod.string().optional(),
+    contractType: zod.enum(["fixed_price", "hourly"]),
+    status: zod.enum([
+      "draft",
+      "pending_client_payment",
+      "active",
+      "submitted_for_review",
+      "revision_requested",
+      "completed",
+      "cancelled",
+      "disputed",
+    ]),
+    totalAmount: zod.number(),
+    currency: zod.string(),
+    platformFeePct: zod.number().optional(),
+    startDate: zod.coerce.date().optional(),
+    endDate: zod.coerce.date().nullish(),
+    createdAt: zod.coerce.date(),
+    milestoneCount: zod.number().optional(),
+    fundedAmount: zod.number().optional(),
+    releasedAmount: zod.number().optional(),
+  })
+  .and(
+    zod.object({
+      scope: zod.string(),
+      cancelledAt: zod.coerce.date().nullish(),
+      cancellationReason: zod.string().nullish(),
+      completedAt: zod.coerce.date().nullish(),
+      milestones: zod.array(
+        zod.object({
+          id: zod.number(),
+          contractId: zod.number(),
+          title: zod.string(),
+          description: zod.string().optional(),
+          amount: zod.number(),
+          currency: zod.string(),
+          dueDate: zod.coerce.date().nullish(),
+          status: zod.enum([
+            "pending_funding",
+            "funded",
+            "in_progress",
+            "submitted",
+            "revision_requested",
+            "approved",
+            "released",
+            "cancelled",
+            "disputed",
+          ]),
+          sortOrder: zod.number(),
+          fundedAt: zod.coerce.date().nullish(),
+          submittedAt: zod.coerce.date().nullish(),
+          approvedAt: zod.coerce.date().nullish(),
+          releasedAt: zod.coerce.date().nullish(),
+          paymentId: zod.number().nullish(),
+          invoiceId: zod.number().nullish(),
+          invoiceNumber: zod.string().nullish(),
+          deliverables: zod
+            .array(
+              zod.object({
+                id: zod.number(),
+                milestoneId: zod.number(),
+                freelancerId: zod.number(),
+                freelancerName: zod.string().optional(),
+                message: zod.string(),
+                files: zod.array(zod.string()),
+                revisionNumber: zod.number(),
+                submittedAt: zod.coerce.date(),
+              }),
+            )
+            .optional(),
+          createdAt: zod.coerce.date(),
+        }),
+      ),
+    }),
+  );
+
+export const ListMilestonesParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const ListMilestonesResponseItem = zod.object({
+  id: zod.number(),
+  contractId: zod.number(),
+  title: zod.string(),
+  description: zod.string().optional(),
+  amount: zod.number(),
+  currency: zod.string(),
+  dueDate: zod.coerce.date().nullish(),
+  status: zod.enum([
+    "pending_funding",
+    "funded",
+    "in_progress",
+    "submitted",
+    "revision_requested",
+    "approved",
+    "released",
+    "cancelled",
+    "disputed",
+  ]),
+  sortOrder: zod.number(),
+  fundedAt: zod.coerce.date().nullish(),
+  submittedAt: zod.coerce.date().nullish(),
+  approvedAt: zod.coerce.date().nullish(),
+  releasedAt: zod.coerce.date().nullish(),
+  paymentId: zod.number().nullish(),
+  invoiceId: zod.number().nullish(),
+  invoiceNumber: zod.string().nullish(),
+  deliverables: zod
+    .array(
+      zod.object({
+        id: zod.number(),
+        milestoneId: zod.number(),
+        freelancerId: zod.number(),
+        freelancerName: zod.string().optional(),
+        message: zod.string(),
+        files: zod.array(zod.string()),
+        revisionNumber: zod.number(),
+        submittedAt: zod.coerce.date(),
+      }),
+    )
+    .optional(),
+  createdAt: zod.coerce.date(),
+});
+export const ListMilestonesResponse = zod.array(ListMilestonesResponseItem);
+
+export const CreateMilestoneParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const CreateMilestoneBody = zod.object({
+  title: zod.string(),
+  description: zod.string().optional(),
+  amount: zod.number(),
+  dueDate: zod.coerce.date().nullish(),
+});
+
+export const CreateMilestoneResponse = zod.object({
+  id: zod.number(),
+  contractId: zod.number(),
+  title: zod.string(),
+  description: zod.string().optional(),
+  amount: zod.number(),
+  currency: zod.string(),
+  dueDate: zod.coerce.date().nullish(),
+  status: zod.enum([
+    "pending_funding",
+    "funded",
+    "in_progress",
+    "submitted",
+    "revision_requested",
+    "approved",
+    "released",
+    "cancelled",
+    "disputed",
+  ]),
+  sortOrder: zod.number(),
+  fundedAt: zod.coerce.date().nullish(),
+  submittedAt: zod.coerce.date().nullish(),
+  approvedAt: zod.coerce.date().nullish(),
+  releasedAt: zod.coerce.date().nullish(),
+  paymentId: zod.number().nullish(),
+  invoiceId: zod.number().nullish(),
+  invoiceNumber: zod.string().nullish(),
+  deliverables: zod
+    .array(
+      zod.object({
+        id: zod.number(),
+        milestoneId: zod.number(),
+        freelancerId: zod.number(),
+        freelancerName: zod.string().optional(),
+        message: zod.string(),
+        files: zod.array(zod.string()),
+        revisionNumber: zod.number(),
+        submittedAt: zod.coerce.date(),
+      }),
+    )
+    .optional(),
+  createdAt: zod.coerce.date(),
+});
+
+export const FundMilestoneParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const FundMilestoneResponse = zod.object({
+  id: zod.number(),
+  contractId: zod.number(),
+  title: zod.string(),
+  description: zod.string().optional(),
+  amount: zod.number(),
+  currency: zod.string(),
+  dueDate: zod.coerce.date().nullish(),
+  status: zod.enum([
+    "pending_funding",
+    "funded",
+    "in_progress",
+    "submitted",
+    "revision_requested",
+    "approved",
+    "released",
+    "cancelled",
+    "disputed",
+  ]),
+  sortOrder: zod.number(),
+  fundedAt: zod.coerce.date().nullish(),
+  submittedAt: zod.coerce.date().nullish(),
+  approvedAt: zod.coerce.date().nullish(),
+  releasedAt: zod.coerce.date().nullish(),
+  paymentId: zod.number().nullish(),
+  invoiceId: zod.number().nullish(),
+  invoiceNumber: zod.string().nullish(),
+  deliverables: zod
+    .array(
+      zod.object({
+        id: zod.number(),
+        milestoneId: zod.number(),
+        freelancerId: zod.number(),
+        freelancerName: zod.string().optional(),
+        message: zod.string(),
+        files: zod.array(zod.string()),
+        revisionNumber: zod.number(),
+        submittedAt: zod.coerce.date(),
+      }),
+    )
+    .optional(),
+  createdAt: zod.coerce.date(),
+});
+
+export const SubmitMilestoneDeliverableParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const SubmitMilestoneDeliverableBody = zod.object({
+  message: zod.string(),
+  files: zod.array(zod.string()).optional(),
+});
+
+export const SubmitMilestoneDeliverableResponse = zod.object({
+  id: zod.number(),
+  contractId: zod.number(),
+  title: zod.string(),
+  description: zod.string().optional(),
+  amount: zod.number(),
+  currency: zod.string(),
+  dueDate: zod.coerce.date().nullish(),
+  status: zod.enum([
+    "pending_funding",
+    "funded",
+    "in_progress",
+    "submitted",
+    "revision_requested",
+    "approved",
+    "released",
+    "cancelled",
+    "disputed",
+  ]),
+  sortOrder: zod.number(),
+  fundedAt: zod.coerce.date().nullish(),
+  submittedAt: zod.coerce.date().nullish(),
+  approvedAt: zod.coerce.date().nullish(),
+  releasedAt: zod.coerce.date().nullish(),
+  paymentId: zod.number().nullish(),
+  invoiceId: zod.number().nullish(),
+  invoiceNumber: zod.string().nullish(),
+  deliverables: zod
+    .array(
+      zod.object({
+        id: zod.number(),
+        milestoneId: zod.number(),
+        freelancerId: zod.number(),
+        freelancerName: zod.string().optional(),
+        message: zod.string(),
+        files: zod.array(zod.string()),
+        revisionNumber: zod.number(),
+        submittedAt: zod.coerce.date(),
+      }),
+    )
+    .optional(),
+  createdAt: zod.coerce.date(),
+});
+
+export const ApproveMilestoneParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const ApproveMilestoneResponse = zod.object({
+  id: zod.number(),
+  contractId: zod.number(),
+  title: zod.string(),
+  description: zod.string().optional(),
+  amount: zod.number(),
+  currency: zod.string(),
+  dueDate: zod.coerce.date().nullish(),
+  status: zod.enum([
+    "pending_funding",
+    "funded",
+    "in_progress",
+    "submitted",
+    "revision_requested",
+    "approved",
+    "released",
+    "cancelled",
+    "disputed",
+  ]),
+  sortOrder: zod.number(),
+  fundedAt: zod.coerce.date().nullish(),
+  submittedAt: zod.coerce.date().nullish(),
+  approvedAt: zod.coerce.date().nullish(),
+  releasedAt: zod.coerce.date().nullish(),
+  paymentId: zod.number().nullish(),
+  invoiceId: zod.number().nullish(),
+  invoiceNumber: zod.string().nullish(),
+  deliverables: zod
+    .array(
+      zod.object({
+        id: zod.number(),
+        milestoneId: zod.number(),
+        freelancerId: zod.number(),
+        freelancerName: zod.string().optional(),
+        message: zod.string(),
+        files: zod.array(zod.string()),
+        revisionNumber: zod.number(),
+        submittedAt: zod.coerce.date(),
+      }),
+    )
+    .optional(),
+  createdAt: zod.coerce.date(),
+});
+
+export const RequestMilestoneRevisionParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const RequestMilestoneRevisionBody = zod.object({
+  reason: zod.string(),
+});
+
+export const RequestMilestoneRevisionResponse = zod.object({
+  id: zod.number(),
+  contractId: zod.number(),
+  title: zod.string(),
+  description: zod.string().optional(),
+  amount: zod.number(),
+  currency: zod.string(),
+  dueDate: zod.coerce.date().nullish(),
+  status: zod.enum([
+    "pending_funding",
+    "funded",
+    "in_progress",
+    "submitted",
+    "revision_requested",
+    "approved",
+    "released",
+    "cancelled",
+    "disputed",
+  ]),
+  sortOrder: zod.number(),
+  fundedAt: zod.coerce.date().nullish(),
+  submittedAt: zod.coerce.date().nullish(),
+  approvedAt: zod.coerce.date().nullish(),
+  releasedAt: zod.coerce.date().nullish(),
+  paymentId: zod.number().nullish(),
+  invoiceId: zod.number().nullish(),
+  invoiceNumber: zod.string().nullish(),
+  deliverables: zod
+    .array(
+      zod.object({
+        id: zod.number(),
+        milestoneId: zod.number(),
+        freelancerId: zod.number(),
+        freelancerName: zod.string().optional(),
+        message: zod.string(),
+        files: zod.array(zod.string()),
+        revisionNumber: zod.number(),
+        submittedAt: zod.coerce.date(),
+      }),
+    )
+    .optional(),
+  createdAt: zod.coerce.date(),
+});
+
+export const GetMyWalletResponse = zod.object({
+  userId: zod.number(),
+  currency: zod.string(),
+  availableBalance: zod.number(),
+  pendingBalance: zod.number(),
+  lifetimeEarnings: zod.number(),
+  transactions: zod.array(
+    zod.object({
+      id: zod.number(),
+      type: zod.string(),
+      amount: zod.number(),
+      currency: zod.string(),
+      refType: zod.string().nullish(),
+      refId: zod.number().nullish(),
+      note: zod.string().nullish(),
+      createdAt: zod.coerce.date(),
+    }),
+  ),
+});
+
+export const RequestPayoutBody = zod.object({
+  amount: zod.number(),
+  note: zod.string().nullish(),
+});
+
+export const RequestPayoutResponse = zod.object({
+  id: zod.number(),
+  freelancerId: zod.number(),
+  freelancerName: zod.string().optional(),
+  amount: zod.number(),
+  currency: zod.string(),
+  status: zod.enum([
+    "requested",
+    "processing",
+    "paid",
+    "rejected",
+    "cancelled",
+  ]),
+  method: zod.string().optional(),
+  note: zod.string().nullish(),
+  reference: zod.string().nullish(),
+  requestedAt: zod.coerce.date(),
+  processedAt: zod.coerce.date().nullish(),
+  processedBy: zod.number().nullish(),
+});
+
+export const ListMyInvoicesResponseItem = zod.object({
+  id: zod.number(),
+  invoiceNumber: zod.string(),
+  contractId: zod.number().nullish(),
+  milestoneId: zod.number().nullish(),
+  paymentId: zod.number().nullish(),
+  clientId: zod.number(),
+  clientName: zod.string().optional(),
+  freelancerId: zod.number(),
+  freelancerName: zod.string().optional(),
+  description: zod.string().optional(),
+  subtotal: zod.number().optional(),
+  vatPct: zod.number().optional(),
+  vatAmount: zod.number().optional(),
+  total: zod.number(),
+  currency: zod.string(),
+  issuedAt: zod.coerce.date(),
+});
+export const ListMyInvoicesResponse = zod.array(ListMyInvoicesResponseItem);
+
+export const GetInvoiceParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const GetInvoiceResponse = zod
+  .object({
+    id: zod.number(),
+    invoiceNumber: zod.string(),
+    contractId: zod.number().nullish(),
+    milestoneId: zod.number().nullish(),
+    paymentId: zod.number().nullish(),
+    clientId: zod.number(),
+    clientName: zod.string().optional(),
+    freelancerId: zod.number(),
+    freelancerName: zod.string().optional(),
+    description: zod.string().optional(),
+    subtotal: zod.number().optional(),
+    vatPct: zod.number().optional(),
+    vatAmount: zod.number().optional(),
+    total: zod.number(),
+    currency: zod.string(),
+    issuedAt: zod.coerce.date(),
+  })
+  .and(
+    zod.object({
+      jobId: zod.number().nullish(),
+      jobTitle: zod.string().nullish(),
+      milestoneTitle: zod.string().nullish(),
+      paymentStatus: zod.string().nullish(),
+    }),
+  );
+
+export const AdminListAuditLogsQueryParams = zod.object({
+  limit: zod.coerce.number().optional(),
+  action: zod.coerce.string().optional(),
+});
+
+export const AdminListAuditLogsResponseItem = zod.object({
+  id: zod.number(),
+  userId: zod.number().nullish(),
+  userName: zod.string().nullish(),
+  action: zod.string(),
+  entityType: zod.string(),
+  entityId: zod.number().nullish(),
+  metadata: zod.record(zod.string(), zod.unknown()).optional(),
+  ip: zod.string().nullish(),
+  userAgent: zod.string().nullish(),
+  createdAt: zod.coerce.date(),
+});
+export const AdminListAuditLogsResponse = zod.array(
+  AdminListAuditLogsResponseItem,
+);
+
+export const AdminListContractsResponseItem = zod.object({
+  id: zod.number(),
+  jobId: zod.number(),
+  jobTitle: zod.string(),
+  proposalId: zod.number().optional(),
+  clientId: zod.number(),
+  clientName: zod.string(),
+  freelancerId: zod.number(),
+  freelancerName: zod.string(),
+  title: zod.string().optional(),
+  contractType: zod.enum(["fixed_price", "hourly"]),
+  status: zod.enum([
+    "draft",
+    "pending_client_payment",
+    "active",
+    "submitted_for_review",
+    "revision_requested",
+    "completed",
+    "cancelled",
+    "disputed",
+  ]),
+  totalAmount: zod.number(),
+  currency: zod.string(),
+  platformFeePct: zod.number().optional(),
+  startDate: zod.coerce.date().optional(),
+  endDate: zod.coerce.date().nullish(),
+  createdAt: zod.coerce.date(),
+  milestoneCount: zod.number().optional(),
+  fundedAmount: zod.number().optional(),
+  releasedAmount: zod.number().optional(),
+});
+export const AdminListContractsResponse = zod.array(
+  AdminListContractsResponseItem,
+);
+
+export const AdminListPayoutsResponseItem = zod.object({
+  id: zod.number(),
+  freelancerId: zod.number(),
+  freelancerName: zod.string().optional(),
+  amount: zod.number(),
+  currency: zod.string(),
+  status: zod.enum([
+    "requested",
+    "processing",
+    "paid",
+    "rejected",
+    "cancelled",
+  ]),
+  method: zod.string().optional(),
+  note: zod.string().nullish(),
+  reference: zod.string().nullish(),
+  requestedAt: zod.coerce.date(),
+  processedAt: zod.coerce.date().nullish(),
+  processedBy: zod.number().nullish(),
+});
+export const AdminListPayoutsResponse = zod.array(AdminListPayoutsResponseItem);
+
+export const AdminProcessPayoutParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const AdminProcessPayoutBody = zod.object({
+  reference: zod.string().nullish(),
+  note: zod.string().nullish(),
+});
+
+export const AdminProcessPayoutResponse = zod.object({
+  id: zod.number(),
+  freelancerId: zod.number(),
+  freelancerName: zod.string().optional(),
+  amount: zod.number(),
+  currency: zod.string(),
+  status: zod.enum([
+    "requested",
+    "processing",
+    "paid",
+    "rejected",
+    "cancelled",
+  ]),
+  method: zod.string().optional(),
+  note: zod.string().nullish(),
+  reference: zod.string().nullish(),
+  requestedAt: zod.coerce.date(),
+  processedAt: zod.coerce.date().nullish(),
+  processedBy: zod.number().nullish(),
 });

@@ -680,6 +680,486 @@ paths:
               schema:
                 $ref: "#/components/schemas/Complaint"
 
+  /auth/refresh:
+    post:
+      operationId: refreshToken
+      tags: [auth]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RefreshTokenBody"
+      responses:
+        "200":
+          description: Refreshed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResponse"
+  /auth/logout:
+    post:
+      operationId: logout
+      tags: [auth]
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LogoutBody"
+      responses:
+        "200":
+          description: Logged out
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SimpleOk"
+  /auth/forgot-password:
+    post:
+      operationId: forgotPassword
+      tags: [auth]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ForgotPasswordBody"
+      responses:
+        "200":
+          description: Reset email queued
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ForgotPasswordResponse"
+  /auth/reset-password:
+    post:
+      operationId: resetPassword
+      tags: [auth]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ResetPasswordBody"
+      responses:
+        "200":
+          description: Password reset
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SimpleOk"
+  /auth/verify-email:
+    post:
+      operationId: verifyEmail
+      tags: [auth]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/VerifyEmailBody"
+      responses:
+        "200":
+          description: Email verified
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SimpleOk"
+  /auth/resend-verification:
+    post:
+      operationId: resendVerification
+      tags: [auth]
+      responses:
+        "200":
+          description: Verification email queued
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ForgotPasswordResponse"
+  /auth/change-password:
+    post:
+      operationId: changePassword
+      tags: [auth]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ChangePasswordBody"
+      responses:
+        "200":
+          description: Password changed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SimpleOk"
+
+  /verifications:
+    get:
+      operationId: getMyVerification
+      tags: [verifications]
+      responses:
+        "200":
+          description: Latest verification submission for the current user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VerificationDetail"
+    post:
+      operationId: submitVerification
+      tags: [verifications]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SubmitVerificationBody"
+      responses:
+        "200":
+          description: Submitted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VerificationDetail"
+  /admin/verifications:
+    get:
+      operationId: adminListVerifications
+      tags: [admin]
+      parameters:
+        - in: query
+          name: status
+          required: false
+          schema:
+            type: string
+      responses:
+        "200":
+          description: Verifications
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/VerificationDetail"
+  /admin/verifications/{id}:
+    patch:
+      operationId: adminReviewVerification
+      tags: [admin]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AdminReviewVerificationBody"
+      responses:
+        "200":
+          description: Reviewed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/VerificationDetail"
+
+  /contracts:
+    get:
+      operationId: listMyContracts
+      tags: [contracts]
+      responses:
+        "200":
+          description: Contracts
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ContractSummary"
+  /contracts/{id}:
+    get:
+      operationId: getContract
+      tags: [contracts]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Contract detail
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ContractDetail"
+    patch:
+      operationId: updateContract
+      tags: [contracts]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateContractBody"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ContractDetail"
+
+  /contracts/{id}/milestones:
+    get:
+      operationId: listMilestones
+      tags: [contracts]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Milestones
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/MilestoneDetail"
+    post:
+      operationId: createMilestone
+      tags: [contracts]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateMilestoneBody"
+      responses:
+        "200":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MilestoneDetail"
+  /milestones/{id}/fund:
+    post:
+      operationId: fundMilestone
+      tags: [contracts]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Funded
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MilestoneDetail"
+  /milestones/{id}/submit:
+    post:
+      operationId: submitMilestoneDeliverable
+      tags: [contracts]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SubmitDeliverableBody"
+      responses:
+        "200":
+          description: Submitted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MilestoneDetail"
+  /milestones/{id}/approve:
+    post:
+      operationId: approveMilestone
+      tags: [contracts]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Approved
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MilestoneDetail"
+  /milestones/{id}/request-revision:
+    post:
+      operationId: requestMilestoneRevision
+      tags: [contracts]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RequestRevisionBody"
+      responses:
+        "200":
+          description: Revision requested
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/MilestoneDetail"
+
+  /wallet/me:
+    get:
+      operationId: getMyWallet
+      tags: [wallet]
+      responses:
+        "200":
+          description: Wallet
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WalletDetail"
+  /wallet/payouts:
+    post:
+      operationId: requestPayout
+      tags: [wallet]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RequestPayoutBody"
+      responses:
+        "200":
+          description: Payout requested
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PayoutDetail"
+
+  /invoices:
+    get:
+      operationId: listMyInvoices
+      tags: [invoices]
+      responses:
+        "200":
+          description: Invoices
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/InvoiceSummary"
+  /invoices/{id}:
+    get:
+      operationId: getInvoice
+      tags: [invoices]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Invoice
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InvoiceDetail"
+
+  /admin/audit-logs:
+    get:
+      operationId: adminListAuditLogs
+      tags: [admin]
+      parameters:
+        - in: query
+          name: limit
+          required: false
+          schema: { type: integer }
+        - in: query
+          name: action
+          required: false
+          schema: { type: string }
+      responses:
+        "200":
+          description: Audit logs
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AuditLogEntry"
+  /admin/contracts:
+    get:
+      operationId: adminListContracts
+      tags: [admin]
+      responses:
+        "200":
+          description: All contracts
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/ContractSummary"
+  /admin/payouts:
+    get:
+      operationId: adminListPayouts
+      tags: [admin]
+      responses:
+        "200":
+          description: Payouts
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/PayoutDetail"
+  /admin/payouts/{id}/process:
+    post:
+      operationId: adminProcessPayout
+      tags: [admin]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProcessPayoutBody"
+      responses:
+        "200":
+          description: Processed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PayoutDetail"
+
 components:
   schemas:
     HealthStatus:
@@ -694,7 +1174,52 @@ components:
 
     UserStatus:
       type: string
-      enum: [active, suspended]
+      enum: [active, suspended, pending_email_verification, banned, deleted]
+
+    VerificationStatus:
+      type: string
+      enum: [not_submitted, pending, verified, rejected, expired]
+
+    ContractStatus:
+      type: string
+      enum:
+        [
+          draft,
+          pending_client_payment,
+          active,
+          submitted_for_review,
+          revision_requested,
+          completed,
+          cancelled,
+          disputed,
+        ]
+
+    ContractType:
+      type: string
+      enum: [fixed_price, hourly]
+
+    MilestoneStatus:
+      type: string
+      enum:
+        [
+          pending_funding,
+          funded,
+          in_progress,
+          submitted,
+          revision_requested,
+          approved,
+          released,
+          cancelled,
+          disputed,
+        ]
+
+    PaymentStatus:
+      type: string
+      enum: [pending, held, released, refunded, failed, succeeded]
+
+    PayoutStatus:
+      type: string
+      enum: [requested, processing, paid, rejected, cancelled]
 
     RegisterBody:
       type: object
@@ -720,6 +1245,8 @@ components:
       required: [token, user]
       properties:
         token: { type: string }
+        refreshToken: { type: ["string", "null"] }
+        emailVerificationDevToken: { type: ["string", "null"] }
         user: { $ref: "#/components/schemas/Me" }
 
     Me:
@@ -733,6 +1260,13 @@ components:
         status: { $ref: "#/components/schemas/UserStatus" }
         avatarUrl: { type: ["string", "null"] }
         createdAt: { type: string, format: date-time }
+        emailVerifiedAt: { type: ["string", "null"], format: date-time }
+        lastLoginAt: { type: ["string", "null"], format: date-time }
+        phone: { type: ["string", "null"] }
+        country: { type: ["string", "null"] }
+        city: { type: ["string", "null"] }
+        verificationStatus:
+          $ref: "#/components/schemas/VerificationStatus"
 
     Category:
       type: object
@@ -1080,6 +1614,12 @@ components:
         payerName: { type: string }
         payeeName: { type: string }
         invoiceNumber: { type: string }
+        contractId: { type: ["integer", "null"] }
+        milestoneId: { type: ["integer", "null"] }
+        platformFeeAmount: { type: number }
+        freelancerNetAmount: { type: number }
+        heldAt: { type: ["string", "null"], format: date-time }
+        releasedAt: { type: ["string", "null"], format: date-time }
         createdAt: { type: string, format: date-time }
 
     CreatePaymentIntentBody:
@@ -1175,3 +1715,318 @@ components:
       properties:
         subject: { type: string }
         body: { type: string }
+
+    SimpleOk:
+      type: object
+      required: [ok]
+      properties:
+        ok: { type: boolean }
+        message: { type: ["string", "null"] }
+
+    RefreshTokenBody:
+      type: object
+      required: [refreshToken]
+      properties:
+        refreshToken: { type: string }
+
+    LogoutBody:
+      type: object
+      properties:
+        refreshToken: { type: ["string", "null"] }
+
+    ForgotPasswordBody:
+      type: object
+      required: [email]
+      properties:
+        email: { type: string }
+
+    ForgotPasswordResponse:
+      type: object
+      required: [ok]
+      properties:
+        ok: { type: boolean }
+        devToken: { type: ["string", "null"] }
+
+    ResetPasswordBody:
+      type: object
+      required: [token, newPassword]
+      properties:
+        token: { type: string }
+        newPassword: { type: string }
+
+    VerifyEmailBody:
+      type: object
+      required: [token]
+      properties:
+        token: { type: string }
+
+    ChangePasswordBody:
+      type: object
+      required: [currentPassword, newPassword]
+      properties:
+        currentPassword: { type: string }
+        newPassword: { type: string }
+
+    SubmitVerificationBody:
+      type: object
+      required: [kind, documentUrls]
+      properties:
+        kind:
+          type: string
+          enum: [identity, trade_license]
+        documentUrls:
+          type: array
+          items: { type: string }
+        fullLegalName: { type: ["string", "null"] }
+        documentNumber: { type: ["string", "null"] }
+        notes: { type: ["string", "null"] }
+
+    VerificationDetail:
+      type: object
+      required: [id, userId, userName, kind, documentUrls, status, submittedAt]
+      properties:
+        id: { type: integer }
+        userId: { type: integer }
+        userName: { type: string }
+        userEmail: { type: string }
+        userRole: { $ref: "#/components/schemas/Role" }
+        kind: { type: string }
+        documentUrls:
+          type: array
+          items: { type: string }
+        fullLegalName: { type: ["string", "null"] }
+        documentNumber: { type: ["string", "null"] }
+        notes: { type: ["string", "null"] }
+        status: { $ref: "#/components/schemas/VerificationStatus" }
+        rejectionReason: { type: ["string", "null"] }
+        submittedAt: { type: string, format: date-time }
+        reviewedAt: { type: ["string", "null"], format: date-time }
+        reviewedBy: { type: ["integer", "null"] }
+
+    AdminReviewVerificationBody:
+      type: object
+      required: [decision]
+      properties:
+        decision:
+          type: string
+          enum: [approve, reject]
+        reason: { type: ["string", "null"] }
+
+    ContractSummary:
+      type: object
+      required: [id, jobId, jobTitle, clientId, clientName, freelancerId, freelancerName, contractType, status, totalAmount, currency, createdAt]
+      properties:
+        id: { type: integer }
+        jobId: { type: integer }
+        jobTitle: { type: string }
+        proposalId: { type: integer }
+        clientId: { type: integer }
+        clientName: { type: string }
+        freelancerId: { type: integer }
+        freelancerName: { type: string }
+        title: { type: string }
+        contractType: { $ref: "#/components/schemas/ContractType" }
+        status: { $ref: "#/components/schemas/ContractStatus" }
+        totalAmount: { type: number }
+        currency: { type: string }
+        platformFeePct: { type: number }
+        startDate: { type: string, format: date-time }
+        endDate: { type: ["string", "null"], format: date-time }
+        createdAt: { type: string, format: date-time }
+        milestoneCount: { type: integer }
+        fundedAmount: { type: number }
+        releasedAmount: { type: number }
+
+    ContractDetail:
+      allOf:
+        - $ref: "#/components/schemas/ContractSummary"
+        - type: object
+          required: [scope, milestones]
+          properties:
+            scope: { type: string }
+            cancelledAt: { type: ["string", "null"], format: date-time }
+            cancellationReason: { type: ["string", "null"] }
+            completedAt: { type: ["string", "null"], format: date-time }
+            milestones:
+              type: array
+              items:
+                $ref: "#/components/schemas/MilestoneDetail"
+
+    UpdateContractBody:
+      type: object
+      required: [action]
+      properties:
+        action:
+          type: string
+          enum: [cancel, complete]
+        reason: { type: ["string", "null"] }
+
+    MilestoneDetail:
+      type: object
+      required: [id, contractId, title, amount, currency, status, sortOrder, createdAt]
+      properties:
+        id: { type: integer }
+        contractId: { type: integer }
+        title: { type: string }
+        description: { type: string }
+        amount: { type: number }
+        currency: { type: string }
+        dueDate: { type: ["string", "null"], format: date-time }
+        status: { $ref: "#/components/schemas/MilestoneStatus" }
+        sortOrder: { type: integer }
+        fundedAt: { type: ["string", "null"], format: date-time }
+        submittedAt: { type: ["string", "null"], format: date-time }
+        approvedAt: { type: ["string", "null"], format: date-time }
+        releasedAt: { type: ["string", "null"], format: date-time }
+        paymentId: { type: ["integer", "null"] }
+        invoiceId: { type: ["integer", "null"] }
+        invoiceNumber: { type: ["string", "null"] }
+        deliverables:
+          type: array
+          items:
+            $ref: "#/components/schemas/DeliverableDetail"
+        createdAt: { type: string, format: date-time }
+
+    CreateMilestoneBody:
+      type: object
+      required: [title, amount]
+      properties:
+        title: { type: string }
+        description: { type: string }
+        amount: { type: number }
+        dueDate: { type: ["string", "null"], format: date-time }
+
+    SubmitDeliverableBody:
+      type: object
+      required: [message]
+      properties:
+        message: { type: string }
+        files:
+          type: array
+          items: { type: string }
+
+    DeliverableDetail:
+      type: object
+      required: [id, milestoneId, freelancerId, message, files, revisionNumber, submittedAt]
+      properties:
+        id: { type: integer }
+        milestoneId: { type: integer }
+        freelancerId: { type: integer }
+        freelancerName: { type: string }
+        message: { type: string }
+        files:
+          type: array
+          items: { type: string }
+        revisionNumber: { type: integer }
+        submittedAt: { type: string, format: date-time }
+
+    RequestRevisionBody:
+      type: object
+      required: [reason]
+      properties:
+        reason: { type: string }
+
+    WalletDetail:
+      type: object
+      required: [userId, currency, availableBalance, pendingBalance, lifetimeEarnings, transactions]
+      properties:
+        userId: { type: integer }
+        currency: { type: string }
+        availableBalance: { type: number }
+        pendingBalance: { type: number }
+        lifetimeEarnings: { type: number }
+        transactions:
+          type: array
+          items:
+            $ref: "#/components/schemas/WalletTransactionEntry"
+
+    WalletTransactionEntry:
+      type: object
+      required: [id, type, amount, currency, createdAt]
+      properties:
+        id: { type: integer }
+        type: { type: string }
+        amount: { type: number }
+        currency: { type: string }
+        refType: { type: ["string", "null"] }
+        refId: { type: ["integer", "null"] }
+        note: { type: ["string", "null"] }
+        createdAt: { type: string, format: date-time }
+
+    RequestPayoutBody:
+      type: object
+      required: [amount]
+      properties:
+        amount: { type: number }
+        note: { type: ["string", "null"] }
+
+    PayoutDetail:
+      type: object
+      required: [id, freelancerId, amount, currency, status, requestedAt]
+      properties:
+        id: { type: integer }
+        freelancerId: { type: integer }
+        freelancerName: { type: string }
+        amount: { type: number }
+        currency: { type: string }
+        status: { $ref: "#/components/schemas/PayoutStatus" }
+        method: { type: string }
+        note: { type: ["string", "null"] }
+        reference: { type: ["string", "null"] }
+        requestedAt: { type: string, format: date-time }
+        processedAt: { type: ["string", "null"], format: date-time }
+        processedBy: { type: ["integer", "null"] }
+
+    ProcessPayoutBody:
+      type: object
+      properties:
+        reference: { type: ["string", "null"] }
+        note: { type: ["string", "null"] }
+
+    InvoiceSummary:
+      type: object
+      required: [id, invoiceNumber, clientId, freelancerId, total, currency, issuedAt]
+      properties:
+        id: { type: integer }
+        invoiceNumber: { type: string }
+        contractId: { type: ["integer", "null"] }
+        milestoneId: { type: ["integer", "null"] }
+        paymentId: { type: ["integer", "null"] }
+        clientId: { type: integer }
+        clientName: { type: string }
+        freelancerId: { type: integer }
+        freelancerName: { type: string }
+        description: { type: string }
+        subtotal: { type: number }
+        vatPct: { type: number }
+        vatAmount: { type: number }
+        total: { type: number }
+        currency: { type: string }
+        issuedAt: { type: string, format: date-time }
+
+    InvoiceDetail:
+      allOf:
+        - $ref: "#/components/schemas/InvoiceSummary"
+        - type: object
+          properties:
+            jobId: { type: ["integer", "null"] }
+            jobTitle: { type: ["string", "null"] }
+            milestoneTitle: { type: ["string", "null"] }
+            paymentStatus: { type: ["string", "null"] }
+
+    AuditLogEntry:
+      type: object
+      required: [id, action, entityType, createdAt]
+      properties:
+        id: { type: integer }
+        userId: { type: ["integer", "null"] }
+        userName: { type: ["string", "null"] }
+        action: { type: string }
+        entityType: { type: string }
+        entityId: { type: ["integer", "null"] }
+        metadata:
+          type: object
+          additionalProperties: true
+        ip: { type: ["string", "null"] }
+        userAgent: { type: ["string", "null"] }
+        createdAt: { type: string, format: date-time }

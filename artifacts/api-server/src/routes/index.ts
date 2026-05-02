@@ -10,6 +10,10 @@ import reviewsRouter from "./reviews";
 import notificationsRouter from "./notifications";
 import paymentsRouter from "./payments";
 import adminRouter from "./admin";
+import verificationsRouter from "./verifications";
+import contractsRouter from "./contracts";
+import walletRouter from "./wallet";
+import invoicesRouter from "./invoices";
 import { attachUser } from "../lib/auth";
 
 const router: IRouter = Router();
@@ -26,6 +30,10 @@ router.use(conversationsRouter);
 router.use(reviewsRouter);
 router.use(notificationsRouter);
 router.use(paymentsRouter);
+router.use(verificationsRouter);
+router.use(contractsRouter);
+router.use(walletRouter);
+router.use(invoicesRouter);
 router.use(adminRouter);
 
 export default router;

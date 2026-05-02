@@ -8,6 +8,13 @@ export const usersTable = pgTable("users", {
   role: text("role").notNull(),
   status: text("status").notNull().default("active"),
   avatarUrl: text("avatar_url"),
+  emailVerifiedAt: timestamp("email_verified_at", { withTimezone: true }),
+  lastLoginAt: timestamp("last_login_at", { withTimezone: true }),
+  lastLoginIp: text("last_login_ip"),
+  lastLoginUa: text("last_login_ua"),
+  phone: text("phone"),
+  country: text("country"),
+  city: text("city"),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 

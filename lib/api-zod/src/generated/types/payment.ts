@@ -16,5 +16,15 @@ export interface Payment {
   payerName: string;
   payeeName: string;
   invoiceNumber?: string;
+  /** @nullable */
+  contractId?: number | null;
+  /** @nullable */
+  milestoneId?: number | null;
+  platformFeeAmount?: number;
+  freelancerNetAmount?: number;
+  /** @nullable */
+  heldAt?: Date | null;
+  /** @nullable */
+  releasedAt?: Date | null;
   createdAt: Date;
 }

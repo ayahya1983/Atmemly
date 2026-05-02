@@ -10,6 +10,7 @@ export const freelancerProfilesTable = pgTable("freelancer_profiles", {
   location: text("location").notNull().default("Dubai, UAE"),
   skills: text("skills").array().notNull().default([]),
   portfolio: jsonb("portfolio").$type<Array<{ title: string; url: string; description?: string | null }>>().notNull().default([]),
+  verificationStatus: text("verification_status").notNull().default("not_submitted"),
 });
 
 export type FreelancerProfile = typeof freelancerProfilesTable.$inferSelect;

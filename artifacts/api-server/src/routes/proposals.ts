@@ -8,7 +8,9 @@ import {
   freelancerProfilesTable,
   notificationsTable,
   reviewsTable,
+  contractsTable,
 } from "@workspace/db";
+import { audit } from "../lib/audit";
 import {
   ListProposalsQueryParams,
   ListProposalsResponse,
@@ -213,6 +215,59 @@ router.patch(
         .update(jobsTable)
         .set({ status: "in_progress" })
         .where(eq(jobsTable.id, existing.j.id));
+      // Reject all other pending proposals on this job
+      await db
+        .update(proposalsTable)
+        .set({ status: "rejected" })
+        .where(
+          and(
+            eq(proposalsTable.jobId, existing.j.id),
+            eq(proposalsTable.status, "pending"),
+          ),
+        );
+      // Auto-create contract if one doesn't exist already for this proposal.
+      // The DB has a UNIQUE INDEX on contracts.proposal_id, so concurrent inserts
+      // are de-duplicated at the storage layer; we catch the duplicate-key error
+      // and treat it as a no-op.
+      const totalAmount = Number(existing.p.expectedRate);
+      let createdContractId: number | null = null;
+      try {
+        const [contract] = await db
+          .insert(contractsTable)
+          .values({
+            jobId: existing.j.id,
+            clientId: existing.j.clientId,
+            freelancerId: existing.p.freelancerId,
+            proposalId: existing.p.id,
+            contractType: existing.j.budgetType === "hourly" ? "hourly" : "fixed_price",
+            title: existing.j.title,
+            scope: existing.p.coverLetter,
+            totalAmount: String(totalAmount),
+            currency: existing.j.currency,
+            platformFeePct: "10",
+            status: "pending_client_payment",
+          })
+          .returning();
+        createdContractId = contract!.id;
+      } catch (e) {
+        const err = e as { code?: string };
+        // 23505 = unique_violation (postgres). A concurrent acceptance won the race.
+        if (err.code !== "23505") throw e;
+      }
+      if (createdContractId !== null) {
+        await db.insert(notificationsTable).values({
+          userId: existing.p.freelancerId,
+          kind: "contract",
+          title: "Contract created",
+          body: `A contract for "${existing.j.title}" is awaiting client payment.`,
+          link: `/dashboard/freelancer/contracts/${createdContractId}`,
+        });
+        await audit(req, "contract.create", "contract", createdContractId, {
+          proposalId: existing.p.id,
+          jobId: existing.j.id,
+          totalAmount,
+        });
+      }
     }
     await db.insert(notificationsTable).values({
       userId: existing.p.freelancerId,
