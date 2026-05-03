@@ -1,0 +1,50 @@
+name: atmemly
+
+services:
+  api-server:
+    image: atmemly/api-server:latest
+    build:
+      context: ../..
+      dockerfile: artifacts/api-server/Dockerfile
+    restart: unless-stopped
+    env_file:
+      - /opt/atmemly/.env
+    environment:
+      NODE_ENV: production
+      PORT: "8080"
+    expose:
+      - "8080"
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8080/api/healthz"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    networks:
+      - atmemly
+
+  nginx:
+    image: atmemly/nginx:latest
+    build:
+      context: ./nginx
+    restart: unless-stopped
+    depends_on:
+      api-server:
+        condition: service_healthy
+    ports:
+      - "80:80"
+    volumes:
+      - marketplace_static:/srv/marketplace:ro
+      - admin_static:/srv/admin:ro
+    networks:
+      - atmemly
+
+networks:
+  atmemly:
+    driver: bridge
+
+volumes:
+  marketplace_static:
+    external: false
+  admin_static:
+    external: false
