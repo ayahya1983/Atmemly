@@ -22,6 +22,34 @@
       "when": 1777777000000,
       "tag": "0002_atmemly_sso_binding",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1777778000000,
+      "tag": "0003_atmemly_cms_complete",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1777779000000,
+      "tag": "0004_atmemly_cms_testimonials_role",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1777780000000,
+      "tag": "0005_atmemly_cms_localization_settings",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1777781000000,
+      "tag": "0006_atmemly_cms_category_seo",
+      "breakpoints": true
     }
   ]
 }

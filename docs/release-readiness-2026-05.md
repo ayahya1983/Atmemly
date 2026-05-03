@@ -13,19 +13,19 @@ the repo for a clean public push.
 
 ## 1. Branding sweep
 
-Search for residual "Khidma" / Arabic equivalents across the repo
+Search for residual "ATMEMLY (legacy)" / Arabic equivalents across the repo
 (excluding `attached_assets/`, `.local/`, `node_modules/`):
 
 ```bash
-rg -i "khidma|خدمة|خِدمة" --glob '!attached_assets/**' --glob '!.local/**'
+rg -i "atmemly|خدمة|خِدمة" --glob '!attached_assets/**' --glob '!.local/**'
 ```
 
 Result: only **3 lines**, all in `artifacts/mobile/lib/api.ts`:
 
 ```
-const LEGACY_TOKEN_KEY = "khidma.token";
-const LEGACY_USER_KEY  = "khidma.user";
-const LEGACY_LANG_KEY  = "khidma.lang";
+const LEGACY_TOKEN_KEY = "atmemly.token";
+const LEGACY_USER_KEY  = "atmemly.user";
+const LEGACY_LANG_KEY  = "atmemly.lang";
 ```
 
 These are **intentional** — kept so existing mobile installs migrate
@@ -54,7 +54,7 @@ packages (`admin`, `api-server`, `marketplace`, `mobile`,
   is committed and matches the schema.
 - Seed script `artifacts/api-server/src/seed.ts` references
   `BRAND.supportEmail`, `BRAND.companyName`, etc. (no hardcoded
-  Khidma strings). Seed runs successfully against a clean DB.
+  ATMEMLY (legacy) strings). Seed runs successfully against a clean DB.
 - A stale `platform_settings` row from a pre-rebrand seed run was
   manually corrected in the dev DB (`support_email`,
   `manual_bank_account_name`). Code already wrote the correct values;
@@ -173,7 +173,7 @@ of internal prompt files.
 ## Commands run
 
 ```
-rg -i "khidma|خدمة|خِدمة" --glob '!attached_assets/**' --glob '!.local/**'
+rg -i "atmemly|خدمة|خِدمة" --glob '!attached_assets/**' --glob '!.local/**'
 rg "sk_live|sk_test_[A-Za-z0-9]{20,}|whsec_[A-Za-z0-9]{20,}|pk_live" ...
 pnpm run typecheck
 git status

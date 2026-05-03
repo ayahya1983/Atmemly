@@ -1,7 +1,7 @@
 # ATMEMLY — Enterprise Architecture Audit (May 2026)
 
 **Scope.** A safe, additive hardening pass over the ATMEMLY (formerly
-"Khidma") freelance-marketplace monorepo: API server, shared DB, admin
+"ATMEMLY (legacy)") freelance-marketplace monorepo: API server, shared DB, admin
 panel and mobile app. **No breaking API changes**, **no destructive
 migrations**, **no rebuilds**. Out-of-scope work that overlapped with
 parallel tasks (#2 ATMEMLY rebrand, #3 admin RBAC, #4 admin UI, #8
@@ -103,10 +103,10 @@ the prior May 2026 audit. Verified during this pass:
 |---|----------|------|-------|
 | 1 | medium   | perf  | `/admin/clients` ran one `SUM(payments.amount)` query **per row** on the visible page (classic N+1). |
 | 2 | low      | perf  | `/admin/users` (legacy v1) does the same per-row pattern for `jobsCount` / `proposalsCount`. |
-| 3 | low      | brand | `Khidma` still appears in user-facing copy: README title, replit.md, mobile artifact title, `.env.example MANUAL_BANK_ACCOUNT_NAME`. |
-| 4 | low      | brand | Mobile AsyncStorage keys are `khidma.token` / `khidma.user` / `khidma.lang`. Not strictly user-facing, but inconsistent with the rebrand. |
-| 5 | low      | brand | `seed.ts` writes admin/freelancer accounts at `*@khidma.ae`. |
-| 6 | info     | brand | `attached_assets/` contains 46 references to "Khidma" (design references and historical snapshots). |
+| 3 | low      | brand | `ATMEMLY (legacy)` still appears in user-facing copy: README title, replit.md, mobile artifact title, `.env.example MANUAL_BANK_ACCOUNT_NAME`. |
+| 4 | low      | brand | Mobile AsyncStorage keys are `atmemly.token` / `atmemly.user` / `atmemly.lang`. Not strictly user-facing, but inconsistent with the rebrand. |
+| 5 | low      | brand | `seed.ts` writes admin/freelancer accounts at `*@atmemly.com`. |
+| 6 | info     | brand | `attached_assets/` contains 46 references to "ATMEMLY (legacy)" (design references and historical snapshots). |
 | 7 | low      | infra | DB schema previously used `drizzle-kit push` exclusively, with no SQL migration files committed. (Addressed in this pass — see Applied #2.) |
 
 ---
@@ -200,7 +200,7 @@ the prior May 2026 audit. Verified during this pass:
    - `README.md` title and intro line.
    - `replit.md` H1 and Overview/System-Architecture paragraphs.
    - `artifacts/mobile/.replit-artifact/artifact.toml` title
-     (`"Khidma Mobile"` → `"ATMEMLY Mobile"`, applied via
+     (`"ATMEMLY (legacy) Mobile"` → `"ATMEMLY Mobile"`, applied via
      `verifyAndReplaceArtifactToml` per the artifacts skill).
    - `.env.example` — `MANUAL_BANK_ACCOUNT_NAME` now reads
      `ATMEMLY Marketplace LLC`.
@@ -229,13 +229,13 @@ the prior May 2026 audit. Verified during this pass:
    functions; rewriting it without a contract change is straightforward
    but is overlap with task #4 (admin UI consolidation). Left for that
    task.
-2. **Mobile AsyncStorage rebrand (`khidma.token` / `khidma.user` /
-   `khidma.lang`).** Renaming the storage keys would silently log out
+2. **Mobile AsyncStorage rebrand (`atmemly.token` / `atmemly.user` /
+   `atmemly.lang`).** Renaming the storage keys would silently log out
    every existing mobile user. Doing it safely needs a one-time
    read-old / write-new migration in `loadToken()`/`getStoredUser()`.
    That is task #10's responsibility per the task split. Storage keys
    are not user-visible strings, so no UX impact today.
-3. **`seed.ts` admin emails on `@khidma.ae`.** Task #9 owns the seed
+3. **`seed.ts` admin emails on `@atmemly.com`.** Task #9 owns the seed
    data refresh; touching the seed script here would conflict with
    that task's planned restructure. Left untouched.
 4. **`attached_assets/`.** Per scope, design references / historical

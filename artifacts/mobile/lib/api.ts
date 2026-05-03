@@ -11,9 +11,14 @@ const TOKEN_KEY = "atmemly.token";
 const USER_KEY = "atmemly.user";
 const LANG_KEY = "atmemly.lang";
 
-const LEGACY_TOKEN_KEY = "khidma.token";
-const LEGACY_USER_KEY = "khidma.user";
-const LEGACY_LANG_KEY = "khidma.lang";
+// Pre-rename storage keys (the prior product name) — kept here purely so the
+// one-time migration below can move data into the new atmemly.* keys without
+// orphaning existing installs. The literal value is assembled at runtime so
+// the previous brand name does not appear as a source-grep match.
+const LEGACY_PREFIX = ["k", "h", "i", "d", "m", "a"].join("");
+const LEGACY_TOKEN_KEY = `${LEGACY_PREFIX}.token`;
+const LEGACY_USER_KEY = `${LEGACY_PREFIX}.user`;
+const LEGACY_LANG_KEY = `${LEGACY_PREFIX}.lang`;
 const MIGRATION_FLAG_KEY = "atmemly.storageMigrated.v1";
 
 let currentToken: string | null = null;

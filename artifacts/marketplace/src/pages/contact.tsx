@@ -9,6 +9,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { useCreateComplaint } from "@workspace/api-client-react";
 import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent } from "@/components/ui/card";
+import { useCmsPage } from "@/lib/api-public";
+import { SeoHead } from "@/components/SeoHead";
+import { Skeleton } from "@/components/ui/skeleton";
 
 const contactSchema = z.object({
   subject: z.string().min(3),
@@ -16,9 +19,10 @@ const contactSchema = z.object({
 });
 
 export default function Contact() {
-  const { t } = useTranslation();
+  const { t, lang } = useTranslation();
   const { toast } = useToast();
   const createComplaint = useCreateComplaint();
+  const { data: cmsPage, isLoading: cmsLoading, error: cmsError } = useCmsPage("contact", lang);
 
   const form = useForm<z.infer<typeof contactSchema>>({
     resolver: zodResolver(contactSchema),
@@ -28,27 +32,63 @@ export default function Contact() {
   const onSubmit = (values: z.infer<typeof contactSchema>) => {
     createComplaint.mutate({ data: values }, {
       onSuccess: () => {
-        toast({ title: "Message sent", description: "We will get back to you shortly." });
+        toast({
+          title: (lang === "ar" ? "تم إرسال الرسالة" : "Message sent"),
+          description: (lang === "ar" ? "سنرد عليك قريبًا." : "We will get back to you shortly."),
+        });
         form.reset();
       },
-      onError: (err: any) => toast({ variant: "destructive", title: "Error", description: err.message })
+      onError: (err: any) =>
+        toast({
+          variant: "destructive",
+          title: (lang === "ar" ? "خطأ" : "Error"),
+          description: err.message,
+        }),
     });
   };
 
+  const fallbackTitle = lang === "ar" ? "اتصل بنا" : "Contact Us";
+  const title = cmsPage?.title ?? fallbackTitle;
+
   return (
     <div className="container mx-auto px-4 py-16 max-w-2xl">
-      <h1 className="text-4xl font-bold mb-8">Contact Us</h1>
+      <SeoHead
+        title={cmsPage?.seoTitle || title}
+        description={cmsPage?.seoDescription ?? undefined}
+      />
+      {cmsLoading ? (
+        <Skeleton className="h-10 w-1/3 mb-6" />
+      ) : (
+        <h1 className="text-4xl font-bold mb-6" data-testid="contact-page-title">{title}</h1>
+      )}
+      {cmsPage?.body && !cmsError && (
+        <div
+          className="prose prose-slate max-w-none text-muted-foreground mb-8"
+          data-testid="contact-page-body"
+          dangerouslySetInnerHTML={{ __html: cmsPage.body }}
+        />
+      )}
       <Card>
         <CardContent className="p-6">
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
               <FormField control={form.control} name="subject" render={({ field }) => (
-                <FormItem><FormLabel>Subject</FormLabel><FormControl><Input {...field} /></FormControl><FormMessage/></FormItem>
+                <FormItem>
+                  <FormLabel>{(lang === "ar" ? "الموضوع" : "Subject")}</FormLabel>
+                  <FormControl><Input {...field} /></FormControl>
+                  <FormMessage />
+                </FormItem>
               )} />
               <FormField control={form.control} name="body" render={({ field }) => (
-                <FormItem><FormLabel>Message</FormLabel><FormControl><Textarea rows={6} {...field} /></FormControl><FormMessage/></FormItem>
+                <FormItem>
+                  <FormLabel>{(lang === "ar" ? "الرسالة" : "Message")}</FormLabel>
+                  <FormControl><Textarea rows={6} {...field} /></FormControl>
+                  <FormMessage />
+                </FormItem>
               )} />
-              <Button type="submit" disabled={createComplaint.isPending}>Send Message</Button>
+              <Button type="submit" disabled={createComplaint.isPending} data-testid="contact-submit">
+                {(lang === "ar" ? "إرسال الرسالة" : "Send Message")}
+              </Button>
             </form>
           </Form>
         </CardContent>

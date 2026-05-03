@@ -1,18 +1,32 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { type ReactNode, useEffect } from "react";
+import { useLocalizationStrings, useLocalizationSettings } from "./api-public";
 
 type Language = "en" | "ar";
 type Currency = "AED" | "USD";
 
 export function LanguageProvider({ children }: { children: ReactNode }) {
   const lang = useI18nStore((s) => s.lang);
+  const setLang = useI18nStore((s) => s.setLang);
+  const { data: locSettings } = useLocalizationSettings();
+
   useEffect(() => {
-    if (typeof document !== "undefined") {
-      document.documentElement.dir = lang === "ar" ? "rtl" : "ltr";
-      document.documentElement.lang = lang;
+    if (!locSettings) return;
+    const enabled = locSettings.enabledLocales ?? ["ar", "en"];
+    if (!enabled.includes(lang)) {
+      const fallback = (locSettings.defaultLocale as Language) ?? "ar";
+      if (fallback === "ar" || fallback === "en") setLang(fallback);
     }
-  }, [lang]);
+  }, [locSettings, lang, setLang]);
+
+  useEffect(() => {
+    if (typeof document === "undefined") return;
+    const rtlList = locSettings?.rtlLocales ?? ["ar"];
+    const isRtl = rtlList.includes(lang) || (locSettings?.isRtlByDefault === true && lang === locSettings.defaultLocale);
+    document.documentElement.dir = isRtl ? "rtl" : "ltr";
+    document.documentElement.lang = lang;
+  }, [lang, locSettings]);
   return children as never;
 }
 
@@ -94,6 +108,8 @@ const translations: Record<Language, Record<string, string>> = {
     "section.blog.subtitle": "Tips, guides and stories for freelancers and clients",
     "section.faq.title": "Frequently Asked Questions",
     "section.faq.subtitle": "Everything you need to know about ATMEMLY",
+    "page.blog.title": "Blog",
+    "page.blog.subtitle": "Latest insights and tips for freelance work in the GCC.",
     "section.app.title": "Get the ATMEMLY mobile app",
     "section.app.body": "Manage your projects, chat with clients and receive payments — anywhere.",
     "section.app.appStore": "App Store",
@@ -168,6 +184,8 @@ const translations: Record<Language, Record<string, string>> = {
     "section.blog.subtitle": "نصائح وأدلة وقصص للمستقلين والعملاء",
     "section.faq.title": "الأسئلة الشائعة",
     "section.faq.subtitle": "كل ما تحتاج معرفته عن منصة أتمملي",
+    "page.blog.title": "المدونة",
+    "page.blog.subtitle": "أحدث الرؤى والنصائح حول العمل الحر في منطقة الخليج.",
     "section.app.title": "حمّل تطبيق أتمملي للجوال",
     "section.app.body": "أدر مشاريعك وتواصل مع عملائك واستلم مدفوعاتك من أي مكان.",
     "section.app.appStore": "App Store",
@@ -202,12 +220,31 @@ const translations: Record<Language, Record<string, string>> = {
 
 export function useTranslation() {
   const { lang, setLang, currency, setCurrency } = useI18nStore();
+  const { data: locSettings } = useLocalizationSettings();
+  const fallbackLocale = (locSettings?.fallbackLocale as Language | undefined) ?? "en";
+  const { data: cmsStrings } = useLocalizationStrings(lang);
+  const { data: cmsFallbackStrings } = useLocalizationStrings(fallbackLocale);
 
   const t = (key: string): string => {
-    return translations[lang]?.[key] || key;
+    const cmsValue = cmsStrings?.[key];
+    if (typeof cmsValue === "string" && cmsValue.length > 0) return cmsValue;
+    if (fallbackLocale !== lang) {
+      const cmsFb = cmsFallbackStrings?.[key];
+      if (typeof cmsFb === "string" && cmsFb.length > 0) return cmsFb;
+    }
+    if (import.meta.env.DEV) {
+      const own = translations[lang]?.[key];
+      if (own) return own;
+      if (fallbackLocale !== lang) {
+        const fb = translations[fallbackLocale]?.[key];
+        if (fb) return fb;
+      }
+    }
+    return key;
   };
 
-  const isRtl = lang === "ar";
+  const rtlList = locSettings?.rtlLocales ?? ["ar"];
+  const isRtl = rtlList.includes(lang);
 
   return { t, lang, setLang, isRtl, currency, setCurrency };
 }
@@ -240,8 +277,6 @@ export function formatCurrency(
   return `${code} ${amount.toLocaleString("en-AE")}`;
 }
 
-// Display amount in user's selected currency. The platform is AED-native;
-// FX is approximate and meant for display, not for transactions.
 export function formatPriceDisplay(amount: number, sourceCurrency: string, lang: Language, displayCurrency: Currency): string {
   const src = sourceCurrency.toUpperCase() as Currency;
   if (src === displayCurrency) {

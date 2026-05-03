@@ -18,14 +18,21 @@ import {
 
 interface TestiRow {
   id: number; locale: string; authorName: string; authorTitle: string | null;
+  role: string | null; company: string | null; location: string | null;
+  quoteAr: string | null; quoteEn: string | null;
   body: string; rating: number; avatarUrl: string | null; isFeatured: boolean; sortOrder: number;
 }
 interface TestiForm {
   locale: "en" | "ar"; authorName: string; authorTitle: string;
+  role: string; company: string; location: string;
+  quoteAr: string; quoteEn: string;
   body: string; rating: number; avatarUrl: string; isFeatured: boolean; sortOrder: number;
 }
 const emptyForm: TestiForm = {
-  locale: "en", authorName: "", authorTitle: "", body: "",
+  locale: "en", authorName: "", authorTitle: "",
+  role: "", company: "", location: "",
+  quoteAr: "", quoteEn: "",
+  body: "",
   rating: 5, avatarUrl: "", isFeatured: false, sortOrder: 0,
 };
 
@@ -46,7 +53,17 @@ export default function AdminTestimonials() {
   const [form, setForm] = useState<TestiForm>(emptyForm);
 
   const formToBody = (f: TestiForm) => ({
-    ...f, authorTitle: f.authorTitle || null, avatarUrl: f.avatarUrl || null,
+    ...f,
+    authorTitle: f.authorTitle || null,
+    avatarUrl: f.avatarUrl || null,
+    role: f.role || null,
+    company: f.company || null,
+    location: f.location || null,
+    quoteAr: f.quoteAr || null,
+    quoteEn: f.quoteEn || null,
+    // body is auto-derived from the locale-appropriate quote when bilingual
+    // values are supplied; we still send it for back-compat with old readers.
+    body: f.body || (f.locale === "ar" ? f.quoteAr : f.quoteEn) || f.quoteEn || f.quoteAr || "",
   });
   const createMutation = useAdminMutation<TestiForm>((f) => adminApi.post("/admin/testimonials", formToBody(f)), [key, ["public-testimonials"]]);
   const updateMutation = useAdminMutation<{ id: number; data: TestiForm }>(
@@ -59,6 +76,8 @@ export default function AdminTestimonials() {
     setEditing(r);
     setForm({
       locale: r.locale as "en" | "ar", authorName: r.authorName, authorTitle: r.authorTitle ?? "",
+      role: r.role ?? "", company: r.company ?? "", location: r.location ?? "",
+      quoteAr: r.quoteAr ?? "", quoteEn: r.quoteEn ?? "",
       body: r.body, rating: r.rating, avatarUrl: r.avatarUrl ?? "",
       isFeatured: r.isFeatured, sortOrder: r.sortOrder,
     });
@@ -202,8 +221,17 @@ export default function AdminTestimonials() {
           </div>
         </div>
         <div><Label>{lang === "ar" ? "الاسم" : "Author Name"}</Label><Input value={form.authorName} onChange={(e) => setForm({ ...form, authorName: e.target.value })} /></div>
-        <div><Label>{lang === "ar" ? "المسمى الوظيفي" : "Author Title"}</Label><Input value={form.authorTitle} onChange={(e) => setForm({ ...form, authorTitle: e.target.value })} /></div>
-        <div><Label>{lang === "ar" ? "الرأي" : "Body"}</Label><Textarea value={form.body} onChange={(e) => setForm({ ...form, body: e.target.value })} rows={4} /></div>
+        <div><Label>{lang === "ar" ? "المسمى الوظيفي (قديم)" : "Author Title (legacy)"}</Label><Input value={form.authorTitle} onChange={(e) => setForm({ ...form, authorTitle: e.target.value })} /></div>
+        <div className="grid grid-cols-3 gap-3">
+          <div><Label>{lang === "ar" ? "الدور" : "Role"}</Label><Input value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value })} /></div>
+          <div><Label>{lang === "ar" ? "الشركة" : "Company"}</Label><Input value={form.company} onChange={(e) => setForm({ ...form, company: e.target.value })} /></div>
+          <div><Label>{lang === "ar" ? "الموقع" : "Location"}</Label><Input value={form.location} onChange={(e) => setForm({ ...form, location: e.target.value })} /></div>
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          <div><Label>{lang === "ar" ? "الاقتباس (عربي)" : "Quote (Arabic)"}</Label><Textarea dir="rtl" value={form.quoteAr} onChange={(e) => setForm({ ...form, quoteAr: e.target.value })} rows={3} /></div>
+          <div><Label>{lang === "ar" ? "الاقتباس (إنجليزي)" : "Quote (English)"}</Label><Textarea value={form.quoteEn} onChange={(e) => setForm({ ...form, quoteEn: e.target.value })} rows={3} /></div>
+        </div>
+        <div><Label>{lang === "ar" ? "النص الموحد (قديم)" : "Body (legacy single-locale)"}</Label><Textarea value={form.body} onChange={(e) => setForm({ ...form, body: e.target.value })} rows={2} /></div>
         <div><Label>{lang === "ar" ? "صورة (URL)" : "Avatar URL"}</Label><Input value={form.avatarUrl} onChange={(e) => setForm({ ...form, avatarUrl: e.target.value })} /></div>
         <div className="grid grid-cols-2 gap-3 items-end">
           <div><Label>Sort Order</Label><Input type="number" value={form.sortOrder} onChange={(e) => setForm({ ...form, sortOrder: Number(e.target.value) || 0 })} /></div>

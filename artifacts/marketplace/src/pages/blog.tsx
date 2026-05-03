@@ -1,6 +1,7 @@
-import { Link } from "wouter";
+import { Link, useSearch } from "wouter";
 import { useTranslation } from "@/lib/i18n";
-import { useBlogPosts } from "@/lib/api-public";
+import { useBlogPosts, useBlogCategories } from "@/lib/api-public";
+import { SeoHead } from "@/components/SeoHead";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -8,18 +9,46 @@ import { formatDistanceToNow } from "date-fns";
 import { ar as arLocale } from "date-fns/locale";
 
 export default function Blog() {
-  const { lang } = useTranslation();
+  const { lang, t } = useTranslation();
+  const search = useSearch();
+  const categoryFilter = new URLSearchParams(search).get("category");
   const { data: posts, isLoading } = useBlogPosts(lang);
+  const { data: categories } = useBlogCategories();
+  const activeCat = categoryFilter ? categories?.find((c) => c.slug === categoryFilter) : undefined;
+  const visiblePosts = activeCat
+    ? (posts ?? []).filter((p) => p.category === activeCat.slug || p.categoryId === activeCat.id)
+    : (posts ?? []);
+  const seoTitle = activeCat ? (lang === "ar" ? activeCat.seoTitleAr : activeCat.seoTitleEn) : undefined;
+  const seoDescription = activeCat ? (lang === "ar" ? activeCat.seoDescriptionAr : activeCat.seoDescriptionEn) : undefined;
 
   return (
     <div className="container mx-auto px-4 py-12">
+      <SeoHead
+        title={seoTitle ?? (activeCat ? (lang === "ar" ? activeCat.nameAr : activeCat.nameEn) : undefined)}
+        description={seoDescription ?? undefined}
+        image={activeCat?.seoImageUrl ?? undefined}
+      />
       <div className="mb-10">
-        <h1 className="text-4xl font-bold mb-3">{lang === "ar" ? "المدونة" : "Blog"}</h1>
-        <p className="text-muted-foreground">
-          {lang === "ar"
-            ? "أحدث الرؤى والنصائح حول العمل الحر في منطقة الخليج."
-            : "Latest insights and tips for freelance work in the GCC."}
-        </p>
+        <h1 className="text-4xl font-bold mb-3" data-testid="blog-page-title">
+          {activeCat ? (lang === "ar" ? activeCat.nameAr : activeCat.nameEn) : t("page.blog.title")}
+        </h1>
+        <p className="text-muted-foreground">{t("page.blog.subtitle")}</p>
+        {(categories?.length ?? 0) > 0 && (
+          <div className="flex gap-2 mt-4 flex-wrap" data-testid="blog-categories-filter">
+            <Link href="/blog">
+              <Badge variant={!activeCat ? "default" : "outline"} className="cursor-pointer">
+                {lang === "ar" ? "الكل" : "All"}
+              </Badge>
+            </Link>
+            {categories!.filter((c) => c.isActive).map((c) => (
+              <Link key={c.id} href={`/blog?category=${c.slug}`}>
+                <Badge variant={activeCat?.id === c.id ? "default" : "outline"} className="cursor-pointer">
+                  {lang === "ar" ? c.nameAr : c.nameEn}
+                </Badge>
+              </Link>
+            ))}
+          </div>
+        )}
       </div>
 
       {isLoading ? (
@@ -28,7 +57,7 @@ export default function Blog() {
             <Skeleton key={i} className="h-72" />
           ))}
         </div>
-      ) : !posts || posts.length === 0 ? (
+      ) : !visiblePosts || visiblePosts.length === 0 ? (
         <Card>
           <CardContent className="p-12 text-center text-muted-foreground">
             {lang === "ar" ? "لا توجد مقالات منشورة بعد." : "No blog posts published yet."}
@@ -36,7 +65,7 @@ export default function Blog() {
         </Card>
       ) : (
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-          {posts.map((post) => (
+          {visiblePosts.map((post) => (
             <Link key={post.id} href={`/blog/${post.slug}`}>
               <Card className="h-full overflow-hidden hover:shadow-lg transition-shadow cursor-pointer group">
                 {post.coverUrl ? (

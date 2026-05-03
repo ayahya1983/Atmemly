@@ -10,26 +10,37 @@ import { Badge } from "@/components/ui/badge";
 import { useTranslation } from "@/lib/i18n";
 import { useAuth } from "@/contexts/AuthContext";
 import { hasPermission } from "@/lib/permissions";
-import { Plus, Pencil, Trash2 } from "lucide-react";
+import { Plus, Pencil, Trash2, Star } from "lucide-react";
 import {
   DataTable, type Column, StatusBadge, PageHeader, FilterBar, ConfirmActionDialog, FormDialog,
   ImageUploadField,
 } from "@/components/admin";
 
+type Status = "draft" | "published" | "archived";
+
 interface BlogRow {
   id: number; slug: string; locale: string; title: string;
   excerpt: string | null; body: string; coverUrl: string | null;
-  category: string | null; tags: string[] | null; isPublished: boolean;
+  category: string | null; categoryId: number | null;
+  tags: string[] | null;
+  isPublished: boolean; isFeatured: boolean; status: Status;
+  seoTitle: string | null; seoDescription: string | null;
   publishedAt: string | null; updatedAt: string;
 }
 
 interface BlogForm {
   slug: string; locale: "en" | "ar"; title: string; excerpt: string; body: string;
-  coverUrl: string; category: string; tags: string; isPublished: boolean;
+  coverUrl: string; category: string; categoryId: number | null; tags: string;
+  status: Status; isFeatured: boolean;
+  seoTitle: string; seoDescription: string;
 }
 const emptyForm: BlogForm = {
-  slug: "", locale: "en", title: "", excerpt: "", body: "", coverUrl: "", category: "", tags: "", isPublished: false,
+  slug: "", locale: "en", title: "", excerpt: "", body: "", coverUrl: "",
+  category: "", categoryId: null, tags: "",
+  status: "draft", isFeatured: false, seoTitle: "", seoDescription: "",
 };
+
+interface BlogCategory { id: number; slug: string; nameEn: string; nameAr: string; isActive: boolean }
 
 export default function AdminBlog() {
   const { lang } = useTranslation();
@@ -39,9 +50,10 @@ export default function AdminBlog() {
 
   const key = ["admin-blog"];
   const { data, isLoading } = useAdminGet<BlogRow[]>(key, "/admin/blog");
+  const { data: cats } = useAdminGet<BlogCategory[]>(["admin-blog-categories"], "/admin/blog/categories");
 
   const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState("all");
+  const [statusFilter, setStatusFilter] = useState<"all" | Status>("all");
   const [localeFilter, setLocaleFilter] = useState("all");
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<BlogRow | null>(null);
@@ -50,8 +62,11 @@ export default function AdminBlog() {
   const formToBody = (f: BlogForm) => ({
     slug: f.slug, locale: f.locale, title: f.title, excerpt: f.excerpt, body: f.body,
     coverUrl: f.coverUrl || null, category: f.category || null,
+    categoryId: f.categoryId,
     tags: f.tags ? f.tags.split(",").map((t) => t.trim()).filter(Boolean) : [],
-    isPublished: f.isPublished,
+    status: f.status, isFeatured: f.isFeatured,
+    isPublished: f.status === "published",
+    seoTitle: f.seoTitle || null, seoDescription: f.seoDescription || null,
   });
 
   const createMutation = useAdminMutation<BlogForm>((f) => adminApi.post("/admin/blog", formToBody(f)), [key, ["public-blog"], ["public-blog-post"]]);
@@ -66,7 +81,11 @@ export default function AdminBlog() {
     setForm({
       slug: row.slug, locale: row.locale as "en" | "ar", title: row.title,
       excerpt: row.excerpt ?? "", body: row.body, coverUrl: row.coverUrl ?? "",
-      category: row.category ?? "", tags: (row.tags ?? []).join(", "), isPublished: row.isPublished,
+      category: row.category ?? "", categoryId: row.categoryId,
+      tags: (row.tags ?? []).join(", "),
+      status: row.status ?? (row.isPublished ? "published" : "draft"),
+      isFeatured: !!row.isFeatured,
+      seoTitle: row.seoTitle ?? "", seoDescription: row.seoDescription ?? "",
     });
     setOpen(true);
   };
@@ -76,7 +95,7 @@ export default function AdminBlog() {
   };
 
   const filtered = (data ?? []).filter((p) =>
-    (statusFilter === "all" || (statusFilter === "published" ? p.isPublished : !p.isPublished)) &&
+    (statusFilter === "all" || (p.status ?? (p.isPublished ? "published" : "draft")) === statusFilter) &&
     (localeFilter === "all" || p.locale === localeFilter),
   );
 
@@ -84,14 +103,22 @@ export default function AdminBlog() {
     {
       key: "title",
       header: lang === "ar" ? "العنوان" : "Title",
-      cell: (p) => <span className="font-medium block max-w-md truncate">{p.title}</span>,
+      cell: (p) => (
+        <span className="font-medium block max-w-md truncate">
+          {p.isFeatured && <Star className="inline w-3 h-3 mr-1 text-yellow-500 fill-yellow-500" />}
+          {p.title}
+        </span>
+      ),
       sortValue: (p) => p.title,
       searchValue: (p) => `${p.title} ${p.slug}`,
     },
     {
       key: "category",
       header: lang === "ar" ? "الفئة" : "Category",
-      cell: (p) => p.category ?? "—",
+      cell: (p) => {
+        const cat = cats?.find((c) => c.id === p.categoryId);
+        return cat ? (lang === "ar" ? cat.nameAr : cat.nameEn) : (p.category ?? "—");
+      },
       sortValue: (p) => p.category ?? "",
       searchValue: (p) => p.category ?? "",
     },
@@ -102,10 +129,10 @@ export default function AdminBlog() {
       sortValue: (p) => p.locale,
     },
     {
-      key: "isPublished",
+      key: "status",
       header: lang === "ar" ? "الحالة" : "Status",
-      cell: (p) => <StatusBadge status={p.isPublished ? "published" : "draft"} />,
-      sortValue: (p) => (p.isPublished ? 1 : 0),
+      cell: (p) => <StatusBadge status={p.status ?? (p.isPublished ? "published" : "draft")} />,
+      sortValue: (p) => p.status ?? "",
     },
     {
       key: "updatedAt",
@@ -153,10 +180,11 @@ export default function AdminBlog() {
         searchPlaceholder={lang === "ar" ? "بحث بالعنوان أو المعرف" : "Search title or slug"}
         onReset={() => { setSearch(""); setStatusFilter("all"); setLocaleFilter("all"); }}
       >
-        <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="h-9 rounded-md border border-input bg-background px-2 text-sm">
+        <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value as "all" | Status)} className="h-9 rounded-md border border-input bg-background px-2 text-sm" data-testid="select-blog-status-filter">
           <option value="all">{lang === "ar" ? "كل الحالات" : "All statuses"}</option>
-          <option value="published">Published</option>
           <option value="draft">Draft</option>
+          <option value="published">Published</option>
+          <option value="archived">Archived</option>
         </select>
         <select value={localeFilter} onChange={(e) => setLocaleFilter(e.target.value)} className="h-9 rounded-md border border-input bg-background px-2 text-sm">
           <option value="all">{lang === "ar" ? "كل اللغات" : "All locales"}</option>
@@ -183,7 +211,7 @@ export default function AdminBlog() {
         onSubmit={save}
       >
         <div className="grid grid-cols-2 gap-3">
-          <div><Label>Slug</Label><Input value={form.slug} onChange={(e) => setForm({ ...form, slug: e.target.value })} /></div>
+          <div><Label>Slug</Label><Input value={form.slug} onChange={(e) => setForm({ ...form, slug: e.target.value })} data-testid="input-blog-slug" /></div>
           <div>
             <Label>Locale</Label>
             <Select value={form.locale} onValueChange={(v) => setForm({ ...form, locale: v as "en" | "ar" })}>
@@ -195,9 +223,9 @@ export default function AdminBlog() {
             </Select>
           </div>
         </div>
-        <div><Label>{lang === "ar" ? "العنوان" : "Title"}</Label><Input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} /></div>
-        <div><Label>{lang === "ar" ? "المقتطف" : "Excerpt"}</Label><Textarea value={form.excerpt} onChange={(e) => setForm({ ...form, excerpt: e.target.value })} rows={2} /></div>
-        <div><Label>{lang === "ar" ? "المحتوى (HTML)" : "Body (HTML)"}</Label><Textarea value={form.body} onChange={(e) => setForm({ ...form, body: e.target.value })} rows={10} className="font-mono text-sm" /></div>
+        <div><Label>{lang === "ar" ? "العنوان" : "Title"}</Label><Input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} dir={form.locale === "ar" ? "rtl" : "ltr"} /></div>
+        <div><Label>{lang === "ar" ? "المقتطف" : "Excerpt"}</Label><Textarea value={form.excerpt} onChange={(e) => setForm({ ...form, excerpt: e.target.value })} dir={form.locale === "ar" ? "rtl" : "ltr"} rows={2} /></div>
+        <div><Label>{lang === "ar" ? "المحتوى (HTML)" : "Body (HTML)"}</Label><Textarea value={form.body} onChange={(e) => setForm({ ...form, body: e.target.value })} dir={form.locale === "ar" ? "rtl" : "ltr"} rows={10} className="font-mono text-sm" /></div>
         <div className="grid grid-cols-2 gap-3">
           <ImageUploadField
             label={lang === "ar" ? "صورة الغلاف" : "Cover image"}
@@ -206,12 +234,43 @@ export default function AdminBlog() {
             kind="blog-cover"
             testId="blog-cover"
           />
-          <div><Label>{lang === "ar" ? "الفئة" : "Category"}</Label><Input value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })} /></div>
+          <div>
+            <Label>{lang === "ar" ? "الفئة" : "Category"}</Label>
+            <Select
+              value={form.categoryId == null ? "_none" : String(form.categoryId)}
+              onValueChange={(v) => setForm({ ...form, categoryId: v === "_none" ? null : Number(v) })}
+            >
+              <SelectTrigger data-testid="select-blog-category"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="_none">{lang === "ar" ? "بدون" : "None"}</SelectItem>
+                {(cats ?? []).filter((c) => c.isActive).map((c) => (
+                  <SelectItem key={c.id} value={String(c.id)}>{lang === "ar" ? c.nameAr : c.nameEn}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
         </div>
         <div><Label>{lang === "ar" ? "العلامات (مفصولة بفواصل)" : "Tags (comma separated)"}</Label><Input value={form.tags} onChange={(e) => setForm({ ...form, tags: e.target.value })} /></div>
-        <div className="flex items-center gap-2">
-          <Switch checked={form.isPublished} onCheckedChange={(c) => setForm({ ...form, isPublished: c })} id="bp" />
-          <Label htmlFor="bp">{lang === "ar" ? "منشور" : "Published"}</Label>
+        <div className="grid grid-cols-2 gap-3">
+          <div><Label>SEO Title</Label><Input value={form.seoTitle} onChange={(e) => setForm({ ...form, seoTitle: e.target.value })} data-testid="input-blog-seo-title" /></div>
+          <div><Label>SEO Description</Label><Input value={form.seoDescription} onChange={(e) => setForm({ ...form, seoDescription: e.target.value })} data-testid="input-blog-seo-description" /></div>
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <Label>{lang === "ar" ? "الحالة" : "Status"}</Label>
+            <Select value={form.status} onValueChange={(v) => setForm({ ...form, status: v as Status })}>
+              <SelectTrigger data-testid="select-blog-status"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="draft">Draft</SelectItem>
+                <SelectItem value="published">Published</SelectItem>
+                <SelectItem value="archived">Archived</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="flex items-end gap-2">
+            <Switch checked={form.isFeatured} onCheckedChange={(c) => setForm({ ...form, isFeatured: c })} id="bp-featured" data-testid="switch-blog-featured" />
+            <Label htmlFor="bp-featured">{lang === "ar" ? "مميّز" : "Featured"}</Label>
+          </div>
         </div>
       </FormDialog>
     </div>

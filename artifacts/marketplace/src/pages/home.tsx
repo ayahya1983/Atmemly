@@ -5,10 +5,10 @@ import {
   useListFreelancers,
   useListJobs,
 } from "@workspace/api-client-react";
-import { useBlogPosts, useFaqs, useTestimonials } from "@/lib/api-public";
+import { useBlogPosts, useFaqs, useTestimonials, useCmsHomepage, safeHref } from "@/lib/api-public";
 import { BRAND } from "@workspace/branding";
 import { Link } from "wouter";
-import { useState } from "react";
+import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -112,6 +112,32 @@ export default function Home() {
   const { data: blog } = useBlogPosts(lang);
   const { data: faqs } = useFaqs(lang);
   const { data: testimonials } = useTestimonials(lang);
+  const { data: homepageCms } = useCmsHomepage();
+
+  const cmsHero = homepageCms?.hero;
+  const heroTitle = (cmsHero && (lang === "ar" ? cmsHero.titleAr : cmsHero.titleEn)) || t("hero.title");
+  const heroBody = (cmsHero && (lang === "ar" ? cmsHero.subtitleAr : cmsHero.subtitleEn)) || t("hero.body");
+  const heroSearchPlaceholder = (cmsHero && (lang === "ar" ? cmsHero.searchPlaceholderAr : cmsHero.searchPlaceholderEn)) || t("hero.search.placeholder");
+  const heroImage = cmsHero?.imageUrl || `${import.meta.env.BASE_URL}assets/hero/gcc-talent-hero.png`;
+  const sectionMap = new Map((homepageCms?.sections ?? []).map((s) => [s.key, s]));
+  const sectionVisible = (key: string): boolean => {
+    const sec = sectionMap.get(key);
+    return sec ? sec.isVisible : true;
+  };
+  const sectionTitle = (key: string, fallback: string): string => {
+    const sec = sectionMap.get(key);
+    if (!sec) return fallback;
+    return (lang === "ar" ? sec.titleAr : sec.titleEn) || fallback;
+  };
+  const sectionSubtitle = (key: string, fallback: string): string => {
+    const sec = sectionMap.get(key);
+    if (!sec) return fallback;
+    return (lang === "ar" ? sec.subtitleAr : sec.subtitleEn) || fallback;
+  };
+  const ctaPrimaryLabel = (cmsHero && (lang === "ar" ? cmsHero.ctaPrimaryLabelAr : cmsHero.ctaPrimaryLabelEn)) || t("section.cta.primary");
+  const ctaSecondaryLabel = (cmsHero && (lang === "ar" ? cmsHero.ctaSecondaryLabelAr : cmsHero.ctaSecondaryLabelEn)) || t("section.cta.secondary");
+  const ctaPrimaryHref = safeHref(cmsHero?.ctaPrimaryHref, "/register");
+  const ctaSecondaryHref = safeHref(cmsHero?.ctaSecondaryHref, "/login");
 
   const Arrow = isRtl ? ArrowLeft : ArrowRight;
 
@@ -147,10 +173,10 @@ export default function Home() {
                 {t("hero.eyebrow")}
               </p>
               <h1 className="text-4xl md:text-6xl font-extrabold tracking-tight text-primary leading-tight">
-                {t("hero.title")}
+                {heroTitle}
               </h1>
               <p className="text-base md:text-lg text-foreground/80 leading-relaxed max-w-xl">
-                {t("hero.body")}
+                {heroBody}
               </p>
 
               {/* Search bar */}
@@ -179,7 +205,7 @@ export default function Home() {
                 <Input
                   value={searchQ}
                   onChange={(e) => setSearchQ(e.target.value)}
-                  placeholder={t("hero.search.placeholder")}
+                  placeholder={heroSearchPlaceholder}
                   className="flex-1 border-0 shadow-none focus-visible:ring-0 bg-transparent"
                   data-testid="input-search-query"
                 />
@@ -211,7 +237,7 @@ export default function Home() {
               <div className="relative aspect-square max-w-md mx-auto">
                 <div className="absolute inset-4 rounded-full bg-primary/10 blur-3xl" />
                 <img
-                  src={`${import.meta.env.BASE_URL}assets/hero/gcc-talent-hero.png`}
+                  src={heroImage}
                   alt={isRtl ? "أتمملي — منصة المستقلين العرب في الإمارات والخليج" : "ATMEMLY — UAE & GCC freelance marketplace"}
                   width={600}
                   height={600}
@@ -249,12 +275,18 @@ export default function Home() {
         </div>
       </section>
 
-      {/* ── 2. CATEGORIES ──────────────────────────────────────────── */}
+      {/* CMS-driven sections — rendered below in CMS sortOrder. */}
+      {(() => {
+        const sectionDefs = (homepageCms?.sections ?? []).slice().sort((a, b) => a.sortOrder - b.sortOrder);
+        const knownKeys = new Set(sectionDefs.map((s) => s.key));
+        const sectionNodes: Record<string, React.ReactNode> = {
+          categories: (
+      <>{sectionVisible("categories") && (
       <section className="py-16 md:py-20 bg-background" data-testid="categories-section">
         <div className="container mx-auto px-4">
           <SectionHeader
-            title={t("section.categories.title")}
-            subtitle={t("section.categories.subtitle")}
+            title={sectionTitle("categories", t("section.categories.title"))}
+            subtitle={sectionSubtitle("categories", t("section.categories.subtitle"))}
             href="/freelancers"
             t={t}
           />
@@ -283,14 +315,15 @@ export default function Home() {
               : Array(8).fill(0).map((_, i) => <Skeleton key={i} className="h-32 rounded-xl" />)}
           </div>
         </div>
-      </section>
-
-      {/* ── 3. RECOMMENDED SERVICES ────────────────────────────────── */}
+      </section>)}</>
+          ),
+          featured_services: (
+      <>{sectionVisible("featured_services") && (
       <section className="py-16 md:py-20 bg-secondary/30" data-testid="recommended-services-section">
         <div className="container mx-auto px-4">
           <SectionHeader
-            title={t("section.recommended.title")}
-            subtitle={t("section.recommended.subtitle")}
+            title={sectionTitle("featured_services", t("section.recommended.title"))}
+            subtitle={sectionSubtitle("featured_services", t("section.recommended.subtitle"))}
             href="/freelancers"
             t={t}
           />
@@ -361,14 +394,15 @@ export default function Home() {
                 ))}
           </div>
         </div>
-      </section>
-
-      {/* ── 4. BEST FREELANCERS ────────────────────────────────────── */}
+      </section>)}</>
+          ),
+          featured_freelancers: (
+      <>{sectionVisible("featured_freelancers") && (
       <section className="py-16 md:py-20 bg-background" data-testid="best-freelancers-section">
         <div className="container mx-auto px-4">
           <SectionHeader
-            title={t("section.bestFreelancers.title")}
-            subtitle={t("section.bestFreelancers.subtitle")}
+            title={sectionTitle("featured_freelancers", t("section.bestFreelancers.title"))}
+            subtitle={sectionSubtitle("featured_freelancers", t("section.bestFreelancers.subtitle"))}
             href="/freelancers"
             t={t}
           />
@@ -455,14 +489,15 @@ export default function Home() {
                 })}
           </div>
         </div>
-      </section>
-
-      {/* ── 5. LATEST PROJECTS ─────────────────────────────────────── */}
+      </section>)}</>
+          ),
+          featured_jobs: (
+      <>{sectionVisible("featured_jobs") && (
       <section className="py-16 md:py-20 bg-secondary/30" data-testid="latest-projects-section">
         <div className="container mx-auto px-4">
           <SectionHeader
-            title={t("section.latestProjects.title")}
-            subtitle={t("section.latestProjects.subtitle")}
+            title={sectionTitle("featured_jobs", t("section.latestProjects.title"))}
+            subtitle={sectionSubtitle("featured_jobs", t("section.latestProjects.subtitle"))}
             href="/jobs"
             t={t}
           />
@@ -517,40 +552,41 @@ export default function Home() {
                 ))}
           </div>
         </div>
-      </section>
-
-      {/* ── 6. CTA ─────────────────────────────────────────────────── */}
+      </section>)}</>
+          ),
+          cta: (
+      <>{sectionVisible("cta") && (
       <section className="py-16 md:py-20 bg-primary text-primary-foreground" data-testid="cta-section">
         <div className="container mx-auto px-4 text-center max-w-3xl">
-          <h2 className="text-3xl md:text-4xl font-bold mb-4">{t("section.cta.title")}</h2>
-          <p className="text-base md:text-lg text-primary-foreground/85 mb-8">{t("section.cta.body")}</p>
+          <h2 className="text-3xl md:text-4xl font-bold mb-4">{sectionTitle("cta", t("section.cta.title"))}</h2>
+          <p className="text-base md:text-lg text-primary-foreground/85 mb-8">{sectionSubtitle("cta", t("section.cta.body"))}</p>
           <div className="flex flex-col sm:flex-row gap-3 justify-center">
-            <Link href="/register">
+            <Link href={ctaPrimaryHref}>
               <Button size="lg" variant="secondary" className="text-base h-12 px-8 font-semibold" data-testid="cta-register">
-                {t("section.cta.primary")}
+                {ctaPrimaryLabel}
               </Button>
             </Link>
-            <Link href="/login">
+            <Link href={ctaSecondaryHref}>
               <Button
                 size="lg"
                 variant="outline"
                 className="text-base h-12 px-8 font-semibold bg-transparent border-primary-foreground/40 text-primary-foreground hover:bg-primary-foreground hover:text-primary"
                 data-testid="cta-login"
               >
-                {t("section.cta.secondary")}
+                {ctaSecondaryLabel}
               </Button>
             </Link>
           </div>
         </div>
-      </section>
-
-      {/* ── 7. TESTIMONIALS ────────────────────────────────────────── */}
-      {testimonials && testimonials.length > 0 && (
+      </section>)}</>
+          ),
+          testimonials: (
+      <>{sectionVisible("testimonials") && testimonials && testimonials.length > 0 && (
         <section className="py-16 md:py-20 bg-background" data-testid="testimonials-section">
           <div className="container mx-auto px-4">
             <SectionHeader
-              title={t("section.testimonials.title")}
-              subtitle={t("section.testimonials.subtitle")}
+              title={sectionTitle("testimonials", t("section.testimonials.title"))}
+              subtitle={sectionSubtitle("testimonials", t("section.testimonials.subtitle"))}
               t={t}
             />
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
@@ -605,15 +641,15 @@ export default function Home() {
             </div>
           </div>
         </section>
-      )}
-
-      {/* ── 8. BLOG ────────────────────────────────────────────────── */}
-      {blog && blog.length > 0 && (
+      )}</>
+          ),
+          blog: (
+      <>{sectionVisible("blog") && blog && blog.length > 0 && (
         <section className="py-16 md:py-20 bg-secondary/30" data-testid="blog-section">
           <div className="container mx-auto px-4">
             <SectionHeader
-              title={t("section.blog.title")}
-              subtitle={t("section.blog.subtitle")}
+              title={sectionTitle("blog", t("section.blog.title"))}
+              subtitle={sectionSubtitle("blog", t("section.blog.subtitle"))}
               href="/blog"
               t={t}
             />
@@ -661,15 +697,15 @@ export default function Home() {
             </div>
           </div>
         </section>
-      )}
-
-      {/* ── 9. FAQ ─────────────────────────────────────────────────── */}
-      {faqs && faqs.length > 0 && (
+      )}</>
+          ),
+          faq: (
+      <>{sectionVisible("faq") && faqs && faqs.length > 0 && (
         <section className="py-16 md:py-20 bg-background" data-testid="faq-section">
           <div className="container mx-auto px-4 max-w-3xl">
             <div className="text-center mb-10">
-              <h2 className="text-3xl md:text-4xl font-bold mb-3">{t("section.faq.title")}</h2>
-              <p className="text-muted-foreground">{t("section.faq.subtitle")}</p>
+              <h2 className="text-3xl md:text-4xl font-bold mb-3">{sectionTitle("faq", t("section.faq.title"))}</h2>
+              <p className="text-muted-foreground">{sectionSubtitle("faq", t("section.faq.subtitle"))}</p>
             </div>
             <Accordion type="single" collapsible className="w-full">
               {faqs.slice(0, 8).map((f) => (
@@ -685,15 +721,16 @@ export default function Home() {
             </Accordion>
           </div>
         </section>
-      )}
-
-      {/* ── 10. MOBILE APP ─────────────────────────────────────────── */}
+      )}</>
+          ),
+          mobile_app: (
+      <>{sectionVisible("mobile_app") && (
       <section className="py-16 md:py-20 bg-gradient-to-br from-primary to-primary/80 text-primary-foreground overflow-hidden" data-testid="app-section">
         <div className="container mx-auto px-4">
           <div className="grid lg:grid-cols-2 gap-10 items-center">
             <div className={`space-y-5 ${isRtl ? "lg:order-2" : ""}`}>
-              <h2 className="text-3xl md:text-4xl font-bold">{t("section.app.title")}</h2>
-              <p className="text-primary-foreground/85 text-base md:text-lg">{t("section.app.body")}</p>
+              <h2 className="text-3xl md:text-4xl font-bold">{sectionTitle("mobile_app", t("section.app.title"))}</h2>
+              <p className="text-primary-foreground/85 text-base md:text-lg">{sectionSubtitle("mobile_app", t("section.app.body"))}</p>
               <div className="flex flex-wrap gap-3 pt-2">
                 <a
                   href="#"
@@ -735,7 +772,46 @@ export default function Home() {
             </div>
           </div>
         </div>
-      </section>
+      </section>)}</>
+          ),
+          how_it_works: (
+      <>{sectionVisible("how_it_works") && (
+        <section className="py-16 md:py-20 bg-background" data-testid="how-it-works-section">
+          <div className="container mx-auto px-4 max-w-5xl">
+            <div className="text-center mb-10">
+              <h2 className="text-3xl md:text-4xl font-bold mb-3">
+                {sectionTitle("how_it_works", isRtl ? "كيف يعمل أتمملي" : "How ATMEMLY works")}
+              </h2>
+              <p className="text-muted-foreground">
+                {sectionSubtitle("how_it_works", isRtl ? "ثلاث خطوات بسيطة للبدء" : "Three simple steps to get started")}
+              </p>
+            </div>
+          </div>
+        </section>
+      )}</>
+          ),
+          footer_cta: (
+      <>{sectionVisible("footer_cta") && (
+        <section className="py-12 md:py-16 bg-secondary/40 border-t" data-testid="footer-cta-section">
+          <div className="container mx-auto px-4 text-center max-w-2xl">
+            <h2 className="text-2xl md:text-3xl font-bold mb-3">
+              {sectionTitle("footer_cta", isRtl ? "هل أنت جاهز للبدء؟" : "Ready to get started?")}
+            </h2>
+            <p className="text-muted-foreground mb-6">
+              {sectionSubtitle("footer_cta", isRtl ? "انضم إلى آلاف العملاء والمستقلين على أتمملي اليوم." : "Join thousands of clients and freelancers on ATMEMLY today.")}
+            </p>
+          </div>
+        </section>
+      )}</>
+          ),
+        };
+        // Render keys in CMS-defined order, then any remaining default keys.
+        const orderedKeys = sectionDefs.map((s) => s.key);
+        const remainingKeys = Object.keys(sectionNodes).filter((k) => !knownKeys.has(k));
+        return [...orderedKeys, ...remainingKeys]
+          .filter((k) => k in sectionNodes)
+          .map((k) => <React.Fragment key={k}>{sectionNodes[k]}</React.Fragment>);
+      })()}
     </div>
   );
 }

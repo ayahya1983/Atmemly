@@ -13,6 +13,7 @@ import {
 } from "../ui/dropdown-menu";
 import { Sheet, SheetContent, SheetTrigger } from "../ui/sheet";
 import { useState } from "react";
+import { useNavigation, safeHref, isExternalHref } from "@/lib/api-public";
 import {
   useListNotifications,
   useMarkAllNotificationsRead,
@@ -44,8 +45,8 @@ export function TopNav() {
     }
   };
 
-  // In RTL we render the array right-to-left visually; logical order is the same.
-  const navLinks = [
+  const { data: cmsNav } = useNavigation("HEADER");
+  const fallbackNav = [
     { href: "/jobs?tab=services", label: t("nav.services") },
     { href: "/jobs", label: t("nav.projects") },
     { href: "/freelancers?tab=works", label: t("nav.works") },
@@ -54,6 +55,10 @@ export function TopNav() {
     { href: "/blog", label: t("nav.blog") },
     { href: "/contact", label: t("nav.help") },
   ];
+  // In RTL we render the array right-to-left visually; logical order is the same.
+  const navLinks = cmsNav && cmsNav.length > 0
+    ? cmsNav.map((n) => ({ href: safeHref(n.href), label: lang === "ar" ? n.labelAr : n.labelEn }))
+    : fallbackNav;
 
   const getDashboardLink = () => {
     if (!user) return "/login";
@@ -80,18 +85,35 @@ export function TopNav() {
 
         {/* Center: nav links (desktop) */}
         <nav className="hidden lg:flex items-center gap-5 xl:gap-7 flex-1 justify-center min-w-0">
-          {navLinks.map((link) => (
-            <Link
-              key={link.href}
-              href={link.href}
-              className={`text-[15px] font-medium transition-colors hover:text-primary whitespace-nowrap ${
-                isActive(link.href) ? "text-primary" : "text-foreground/80"
-              }`}
-              data-testid={`nav-link-${link.href}`}
-            >
-              {link.label}
-            </Link>
-          ))}
+          {navLinks.map((link) => {
+            const cls = `text-[15px] font-medium transition-colors hover:text-primary whitespace-nowrap ${
+              isActive(link.href) ? "text-primary" : "text-foreground/80"
+            }`;
+            if (isExternalHref(link.href)) {
+              const isHttp = /^https?:/i.test(link.href);
+              return (
+                <a
+                  key={link.href}
+                  href={link.href}
+                  className={cls}
+                  data-testid={`nav-link-${link.href}`}
+                  {...(isHttp ? { target: "_blank", rel: "noopener noreferrer" } : {})}
+                >
+                  {link.label}
+                </a>
+              );
+            }
+            return (
+              <Link
+                key={link.href}
+                href={link.href}
+                className={cls}
+                data-testid={`nav-link-${link.href}`}
+              >
+                {link.label}
+              </Link>
+            );
+          })}
         </nav>
 
         {/* Lang/Currency + auth */}
@@ -232,18 +254,33 @@ export function TopNav() {
                 <Logo />
               </div>
               <div className="flex flex-col gap-1 mt-4">
-                {navLinks.map((link) => (
-                  <Link
-                    key={link.href}
-                    href={link.href}
-                    onClick={() => setMobileOpen(false)}
-                    className={`text-base font-medium py-2 ${
-                      isActive(link.href) ? "text-primary" : "text-foreground"
-                    }`}
-                  >
-                    {link.label}
-                  </Link>
-                ))}
+                {navLinks.map((link) => {
+                  const cls = `text-base font-medium py-2 ${isActive(link.href) ? "text-primary" : "text-foreground"}`;
+                  if (isExternalHref(link.href)) {
+                    const isHttp = /^https?:/i.test(link.href);
+                    return (
+                      <a
+                        key={link.href}
+                        href={link.href}
+                        onClick={() => setMobileOpen(false)}
+                        className={cls}
+                        {...(isHttp ? { target: "_blank", rel: "noopener noreferrer" } : {})}
+                      >
+                        {link.label}
+                      </a>
+                    );
+                  }
+                  return (
+                    <Link
+                      key={link.href}
+                      href={link.href}
+                      onClick={() => setMobileOpen(false)}
+                      className={cls}
+                    >
+                      {link.label}
+                    </Link>
+                  );
+                })}
                 <div className="h-px bg-border my-4" />
                 {user ? (
                   <>

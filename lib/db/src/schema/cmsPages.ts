@@ -19,6 +19,9 @@ export const cmsPagesTable = pgTable(
     seoTitle: text("seo_title"),
     seoDescription: text("seo_description"),
     isPublished: boolean("is_published").notNull().default(false),
+    // explicit lifecycle status; isPublished retained for back-compat.
+    status: text("status").notNull().default("draft"), // draft | published | archived
+    publishedAt: timestamp("published_at", { withTimezone: true }),
     updatedById: integer("updated_by_id"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),

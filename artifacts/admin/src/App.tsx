@@ -35,6 +35,13 @@ import AdminPayments from "@/pages/payments";
 import AdminPayouts from "@/pages/payouts";
 import AdminCmsPages from "@/pages/cms-pages";
 import AdminCmsBlocks from "@/pages/cms-blocks";
+import AdminCmsHomepage from "@/pages/cms-homepage";
+import AdminCmsNavigation from "@/pages/cms-navigation";
+import AdminCmsFooter from "@/pages/cms-footer";
+import AdminCmsMedia from "@/pages/cms-media";
+import AdminCmsSeo from "@/pages/cms-seo";
+import AdminCmsLocalization from "@/pages/cms-localization";
+import AdminCmsBlogCategories from "@/pages/cms-blog-categories";
 import AdminBlog from "@/pages/blog-admin";
 import AdminFaqs from "@/pages/faqs";
 import AdminTestimonials from "@/pages/testimonials";
@@ -110,8 +117,28 @@ function Routes() {
       <Route path="/payments"><ProtectedRoute resource="payments"><AdminPayments /></ProtectedRoute></Route>
       <Route path="/payouts"><ProtectedRoute resource="payouts"><AdminPayouts /></ProtectedRoute></Route>
 
+      <Route path="/cms-homepage"><ProtectedRoute resource="cms"><AdminCmsHomepage /></ProtectedRoute></Route>
+      <Route path="/cms-navigation"><ProtectedRoute resource="cms"><AdminCmsNavigation /></ProtectedRoute></Route>
+      <Route path="/cms-footer"><ProtectedRoute resource="cms"><AdminCmsFooter /></ProtectedRoute></Route>
+      <Route path="/cms-media"><ProtectedRoute resource="cms"><AdminCmsMedia /></ProtectedRoute></Route>
+      <Route path="/cms-seo"><ProtectedRoute resource="seo"><AdminCmsSeo /></ProtectedRoute></Route>
+      <Route path="/cms-localization"><ProtectedRoute resource="localization"><AdminCmsLocalization /></ProtectedRoute></Route>
       <Route path="/cms-pages"><ProtectedRoute resource="cms"><AdminCmsPages /></ProtectedRoute></Route>
       <Route path="/cms-blocks"><ProtectedRoute resource="cms"><AdminCmsBlocks /></ProtectedRoute></Route>
+      {/* Aliases under /cms/* for the contract-style admin URLs. */}
+      <Route path="/cms/homepage"><ProtectedRoute resource="cms"><AdminCmsHomepage /></ProtectedRoute></Route>
+      <Route path="/cms/navigation"><ProtectedRoute resource="cms"><AdminCmsNavigation /></ProtectedRoute></Route>
+      <Route path="/cms/footer"><ProtectedRoute resource="cms"><AdminCmsFooter /></ProtectedRoute></Route>
+      <Route path="/cms/media"><ProtectedRoute resource="cms"><AdminCmsMedia /></ProtectedRoute></Route>
+      <Route path="/cms/seo"><ProtectedRoute resource="seo"><AdminCmsSeo /></ProtectedRoute></Route>
+      <Route path="/cms/localization"><ProtectedRoute resource="localization"><AdminCmsLocalization /></ProtectedRoute></Route>
+      <Route path="/cms/pages"><ProtectedRoute resource="cms"><AdminCmsPages /></ProtectedRoute></Route>
+      <Route path="/cms/blocks"><ProtectedRoute resource="cms"><AdminCmsBlocks /></ProtectedRoute></Route>
+      <Route path="/cms/blog"><ProtectedRoute resource="blog"><AdminBlog /></ProtectedRoute></Route>
+      <Route path="/cms/blog-categories"><ProtectedRoute resource="blog"><AdminCmsBlogCategories /></ProtectedRoute></Route>
+      <Route path="/cms-blog-categories"><ProtectedRoute resource="blog"><AdminCmsBlogCategories /></ProtectedRoute></Route>
+      <Route path="/cms/faqs"><ProtectedRoute resource="faqs"><AdminFaqs /></ProtectedRoute></Route>
+      <Route path="/cms/testimonials"><ProtectedRoute resource="testimonials"><AdminTestimonials /></ProtectedRoute></Route>
       <Route path="/blog"><ProtectedRoute resource="blog"><AdminBlog /></ProtectedRoute></Route>
       <Route path="/faqs"><ProtectedRoute resource="faqs"><AdminFaqs /></ProtectedRoute></Route>
       <Route path="/testimonials"><ProtectedRoute resource="testimonials"><AdminTestimonials /></ProtectedRoute></Route>

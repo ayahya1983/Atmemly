@@ -43,6 +43,7 @@ import adminUsersV2Router from "./adminUsersV2";
 import adminPeopleRouter from "./adminPeople";
 import adminWorkflowRouter from "./adminWorkflow";
 import adminContentRouter from "./adminContent";
+import cmsContentRouter from "./cmsContent";
 import adminBroadcastRouter from "./adminBroadcast";
 import adminReportsRouter from "./adminReports";
 // Task #8 — ATMEMLY enterprise SSO
@@ -110,6 +111,7 @@ router.use(adminUsersV2Router);
 router.use(adminPeopleRouter);
 router.use(adminWorkflowRouter);
 router.use(adminContentRouter);
+router.use(cmsContentRouter);
 router.use(adminBroadcastRouter);
 router.use(adminReportsRouter);
 router.use(ssoRouter);

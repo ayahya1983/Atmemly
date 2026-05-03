@@ -15,6 +15,9 @@ export const attachmentsTable = pgTable(
     sizeBytes: integer("size_bytes").notNull(),
     sha256: text("sha256").notNull(),
     url: text("url").notNull(),
+    // media library metadata.
+    altAr: text("alt_ar"),
+    altEn: text("alt_en"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     // Architecture audit (May 2026) — soft delete preserves audit/proof trail.
     deletedAt: timestamp("deleted_at", { withTimezone: true }),

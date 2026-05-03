@@ -16,14 +16,19 @@ import {
 } from "@/components/admin";
 
 interface FaqRow {
-  id: number; locale: string; category: string;
+  id: number; locale: string; category: string; categoryId: number | null;
   question: string; answer: string; sortOrder: number; isActive: boolean;
 }
+interface FaqCatRow { id: number; nameAr: string; nameEn: string; slug: string; isActive: boolean; sortOrder: number; }
 interface FaqForm {
-  locale: "en" | "ar"; category: string; question: string; answer: string;
+  locale: "en" | "ar"; category: string; categoryId: number | null;
+  question: string; answer: string;
   sortOrder: number; isActive: boolean;
 }
-const emptyForm: FaqForm = { locale: "en", category: "general", question: "", answer: "", sortOrder: 0, isActive: true };
+const emptyForm: FaqForm = {
+  locale: "en", category: "general", categoryId: null,
+  question: "", answer: "", sortOrder: 0, isActive: true,
+};
 
 export default function AdminFaqs() {
   const { lang } = useTranslation();
@@ -33,6 +38,9 @@ export default function AdminFaqs() {
 
   const key = ["admin-faqs"];
   const { data, isLoading } = useAdminGet<FaqRow[]>(key, "/admin/faqs");
+  // Load FAQ categories so the form can offer a dropdown selector for the
+  // categoryId FK (replacing the legacy free-form text category over time).
+  const { data: faqCats } = useAdminGet<FaqCatRow[]>(["admin-faq-categories"], "/admin/faq/categories");
 
   const [search, setSearch] = useState("");
   const [localeFilter, setLocaleFilter] = useState("all");
@@ -50,7 +58,7 @@ export default function AdminFaqs() {
   const startCreate = () => { setEditing(null); setForm(emptyForm); setOpen(true); };
   const startEdit = (r: FaqRow) => {
     setEditing(r);
-    setForm({ locale: r.locale as "en" | "ar", category: r.category, question: r.question, answer: r.answer, sortOrder: r.sortOrder, isActive: r.isActive });
+    setForm({ locale: r.locale as "en" | "ar", category: r.category, categoryId: r.categoryId ?? null, question: r.question, answer: r.answer, sortOrder: r.sortOrder, isActive: r.isActive });
     setOpen(true);
   };
   const save = async () => {
@@ -176,7 +184,43 @@ export default function AdminFaqs() {
               </SelectContent>
             </Select>
           </div>
-          <div><Label>Category</Label><Input value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })} /></div>
+          <div>
+            <Label>{lang === "ar" ? "الفئة" : "Category"}</Label>
+            <Select
+              value={form.categoryId ? String(form.categoryId) : "__legacy__"}
+              onValueChange={(v) => {
+                if (v === "__legacy__") {
+                  setForm({ ...form, categoryId: null });
+                } else {
+                  const cat = (faqCats ?? []).find((c) => c.id === Number(v));
+                  setForm({ ...form, categoryId: Number(v), category: cat?.slug ?? form.category });
+                }
+              }}
+            >
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="__legacy__">
+                  {lang === "ar" ? `(نص حر: ${form.category})` : `(legacy text: ${form.category})`}
+                </SelectItem>
+                {(faqCats ?? [])
+                  .filter((c) => c.isActive)
+                  .sort((a, b) => a.sortOrder - b.sortOrder)
+                  .map((c) => (
+                    <SelectItem key={c.id} value={String(c.id)}>
+                      {form.locale === "ar" ? c.nameAr : c.nameEn}
+                    </SelectItem>
+                  ))}
+              </SelectContent>
+            </Select>
+            {form.categoryId === null && (
+              <Input
+                className="mt-1"
+                value={form.category}
+                onChange={(e) => setForm({ ...form, category: e.target.value })}
+                placeholder={lang === "ar" ? "نص الفئة" : "category text"}
+              />
+            )}
+          </div>
         </div>
         <div><Label>{lang === "ar" ? "السؤال" : "Question"}</Label><Input value={form.question} onChange={(e) => setForm({ ...form, question: e.target.value })} /></div>
         <div><Label>{lang === "ar" ? "الإجابة" : "Answer"}</Label><Textarea value={form.answer} onChange={(e) => setForm({ ...form, answer: e.target.value })} rows={5} /></div>

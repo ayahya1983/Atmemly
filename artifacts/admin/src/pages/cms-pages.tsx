@@ -4,7 +4,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { useTranslation } from "@/lib/i18n";
@@ -16,19 +15,21 @@ import {
   ImageUploadField,
 } from "@/components/admin";
 
+type Status = "draft" | "published" | "archived";
+
 interface CmsPageRow {
   id: number; slug: string; locale: string; title: string;
   body: string; seoTitle: string | null; seoDescription: string | null;
-  isPublished: boolean; updatedAt: string;
+  isPublished: boolean; status: Status; publishedAt: string | null; updatedAt: string;
 }
 
 interface PageForm {
   slug: string; locale: "en" | "ar"; title: string; body: string;
-  seoTitle: string; seoDescription: string; isPublished: boolean;
+  seoTitle: string; seoDescription: string; status: Status;
 }
 
 const emptyForm: PageForm = {
-  slug: "", locale: "en", title: "", body: "", seoTitle: "", seoDescription: "", isPublished: false,
+  slug: "", locale: "en", title: "", body: "", seoTitle: "", seoDescription: "", status: "draft",
 };
 
 export default function AdminCmsPages() {
@@ -86,12 +87,18 @@ export default function AdminCmsPages() {
     setPendingImage("");
   };
 
+  const formToBody = (f: Partial<PageForm>) => ({
+    ...f,
+    seoTitle: f.seoTitle ? f.seoTitle : null,
+    seoDescription: f.seoDescription ? f.seoDescription : null,
+    isPublished: f.status === "published",
+  });
   const createMutation = useAdminMutation<PageForm>(
-    (input) => adminApi.post("/admin/cms/pages", { ...input, seoTitle: input.seoTitle || null, seoDescription: input.seoDescription || null }),
+    (input) => adminApi.post("/admin/cms/pages", formToBody(input)),
     [key, ["public-cms-page"]],
   );
   const updateMutation = useAdminMutation<{ id: number; data: Partial<PageForm> }>(
-    ({ id, data }) => adminApi.patch(`/admin/cms/pages/${id}`, data),
+    ({ id, data }) => adminApi.patch(`/admin/cms/pages/${id}`, formToBody(data)),
     [key, ["public-cms-page"]],
   );
   const deleteMutation = useAdminMutation<{ id: number }>(
@@ -105,7 +112,8 @@ export default function AdminCmsPages() {
     setEditing(row);
     setForm({
       slug: row.slug, locale: row.locale as "en" | "ar", title: row.title, body: row.body,
-      seoTitle: row.seoTitle ?? "", seoDescription: row.seoDescription ?? "", isPublished: row.isPublished,
+      seoTitle: row.seoTitle ?? "", seoDescription: row.seoDescription ?? "",
+      status: row.status ?? (row.isPublished ? "published" : "draft"),
     });
     resetImageState();
     setOpen(true);
@@ -115,8 +123,9 @@ export default function AdminCmsPages() {
     else await createMutation.mutateAsync(form);
   };
 
+  const effectiveStatus = (p: CmsPageRow): Status => p.status ?? (p.isPublished ? "published" : "draft");
   const filtered = (data ?? []).filter((p) =>
-    (statusFilter === "all" || (statusFilter === "published" ? p.isPublished : !p.isPublished)) &&
+    (statusFilter === "all" || effectiveStatus(p) === statusFilter) &&
     (localeFilter === "all" || p.locale === localeFilter),
   );
 
@@ -144,8 +153,14 @@ export default function AdminCmsPages() {
     {
       key: "isPublished",
       header: lang === "ar" ? "النشر" : "Status",
-      cell: (p) => <StatusBadge status={p.isPublished ? "published" : "draft"} />,
-      sortValue: (p) => (p.isPublished ? 1 : 0),
+      cell: (p) => <StatusBadge status={effectiveStatus(p)} />,
+      sortValue: (p) => effectiveStatus(p),
+    },
+    {
+      key: "publishedAt",
+      header: lang === "ar" ? "تاريخ النشر" : "Published",
+      cell: (p) => <span className="text-xs text-muted-foreground">{p.publishedAt ? new Date(p.publishedAt).toISOString().slice(0, 10) : "—"}</span>,
+      sortValue: (p) => (p.publishedAt ? new Date(p.publishedAt).getTime() : 0),
     },
     {
       key: "updatedAt",
@@ -193,10 +208,11 @@ export default function AdminCmsPages() {
         searchPlaceholder={lang === "ar" ? "بحث بالعنوان أو المعرف" : "Search title or slug"}
         onReset={() => { setSearch(""); setStatusFilter("all"); setLocaleFilter("all"); }}
       >
-        <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="h-9 rounded-md border border-input bg-background px-2 text-sm">
+        <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="h-9 rounded-md border border-input bg-background px-2 text-sm" data-testid="select-cmspage-status-filter">
           <option value="all">{lang === "ar" ? "كل الحالات" : "All statuses"}</option>
-          <option value="published">Published</option>
           <option value="draft">Draft</option>
+          <option value="published">Published</option>
+          <option value="archived">Archived</option>
         </select>
         <select value={localeFilter} onChange={(e) => setLocaleFilter(e.target.value)} className="h-9 rounded-md border border-input bg-background px-2 text-sm">
           <option value="all">{lang === "ar" ? "كل اللغات" : "All locales"}</option>
@@ -274,9 +290,16 @@ export default function AdminCmsPages() {
         </div>
         <div><Label>{lang === "ar" ? "عنوان SEO" : "SEO Title"}</Label><Input value={form.seoTitle} onChange={(e) => setForm({ ...form, seoTitle: e.target.value })} /></div>
         <div><Label>{lang === "ar" ? "وصف SEO" : "SEO Description"}</Label><Textarea value={form.seoDescription} onChange={(e) => setForm({ ...form, seoDescription: e.target.value })} rows={2} /></div>
-        <div className="flex items-center gap-2">
-          <Switch checked={form.isPublished} onCheckedChange={(c) => setForm({ ...form, isPublished: c })} id="pub" />
-          <Label htmlFor="pub">{lang === "ar" ? "منشور" : "Published"}</Label>
+        <div>
+          <Label>{lang === "ar" ? "الحالة" : "Status"}</Label>
+          <Select value={form.status} onValueChange={(v) => setForm({ ...form, status: v as Status })}>
+            <SelectTrigger data-testid="select-cmspage-status"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="draft">Draft</SelectItem>
+              <SelectItem value="published">Published</SelectItem>
+              <SelectItem value="archived">Archived</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
       </FormDialog>
     </div>

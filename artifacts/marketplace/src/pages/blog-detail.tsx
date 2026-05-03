@@ -1,17 +1,22 @@
 import { Link, useParams } from "wouter";
 import { useTranslation } from "@/lib/i18n";
-import { useBlogPost } from "@/lib/api-public";
+import { useBlogPost, useBlogCategories } from "@/lib/api-public";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft } from "lucide-react";
 import { format } from "date-fns";
 import { ar as arLocale } from "date-fns/locale";
+import { SeoHead } from "@/components/SeoHead";
 
 export default function BlogDetail() {
   const { slug } = useParams<{ slug: string }>();
   const { lang } = useTranslation();
   const { data: post, isLoading, error } = useBlogPost(slug ?? "", lang);
+  const { data: categories } = useBlogCategories();
+  const cat = post?.categoryId ? categories?.find((c) => c.id === post.categoryId) : undefined;
+  const catSeoTitle = cat ? (lang === "ar" ? cat.seoTitleAr : cat.seoTitleEn) : null;
+  const catSeoDescription = cat ? (lang === "ar" ? cat.seoDescriptionAr : cat.seoDescriptionEn) : null;
 
   if (isLoading) {
     return (
@@ -42,6 +47,11 @@ export default function BlogDetail() {
 
   return (
     <article className="container mx-auto px-4 py-12 max-w-3xl">
+      <SeoHead
+        title={post.seoTitle || catSeoTitle || post.title}
+        description={post.seoDescription ?? catSeoDescription ?? post.excerpt ?? undefined}
+        image={post.coverUrl ?? undefined}
+      />
       <Link href="/blog">
         <Button variant="ghost" size="sm" className="mb-6 gap-2">
           <ArrowLeft className="w-4 h-4" />

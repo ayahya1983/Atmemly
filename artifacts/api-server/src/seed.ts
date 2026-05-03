@@ -26,6 +26,15 @@ import {
   faqItemsTable,
   testimonialsTable,
   bannedWordsTable,
+  cmsHomepageTable,
+  navigationItemsTable,
+  footerSettingsTable,
+  footerLinkGroupsTable,
+  footerLinksTable,
+  seoSettingsTable,
+  localizationStringsTable,
+  blogCategoriesTable,
+  faqCategoriesTable,
 } from "@workspace/db";
 
 async function hash(p: string) {
@@ -663,6 +672,63 @@ async function main() {
         isPublished: true,
         updatedById: admin.id,
       },
+      {
+        slug: "contact",
+        locale: "en",
+        title: "Contact Us",
+        body: `<p>Reach the ${BRAND.name} team using the form below. We typically reply within one business day.</p>`,
+        seoTitle: `Contact ${BRAND.name}`,
+        seoDescription: `Get in touch with the ${BRAND.name} support team.`,
+        isPublished: true,
+        updatedById: admin.id,
+      },
+      {
+        slug: "contact",
+        locale: "ar",
+        title: "اتصل بنا",
+        body: `<p>تواصل مع فريق ${BRAND.nameAr} عبر النموذج أدناه. عادةً ما نرد خلال يوم عمل واحد.</p>`,
+        seoTitle: `اتصل بـ ${BRAND.nameAr}`,
+        seoDescription: `تواصل مع فريق دعم ${BRAND.nameAr}.`,
+        isPublished: true,
+        updatedById: admin.id,
+      },
+      ...(["cancellation", "help", "how-it-works", "terms", "privacy"] as const).flatMap((slug) => {
+        const titles = {
+          "cancellation": { en: "Cancellation Policy", ar: "سياسة الإلغاء" },
+          "help": { en: "Help Center", ar: "مركز المساعدة" },
+          "how-it-works": { en: "How It Works", ar: "كيف يعمل" },
+          "terms": { en: "Terms of Service", ar: "شروط الاستخدام" },
+          "privacy": { en: "Privacy Policy", ar: "سياسة الخصوصية" },
+        }[slug];
+        const bodyEn = {
+          "cancellation": `<p>${BRAND.name} supports cancellation requests within the platform. Refund eligibility depends on milestone status and the seller's response.</p>`,
+          "help": `<p>Browse our FAQs or contact ${BRAND.name} support for assistance with your account, projects or payments.</p>`,
+          "how-it-works": `<p>${BRAND.name} connects clients with vetted GCC freelancers. Post a project, review proposals, and pay safely through escrow.</p>`,
+          "terms": `<p>These Terms of Service govern your use of ${BRAND.name}. By creating an account or browsing the marketplace you agree to these terms, our acceptable-use policy, and the dispute-resolution process described below.</p>`,
+          "privacy": `<p>${BRAND.name} respects your privacy. This policy explains what personal data we collect, how we use it to operate the marketplace, and the choices you have over your information.</p>`,
+        }[slug];
+        const bodyAr = {
+          "cancellation": `<p>تدعم ${BRAND.nameAr} طلبات الإلغاء من داخل المنصة. تعتمد أهلية الاسترداد على حالة المرحلة ورد البائع.</p>`,
+          "help": `<p>تصفح الأسئلة الشائعة أو تواصل مع دعم ${BRAND.nameAr} للحصول على المساعدة في حسابك أو مشاريعك أو مدفوعاتك.</p>`,
+          "how-it-works": `<p>تربط ${BRAND.nameAr} العملاء بمستقلين موثوقين في دول الخليج. انشر مشروعك، راجع العروض، وادفع بأمان عبر نظام الضمان.</p>`,
+          "terms": `<p>تحكم شروط الاستخدام هذه استخدامك لمنصة ${BRAND.nameAr}. بإنشائك حسابًا أو تصفحك للمنصة فإنك توافق على هذه الشروط وسياسة الاستخدام المقبول وآلية حل النزاعات الموضحة أدناه.</p>`,
+          "privacy": `<p>تحترم ${BRAND.nameAr} خصوصيتك. توضح هذه السياسة البيانات الشخصية التي نجمعها وكيفية استخدامها لتشغيل المنصة والخيارات المتاحة لك بشأن معلوماتك.</p>`,
+        }[slug];
+        return [
+          {
+            slug, locale: "en", title: titles.en, body: bodyEn,
+            seoTitle: `${titles.en} — ${BRAND.name}`,
+            seoDescription: `${titles.en} on ${BRAND.name}.`,
+            isPublished: true, updatedById: admin.id,
+          },
+          {
+            slug, locale: "ar", title: titles.ar, body: bodyAr,
+            seoTitle: `${titles.ar} — ${BRAND.nameAr}`,
+            seoDescription: `${titles.ar} على ${BRAND.nameAr}.`,
+            isPublished: true, updatedById: admin.id,
+          },
+        ];
+      }),
     ])
     .onConflictDoNothing({ target: [cmsPagesTable.slug, cmsPagesTable.locale] });
 
@@ -832,6 +898,132 @@ async function main() {
         body: `أتمملي هي السوق الوحيد الذي يقدم لي عروضاً ثنائية اللغة من محترفين خليجيين حقيقيين، في نفس اليوم.`,
         rating: 5, avatarUrl: null, isFeatured: true, sortOrder: 50 },
     ]);
+  }
+
+  // CMS singletons + nav/footer/SEO/i18n seed (idempotent).
+  const [hpRow] = await db.select().from(cmsHomepageTable).limit(1);
+  if (!hpRow) {
+    await db.insert(cmsHomepageTable).values({
+      data: {
+        hero: {
+          titleAr: `أتمملي — سوق المستقلين في الإمارات والخليج`,
+          titleEn: `${BRAND.platformName} — UAE & GCC freelance marketplace`,
+          subtitleAr: "اعثر على أفضل المستقلين العرب أو احصل على مشروعك التالي بثقة.",
+          subtitleEn: "Find top Arabic-speaking freelancers or land your next project with confidence.",
+          searchPlaceholderAr: "ابحث عن خدمة أو مهارة...",
+          searchPlaceholderEn: "Search for a service or skill...",
+          imageUrl: "",
+          ctaPrimaryLabelAr: "ابدأ الآن", ctaPrimaryLabelEn: "Get started", ctaPrimaryHref: "/post-job",
+          ctaSecondaryLabelAr: "تصفح المستقلين", ctaSecondaryLabelEn: "Browse freelancers", ctaSecondaryHref: "/freelancers",
+        },
+        sections: [
+          { key: "categories", titleAr: "الفئات", titleEn: "Categories", subtitleAr: "", subtitleEn: "", isVisible: true, sortOrder: 0 },
+          { key: "featured_freelancers", titleAr: "المستقلون المميزون", titleEn: "Featured freelancers", subtitleAr: "", subtitleEn: "", isVisible: true, sortOrder: 1 },
+          { key: "featured_jobs", titleAr: "الوظائف المميزة", titleEn: "Featured jobs", subtitleAr: "", subtitleEn: "", isVisible: true, sortOrder: 2 },
+          { key: "how_it_works", titleAr: "كيف يعمل", titleEn: "How it works", subtitleAr: "", subtitleEn: "", isVisible: true, sortOrder: 3 },
+          { key: "testimonials", titleAr: "آراء العملاء", titleEn: "Testimonials", subtitleAr: "", subtitleEn: "", isVisible: true, sortOrder: 4 },
+          { key: "blog", titleAr: "المدونة", titleEn: "Blog", subtitleAr: "", subtitleEn: "", isVisible: true, sortOrder: 5 },
+          { key: "cta", titleAr: "ابدأ مشروعك اليوم", titleEn: "Start your project today", subtitleAr: "", subtitleEn: "", isVisible: true, sortOrder: 6 },
+        ],
+      },
+    });
+  }
+
+  const [seoRow] = await db.select().from(seoSettingsTable).limit(1);
+  if (!seoRow) {
+    await db.insert(seoSettingsTable).values({
+      siteTitleAr: `أتمملي — منصة المستقلين في الإمارات`,
+      siteTitleEn: `${BRAND.platformName} — UAE freelance marketplace`,
+      siteDescriptionAr: "وظّف مستقلين عرب موهوبين في الإمارات والخليج. مدفوعات آمنة بنظام الضمان.",
+      siteDescriptionEn: "Hire talented Arabic-speaking freelancers across the UAE & GCC. Secure escrow-backed payments.",
+      ogImageUrl: null,
+      twitterHandle: null,
+      defaultLocale: "ar",
+    });
+  }
+
+  const [fsRow] = await db.select().from(footerSettingsTable).limit(1);
+  if (!fsRow) {
+    await db.insert(footerSettingsTable).values({
+      descriptionAr: `${BRAND.platformNameAr} هي منصة المستقلين الرائدة في الإمارات والخليج، تربط بين المواهب العربية والشركات.`,
+      descriptionEn: `${BRAND.platformName} is the leading UAE & GCC freelance marketplace connecting Arabic-speaking talent with businesses.`,
+      contactEmail: BRAND.email,
+      contactPhone: "+971 4 000 0000",
+      whatsapp: "+971500000000",
+      addressAr: "دبي، الإمارات العربية المتحدة",
+      addressEn: "Dubai, United Arab Emirates",
+      copyrightAr: `${BRAND.platformNameAr}. جميع الحقوق محفوظة.`,
+      copyrightEn: `${BRAND.platformName}. All rights reserved.`,
+      socialLinks: [
+        { platform: "twitter", url: "https://twitter.com/atmemly" },
+        { platform: "linkedin", url: "https://linkedin.com/company/atmemly" },
+        { platform: "instagram", url: "https://instagram.com/atmemly" },
+      ],
+    });
+  }
+
+  const existingGroups = await db.select().from(footerLinkGroupsTable).limit(1);
+  if (existingGroups.length === 0) {
+    const [platform] = await db.insert(footerLinkGroupsTable).values({ titleAr: "المنصة", titleEn: "Platform", sortOrder: 0, isActive: true }).returning();
+    const [company] = await db.insert(footerLinkGroupsTable).values({ titleAr: "الشركة", titleEn: "Company", sortOrder: 1, isActive: true }).returning();
+    const [legal] = await db.insert(footerLinkGroupsTable).values({ titleAr: "قانوني", titleEn: "Legal", sortOrder: 2, isActive: true }).returning();
+    await db.insert(footerLinksTable).values([
+      { groupId: platform!.id, labelAr: "الوظائف والمشاريع", labelEn: "Jobs & Projects", href: "/jobs", sortOrder: 0, isActive: true },
+      { groupId: platform!.id, labelAr: "المستقلون", labelEn: "Freelancers", href: "/freelancers", sortOrder: 1, isActive: true },
+      { groupId: platform!.id, labelAr: "المدونة", labelEn: "Blog", href: "/blog", sortOrder: 2, isActive: true },
+      { groupId: platform!.id, labelAr: "كيف يعمل", labelEn: "How it works", href: "/about", sortOrder: 3, isActive: true },
+      { groupId: company!.id, labelAr: "من نحن", labelEn: "About us", href: "/about", sortOrder: 0, isActive: true },
+      { groupId: company!.id, labelAr: "تواصل معنا", labelEn: "Contact", href: "/contact", sortOrder: 1, isActive: true },
+      { groupId: legal!.id, labelAr: "الشروط والأحكام", labelEn: "Terms", href: "/terms", sortOrder: 0, isActive: true },
+      { groupId: legal!.id, labelAr: "سياسة الخصوصية", labelEn: "Privacy", href: "/privacy", sortOrder: 1, isActive: true },
+      { groupId: legal!.id, labelAr: "سياسة الإلغاء", labelEn: "Cancellation", href: "/cancellation", sortOrder: 2, isActive: true },
+    ]);
+  }
+
+  const existingNav = await db.select().from(navigationItemsTable).limit(1);
+  if (existingNav.length === 0) {
+    await db.insert(navigationItemsTable).values([
+      { location: "HEADER", parentId: null, labelAr: "الخدمات", labelEn: "Services", href: "/jobs?tab=services", sortOrder: 0, isActive: true },
+      { location: "HEADER", parentId: null, labelAr: "المشاريع", labelEn: "Projects", href: "/jobs", sortOrder: 1, isActive: true },
+      { location: "HEADER", parentId: null, labelAr: "الأعمال", labelEn: "Works", href: "/freelancers?tab=works", sortOrder: 2, isActive: true },
+      { location: "HEADER", parentId: null, labelAr: "المستقلون", labelEn: "Freelancers", href: "/freelancers", sortOrder: 3, isActive: true },
+      { location: "HEADER", parentId: null, labelAr: "المجتمع", labelEn: "Community", href: "/about", sortOrder: 4, isActive: true },
+      { location: "HEADER", parentId: null, labelAr: "المدونة", labelEn: "Blog", href: "/blog", sortOrder: 5, isActive: true },
+      { location: "HEADER", parentId: null, labelAr: "المساعدة", labelEn: "Help", href: "/contact", sortOrder: 6, isActive: true },
+    ]);
+  }
+
+  const existingBlogCats = await db.select().from(blogCategoriesTable).limit(1);
+  if (existingBlogCats.length === 0) {
+    await db.insert(blogCategoriesTable).values([
+      { slug: "tips", nameAr: "نصائح", nameEn: "Tips", sortOrder: 0, isActive: true },
+      { slug: "guides", nameAr: "أدلة", nameEn: "Guides", sortOrder: 1, isActive: true },
+      { slug: "news", nameAr: "أخبار", nameEn: "News", sortOrder: 2, isActive: true },
+    ]);
+  }
+  const existingFaqCats = await db.select().from(faqCategoriesTable).limit(1);
+  if (existingFaqCats.length === 0) {
+    await db.insert(faqCategoriesTable).values([
+      { slug: "general", nameAr: "عام", nameEn: "General", sortOrder: 0, isActive: true },
+      { slug: "payments", nameAr: "المدفوعات", nameEn: "Payments", sortOrder: 1, isActive: true },
+      { slug: "freelancers", nameAr: "للمستقلين", nameEn: "For freelancers", sortOrder: 2, isActive: true },
+      { slug: "clients", nameAr: "للعملاء", nameEn: "For clients", sortOrder: 3, isActive: true },
+    ]);
+  }
+
+  // Sample localization strings — ATMEMLY-branded greetings.
+  const seedStrings: Array<{ key: string; namespace: string; ar: string; en: string }> = [
+    { namespace: "common", key: "brand.tagline", ar: "سوق المستقلين العرب الموثوق", en: "The trusted Arabic freelance marketplace" },
+    { namespace: "common", key: "common.welcome", ar: "مرحبًا بك في أتمملي", en: "Welcome to ATMEMLY" },
+    { namespace: "cta", key: "cta.post_job", ar: "انشر مشروعًا", en: "Post a project" },
+    { namespace: "cta", key: "cta.find_work", ar: "ابحث عن عمل", en: "Find work" },
+  ];
+  for (const r of seedStrings) {
+    for (const locale of ["ar", "en"] as const) {
+      await db.insert(localizationStringsTable).values({
+        key: r.key, namespace: r.namespace, locale, value: locale === "ar" ? r.ar : r.en, isMissing: false,
+      }).onConflictDoNothing({ target: [localizationStringsTable.key, localizationStringsTable.locale] });
+    }
   }
 
   await db

@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { z } from "zod";
-import { eq, and, desc } from "drizzle-orm";
+import { eq, and, desc, isNull } from "drizzle-orm";
 import {
   db,
   cmsPagesTable,
@@ -12,13 +12,15 @@ import {
 import { requireAuth } from "../lib/auth";
 import { requirePermission } from "../lib/permissions";
 import { audit } from "../lib/audit";
+import { sanitizeHtml } from "./cmsContent";
 
 const router: IRouter = Router();
 
 const Locale = z.enum(["en", "ar"]);
 const LocaleQuery = z.object({ locale: Locale.default("en") });
 
-// ───────────────── CMS Pages ─────────────────
+// CMS Pages — `status` is canonical; legacy `isPublished` is derived.
+const ContentStatus = z.enum(["draft", "published", "archived"]);
 
 const CmsPageBody = z.object({
   slug: z.string().trim().min(1).max(120).regex(/^[a-z0-9-]+$/),
@@ -27,8 +29,20 @@ const CmsPageBody = z.object({
   body: z.string().max(100_000).default(""),
   seoTitle: z.string().max(300).nullable().optional(),
   seoDescription: z.string().max(500).nullable().optional(),
-  isPublished: z.boolean().default(false),
+  isPublished: z.boolean().optional(),
+  status: ContentStatus.optional(),
 });
+
+function deriveStatusFlags(input: { status?: "draft" | "published" | "archived"; isPublished?: boolean }): {
+  status: "draft" | "published" | "archived";
+  isPublished: boolean;
+} {
+  if (input.status) {
+    return { status: input.status, isPublished: input.status === "published" };
+  }
+  if (input.isPublished === true) return { status: "published", isPublished: true };
+  return { status: "draft", isPublished: false };
+}
 
 router.get(
   "/admin/cms/pages",
@@ -57,10 +71,13 @@ router.post(
           slug: parsed.data.slug,
           locale: parsed.data.locale,
           title: parsed.data.title,
-          body: parsed.data.body,
+          body: sanitizeHtml(parsed.data.body),
           seoTitle: parsed.data.seoTitle ?? null,
           seoDescription: parsed.data.seoDescription ?? null,
-          isPublished: parsed.data.isPublished,
+          ...(() => {
+            const f = deriveStatusFlags(parsed.data);
+            return { status: f.status, isPublished: f.isPublished, publishedAt: f.isPublished ? new Date() : null };
+          })(),
           updatedById: req.user!.id,
         })
         .returning();
@@ -98,8 +115,16 @@ router.patch(
       return;
     }
     const patch: Record<string, unknown> = { updatedAt: new Date(), updatedById: req.user!.id };
-    for (const k of ["slug", "locale", "title", "body", "seoTitle", "seoDescription", "isPublished"] as const) {
-      if (parsed.data[k] !== undefined) patch[k] = parsed.data[k];
+    for (const k of ["slug", "locale", "title", "body", "seoTitle", "seoDescription"] as const) {
+      if (parsed.data[k] !== undefined) {
+        patch[k] = k === "body" ? sanitizeHtml(parsed.data[k] as string) : parsed.data[k];
+      }
+    }
+    if (parsed.data.status !== undefined || parsed.data.isPublished !== undefined) {
+      const f = deriveStatusFlags(parsed.data);
+      patch["status"] = f.status;
+      patch["isPublished"] = f.isPublished;
+      if (f.isPublished && !before.publishedAt) patch["publishedAt"] = new Date();
     }
     let after;
     try {
@@ -210,7 +235,7 @@ router.put(
         .update(cmsBlocksTable)
         .set({
           title: parsed.data.title ?? null,
-          body: parsed.data.body,
+          body: sanitizeHtml(parsed.data.body),
           updatedById: req.user!.id,
           updatedAt: new Date(),
         })
@@ -223,7 +248,7 @@ router.put(
           key: parsed.data.key,
           locale: parsed.data.locale,
           title: parsed.data.title ?? null,
-          body: parsed.data.body,
+          body: sanitizeHtml(parsed.data.body),
           updatedById: req.user!.id,
         })
         .returning();
@@ -265,10 +290,13 @@ const BlogBody = z.object({
   body: z.string().max(200_000).default(""),
   coverUrl: z.string().url().nullable().optional(),
   category: z.string().max(60).nullable().optional(),
+  categoryId: z.number().int().positive().nullable().optional(),
   tags: z.array(z.string().max(40)).max(20).default([]),
   seoTitle: z.string().max(300).nullable().optional(),
   seoDescription: z.string().max(500).nullable().optional(),
-  isPublished: z.boolean().default(false),
+  isPublished: z.boolean().optional(),
+  isFeatured: z.boolean().optional(),
+  status: ContentStatus.optional(),
 });
 
 router.get(
@@ -276,7 +304,11 @@ router.get(
   requireAuth,
   requirePermission("blog", "read"),
   async (_req, res): Promise<void> => {
-    const rows = await db.select().from(blogPostsTable).orderBy(desc(blogPostsTable.updatedAt));
+    const rows = await db
+      .select()
+      .from(blogPostsTable)
+      .where(isNull(blogPostsTable.deletedAt))
+      .orderBy(desc(blogPostsTable.updatedAt));
     res.json(rows);
   },
 );
@@ -299,14 +331,18 @@ router.post(
           locale: parsed.data.locale,
           title: parsed.data.title,
           excerpt: parsed.data.excerpt,
-          body: parsed.data.body,
+          body: sanitizeHtml(parsed.data.body),
           coverUrl: parsed.data.coverUrl ?? null,
           category: parsed.data.category ?? null,
+          categoryId: parsed.data.categoryId ?? null,
           tags: parsed.data.tags,
           seoTitle: parsed.data.seoTitle ?? null,
           seoDescription: parsed.data.seoDescription ?? null,
-          isPublished: parsed.data.isPublished,
-          publishedAt: parsed.data.isPublished ? new Date() : null,
+          isFeatured: parsed.data.isFeatured ?? false,
+          ...(() => {
+            const f = deriveStatusFlags(parsed.data);
+            return { status: f.status, isPublished: f.isPublished, publishedAt: f.isPublished ? new Date() : null };
+          })(),
           authorId: req.user!.id,
         })
         .returning();
@@ -352,15 +388,23 @@ router.patch(
       "body",
       "coverUrl",
       "category",
+      "categoryId",
       "tags",
       "seoTitle",
       "seoDescription",
-      "isPublished",
+      "isFeatured",
     ] as const) {
-      if (parsed.data[k] !== undefined) patch[k] = parsed.data[k];
+      if (parsed.data[k] !== undefined) {
+        patch[k] = k === "body" || k === "excerpt"
+          ? sanitizeHtml(parsed.data[k] as string)
+          : parsed.data[k];
+      }
     }
-    if (parsed.data.isPublished === true && !before.publishedAt) {
-      patch["publishedAt"] = new Date();
+    if (parsed.data.status !== undefined || parsed.data.isPublished !== undefined) {
+      const f = deriveStatusFlags(parsed.data);
+      patch["status"] = f.status;
+      patch["isPublished"] = f.isPublished;
+      if (f.isPublished && !before.publishedAt) patch["publishedAt"] = new Date();
     }
     let after;
     try {
@@ -397,8 +441,11 @@ router.delete(
       res.status(404).json({ error: "not found" });
       return;
     }
-    await db.delete(blogPostsTable).where(eq(blogPostsTable.id, id));
-    await audit(req, "blog.delete", "blog_post", id, {}, before, null);
+    await db
+      .update(blogPostsTable)
+      .set({ deletedAt: new Date() })
+      .where(eq(blogPostsTable.id, id));
+    await audit(req, "blog.delete", "blog_post", id, { soft: true }, before, null);
     res.json({ id, deleted: true });
   },
 );
@@ -412,9 +459,46 @@ router.get("/blog", async (req, res): Promise<void> => {
   const rows = await db
     .select()
     .from(blogPostsTable)
-    .where(and(eq(blogPostsTable.locale, parsed.data.locale), eq(blogPostsTable.isPublished, true)))
+    .where(and(
+      eq(blogPostsTable.locale, parsed.data.locale),
+      eq(blogPostsTable.isPublished, true),
+      isNull(blogPostsTable.deletedAt),
+    ))
     .orderBy(desc(blogPostsTable.publishedAt));
   res.json(rows);
+});
+
+// Per-post public endpoint; reserved sub-paths defer via next().
+const RESERVED_BLOG_SLUGS = new Set(["categories", "tags"]);
+router.get("/blog/:slug", async (req, res, next): Promise<void> => {
+  const slug = String(req.params["slug"] ?? "").trim();
+  if (!slug) {
+    res.status(400).json({ error: "invalid slug" });
+    return;
+  }
+  if (RESERVED_BLOG_SLUGS.has(slug)) {
+    next();
+    return;
+  }
+  const parsed = LocaleQuery.safeParse(req.query);
+  if (!parsed.success) {
+    res.status(400).json({ error: parsed.error.message });
+    return;
+  }
+  const [row] = await db
+    .select()
+    .from(blogPostsTable)
+    .where(and(
+      eq(blogPostsTable.slug, slug),
+      eq(blogPostsTable.locale, parsed.data.locale),
+      eq(blogPostsTable.isPublished, true),
+      isNull(blogPostsTable.deletedAt),
+    ));
+  if (!row) {
+    res.status(404).json({ error: "not found" });
+    return;
+  }
+  res.json(row);
 });
 
 // ───────────────── FAQ ─────────────────
@@ -422,6 +506,7 @@ router.get("/blog", async (req, res): Promise<void> => {
 const FaqBody = z.object({
   locale: Locale,
   category: z.string().trim().min(1).max(60).default("general"),
+  categoryId: z.number().int().positive().nullable().optional(),
   question: z.string().trim().min(1).max(500),
   answer: z.string().trim().min(1).max(10_000),
   sortOrder: z.number().int().min(0).max(10_000).default(0),
@@ -448,7 +533,10 @@ router.post(
       res.status(400).json({ error: parsed.error.message });
       return;
     }
-    const [row] = await db.insert(faqItemsTable).values(parsed.data).returning();
+    const [row] = await db
+      .insert(faqItemsTable)
+      .values({ ...parsed.data, answer: sanitizeHtml(parsed.data.answer) })
+      .returning();
     await audit(req, "faq.create", "faq_item", row!.id, {}, null, row);
     res.status(201).json(row);
   },
@@ -474,9 +562,11 @@ router.patch(
       res.status(404).json({ error: "not found" });
       return;
     }
+    const faqPatch: Record<string, unknown> = { ...parsed.data, updatedAt: new Date() };
+    if (parsed.data.answer !== undefined) faqPatch["answer"] = sanitizeHtml(parsed.data.answer);
     const [after] = await db
       .update(faqItemsTable)
-      .set({ ...parsed.data, updatedAt: new Date() })
+      .set(faqPatch)
       .where(eq(faqItemsTable.id, id))
       .returning();
     await audit(req, "faq.update", "faq_item", id, {}, before, after);
@@ -499,8 +589,12 @@ router.delete(
       res.status(404).json({ error: "not found" });
       return;
     }
-    await db.delete(faqItemsTable).where(eq(faqItemsTable.id, id));
-    await audit(req, "faq.delete", "faq_item", id, {}, before, null);
+    const [after] = await db
+      .update(faqItemsTable)
+      .set({ isActive: false, updatedAt: new Date() })
+      .where(eq(faqItemsTable.id, id))
+      .returning();
+    await audit(req, "faq.delete", "faq_item", id, { soft: true }, before, after);
     res.json({ id, deleted: true });
   },
 );
@@ -525,12 +619,30 @@ const TestimonialBody = z.object({
   locale: Locale,
   authorName: z.string().trim().min(1).max(200),
   authorTitle: z.string().max(200).nullable().optional(),
-  body: z.string().trim().min(1).max(2000),
+  role: z.string().max(200).nullable().optional(),
+  company: z.string().max(200).nullable().optional(),
+  location: z.string().max(200).nullable().optional(),
+  quoteAr: z.string().max(2000).nullable().optional(),
+  quoteEn: z.string().max(2000).nullable().optional(),
+  body: z.string().max(2000).optional(),
   rating: z.number().int().min(1).max(5).default(5),
   avatarUrl: z.string().url().nullable().optional(),
   isFeatured: z.boolean().default(false),
+  isActive: z.boolean().default(true),
   sortOrder: z.number().int().min(0).max(10_000).default(0),
 });
+
+function pickTestimonialBody(input: {
+  locale: "ar" | "en";
+  body?: string;
+  quoteAr?: string | null;
+  quoteEn?: string | null;
+}): string {
+  const localized = input.locale === "ar" ? input.quoteAr : input.quoteEn;
+  if (typeof localized === "string" && localized.trim().length > 0) return localized;
+  if (typeof input.body === "string" && input.body.trim().length > 0) return input.body;
+  return input.quoteEn ?? input.quoteAr ?? "";
+}
 
 router.get(
   "/admin/testimonials",
@@ -555,13 +667,23 @@ router.post(
       res.status(400).json({ error: parsed.error.message });
       return;
     }
+    const resolvedBody = pickTestimonialBody(parsed.data);
+    if (!resolvedBody) {
+      res.status(400).json({ error: "body or quoteAr/quoteEn required" });
+      return;
+    }
     const [row] = await db
       .insert(testimonialsTable)
       .values({
         locale: parsed.data.locale,
         authorName: parsed.data.authorName,
         authorTitle: parsed.data.authorTitle ?? null,
-        body: parsed.data.body,
+        role: parsed.data.role ?? null,
+        company: parsed.data.company ?? null,
+        location: parsed.data.location ?? null,
+        quoteAr: parsed.data.quoteAr ? sanitizeHtml(parsed.data.quoteAr) : null,
+        quoteEn: parsed.data.quoteEn ? sanitizeHtml(parsed.data.quoteEn) : null,
+        body: sanitizeHtml(resolvedBody),
         rating: parsed.data.rating,
         avatarUrl: parsed.data.avatarUrl ?? null,
         isFeatured: parsed.data.isFeatured,
@@ -593,9 +715,17 @@ router.patch(
       res.status(404).json({ error: "not found" });
       return;
     }
+    const testPatch: Record<string, unknown> = { ...parsed.data, updatedAt: new Date() };
+    if (parsed.data.body !== undefined) testPatch["body"] = sanitizeHtml(parsed.data.body);
+    if (parsed.data.quoteAr !== undefined && parsed.data.quoteAr !== null) {
+      testPatch["quoteAr"] = sanitizeHtml(parsed.data.quoteAr);
+    }
+    if (parsed.data.quoteEn !== undefined && parsed.data.quoteEn !== null) {
+      testPatch["quoteEn"] = sanitizeHtml(parsed.data.quoteEn);
+    }
     const [after] = await db
       .update(testimonialsTable)
-      .set({ ...parsed.data, updatedAt: new Date() })
+      .set(testPatch)
       .where(eq(testimonialsTable.id, id))
       .returning();
     await audit(req, "testimonial.update", "testimonial", id, {}, before, after);
@@ -618,8 +748,12 @@ router.delete(
       res.status(404).json({ error: "not found" });
       return;
     }
-    await db.delete(testimonialsTable).where(eq(testimonialsTable.id, id));
-    await audit(req, "testimonial.delete", "testimonial", id, {}, before, null);
+    const [after] = await db
+      .update(testimonialsTable)
+      .set({ isActive: false, updatedAt: new Date() })
+      .where(eq(testimonialsTable.id, id))
+      .returning();
+    await audit(req, "testimonial.delete", "testimonial", id, { soft: true }, before, after);
     res.json({ id, deleted: true });
   },
 );
@@ -633,7 +767,10 @@ router.get("/testimonials", async (req, res): Promise<void> => {
   const rows = await db
     .select()
     .from(testimonialsTable)
-    .where(eq(testimonialsTable.locale, parsed.data.locale))
+    .where(and(
+      eq(testimonialsTable.locale, parsed.data.locale),
+      eq(testimonialsTable.isActive, true),
+    ))
     .orderBy(desc(testimonialsTable.isFeatured), testimonialsTable.sortOrder);
   res.json(rows);
 });

@@ -1,7 +1,6 @@
 import { useMemo, useState } from "react";
 import { useTranslation } from "@/lib/i18n";
 import { useFaqs } from "@/lib/api-public";
-import { BRAND } from "@workspace/branding";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
@@ -13,7 +12,7 @@ import {
 } from "@/components/ui/accordion";
 
 export default function Faq() {
-  const { lang } = useTranslation();
+  const { lang, t } = useTranslation();
   const { data: faqs, isLoading } = useFaqs(lang);
   const [activeCategory, setActiveCategory] = useState<string>("all");
 
@@ -32,14 +31,10 @@ export default function Faq() {
   return (
     <div className="container mx-auto px-4 py-12 max-w-3xl">
       <div className="mb-10 text-center">
-        <h1 className="text-4xl font-bold mb-3">
-          {lang === "ar" ? "الأسئلة الشائعة" : "Frequently Asked Questions"}
+        <h1 className="text-4xl font-bold mb-3" data-testid="faq-page-title">
+          {t("section.faq.title")}
         </h1>
-        <p className="text-muted-foreground">
-          {lang === "ar"
-            ? `كل ما تحتاج معرفته عن ${BRAND.nameAr}.`
-            : `Everything you need to know about ${BRAND.name}.`}
-        </p>
+        <p className="text-muted-foreground">{t("section.faq.subtitle")}</p>
       </div>
 
       {isLoading ? (

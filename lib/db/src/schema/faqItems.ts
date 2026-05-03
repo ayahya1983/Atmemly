@@ -6,6 +6,8 @@ export const faqItemsTable = pgTable(
     id: serial("id").primaryKey(),
     locale: text("locale").notNull(),
     category: text("category").notNull().default("general"),
+    // FK to faq_categories.id (kept nullable for back-compat).
+    categoryId: integer("category_id"),
     question: text("question").notNull(),
     answer: text("answer").notNull(),
     sortOrder: integer("sort_order").notNull().default(0),

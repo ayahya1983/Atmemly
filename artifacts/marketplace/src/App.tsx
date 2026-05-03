@@ -6,6 +6,7 @@ import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { LanguageProvider } from "@/lib/i18n";
 import { TopNav } from "@/components/layout/TopNav";
 import { Footer } from "@/components/layout/Footer";
+import { SeoHead } from "@/components/SeoHead";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 
 import NotFound from "@/pages/not-found";
@@ -26,6 +27,8 @@ import Cancellation from "@/pages/cancellation";
 import Blog from "@/pages/blog";
 import BlogDetail from "@/pages/blog-detail";
 import Faq from "@/pages/faq";
+import Help from "@/pages/help";
+import HowItWorks from "@/pages/how-it-works";
 
 import { ClientDashboardLayout } from "@/pages/dashboard/client/layout";
 import ClientOverview from "@/pages/dashboard/client/overview";
@@ -51,6 +54,7 @@ const queryClient = new QueryClient();
 function Layout({ children }: { children: React.ReactNode }) {
   return (
     <div className="min-h-[100dvh] flex flex-col w-full">
+      <SeoHead />
       <TopNav />
       <main className="flex-1 w-full flex flex-col">{children}</main>
       <Footer />
@@ -90,6 +94,8 @@ function Router() {
       <Route path="/blog" component={Blog} />
       <Route path="/blog/:slug" component={BlogDetail} />
       <Route path="/faq" component={Faq} />
+      <Route path="/help" component={Help} />
+      <Route path="/how-it-works" component={HowItWorks} />
 
       <Route path="/login" component={Login} />
       <Route path="/auth/sso/:provider/callback" component={SsoCallback} />

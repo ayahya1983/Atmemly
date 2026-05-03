@@ -73,6 +73,12 @@ const NAV_GROUPS: NavGroup[] = [
     key: "content",
     label: { ar: "المحتوى", en: "Content" },
     items: [
+      { href: "/cms-homepage", label: { ar: "الصفحة الرئيسية", en: "Homepage" }, icon: LayoutDashboard, resource: "cms" },
+      { href: "/cms-navigation", label: { ar: "التنقل", en: "Navigation" }, icon: ListChecks, resource: "cms" },
+      { href: "/cms-footer", label: { ar: "التذييل", en: "Footer" }, icon: Layers, resource: "cms" },
+      { href: "/cms-media", label: { ar: "الوسائط", en: "Media" }, icon: FileEdit, resource: "cms" },
+      { href: "/cms-seo", label: { ar: "تحسين البحث", en: "SEO" }, icon: SlidersHorizontal, resource: "seo" },
+      { href: "/cms-localization", label: { ar: "الترجمات", en: "Localization" }, icon: BookOpen, resource: "localization" },
       { href: "/cms-pages", label: { ar: "صفحات CMS", en: "CMS Pages" }, icon: FileEdit, resource: "cms" },
       { href: "/cms-blocks", label: { ar: "كتل CMS", en: "CMS Blocks" }, icon: Layers, resource: "cms" },
       { href: "/blog", label: { ar: "المدونة", en: "Blog" }, icon: BookOpen, resource: "blog" },

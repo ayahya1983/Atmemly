@@ -55,3 +55,12 @@ export * from "./userIdentities";
 export * from "./ssoSessions";
 export * from "./organizationSsoSettings";
 export * from "./loginAuditLogs";
+// full CMS coverage.
+export * from "./cmsHomepage";
+export * from "./navigationItems";
+export * from "./footerSettings";
+export * from "./seoSettings";
+export * from "./localizationStrings";
+export * from "./localizationSettings";
+export * from "./blogCategories";
+export * from "./faqCategories";

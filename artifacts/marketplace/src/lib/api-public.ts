@@ -17,7 +17,10 @@ export interface BlogPost {
   body: string;
   coverUrl: string | null;
   category: string | null;
+  categoryId: number | null;
   tags: string[] | null;
+  seoTitle: string | null;
+  seoDescription: string | null;
   publishedAt: string | null;
 }
 
@@ -121,13 +124,148 @@ export function useCmsBlock(key: string, locale: "ar" | "en") {
 export function useBlogPost(slug: string, locale: "ar" | "en") {
   return useQuery({
     queryKey: ["public-blog-post", slug, locale],
-    queryFn: async () => {
-      const list = await getJson<BlogPost[]>(`/blog?locale=${locale}`);
-      const found = list.find((p) => p.slug === slug);
-      if (!found) throw new Error("Blog post not found");
-      return found;
-    },
+    queryFn: () => getJson<BlogPost>(`/blog/${encodeURIComponent(slug)}?locale=${locale}`),
     staleTime: 60_000,
     retry: false,
+    enabled: slug.length > 0,
+  });
+}
+
+// CMS public hooks (homepage, navigation, footer, SEO, i18n).
+
+export interface CmsHomepageHero {
+  titleAr: string; titleEn: string;
+  subtitleAr: string; subtitleEn: string;
+  searchPlaceholderAr: string; searchPlaceholderEn: string;
+  imageUrl: string;
+  ctaPrimaryLabelAr: string; ctaPrimaryLabelEn: string; ctaPrimaryHref: string;
+  ctaSecondaryLabelAr: string; ctaSecondaryLabelEn: string; ctaSecondaryHref: string;
+}
+export interface CmsHomepageSection {
+  key: string;
+  titleAr: string; titleEn: string;
+  subtitleAr: string; subtitleEn: string;
+  isVisible: boolean;
+  sortOrder: number;
+}
+export interface CmsHomepage { hero: CmsHomepageHero; sections: CmsHomepageSection[] }
+
+// Allow only safe in-app or external http(s) hrefs. Blocks `javascript:`,
+// `data:`, etc. Returns the safe href or a fallback when invalid.
+export function safeHref(href: string | null | undefined, fallback = "/"): string {
+  if (!href) return fallback;
+  const s = href.trim();
+  if (s.startsWith("/") || s.startsWith("#") || s.startsWith("?")) return s;
+  if (/^https?:\/\//i.test(s)) return s;
+  if (/^mailto:|^tel:/i.test(s)) return s;
+  return fallback;
+}
+
+export function useCmsHomepage() {
+  return useQuery({
+    queryKey: ["public-cms-homepage"],
+    queryFn: () => getJson<CmsHomepage>("/cms/homepage"),
+    staleTime: 60_000,
+  });
+}
+
+export interface NavigationItem {
+  id: number;
+  location: "HEADER" | "FOOTER";
+  parentId: number | null;
+  labelAr: string; labelEn: string;
+  href: string;
+  sortOrder: number;
+  isActive: boolean;
+}
+export function useNavigation(location: "HEADER" | "FOOTER") {
+  return useQuery({
+    queryKey: ["public-navigation", location],
+    queryFn: () => getJson<NavigationItem[]>(`/navigation?location=${location}`),
+    staleTime: 60_000,
+  });
+}
+
+export interface FooterLink { id: number; groupId: number; labelAr: string; labelEn: string; href: string; sortOrder: number; isActive: boolean }
+export interface FooterGroup { id: number; titleAr: string; titleEn: string; sortOrder: number; isActive: boolean; links: FooterLink[] }
+export interface FooterSettings {
+  id: number;
+  descriptionAr: string; descriptionEn: string;
+  contactEmail: string; contactPhone: string; whatsapp: string;
+  addressAr: string; addressEn: string;
+  copyrightAr: string; copyrightEn: string;
+  socialLinks: { platform: string; url: string }[];
+}
+export interface FooterPayload { settings: FooterSettings | null; groups: FooterGroup[] }
+
+export function useFooter() {
+  return useQuery({
+    queryKey: ["public-footer"],
+    queryFn: () => getJson<FooterPayload>("/footer"),
+    staleTime: 60_000,
+  });
+}
+
+export interface SeoSettings {
+  id: number;
+  siteTitleAr: string; siteTitleEn: string;
+  siteDescriptionAr: string; siteDescriptionEn: string;
+  ogImageUrl: string | null;
+  twitterHandle: string | null;
+  defaultLocale: "ar" | "en";
+}
+export function useSeoSettings() {
+  return useQuery({
+    queryKey: ["public-seo"],
+    queryFn: () => getJson<SeoSettings | null>("/seo"),
+    staleTime: 5 * 60_000,
+  });
+}
+
+export interface BlogCategory {
+  id: number;
+  slug: string;
+  nameAr: string; nameEn: string;
+  sortOrder: number; isActive: boolean;
+  seoTitleAr: string | null; seoTitleEn: string | null;
+  seoDescriptionAr: string | null; seoDescriptionEn: string | null;
+  seoImageUrl: string | null;
+}
+export function useBlogCategories() {
+  return useQuery({
+    queryKey: ["public-blog-categories"],
+    queryFn: () => getJson<BlogCategory[]>("/blog/categories"),
+    staleTime: 5 * 60_000,
+  });
+}
+
+export interface LocalizationSettings {
+  id: number;
+  defaultLocale: string;
+  enabledLocales: string[];
+  rtlLocales: string[];
+  fallbackLocale: string;
+  isRtlByDefault: boolean;
+}
+export function useLocalizationSettings() {
+  return useQuery({
+    queryKey: ["public-localization-settings"],
+    queryFn: () => getJson<LocalizationSettings>("/localization/settings"),
+    staleTime: 5 * 60_000,
+  });
+}
+
+// External href detector (external,
+// mailto, tel, in-page anchor, or query-only). Internal-path hrefs ("/jobs",
+// "/blog/x") still go through the wouter router for client-side navigation.
+export function isExternalHref(href: string): boolean {
+  return /^(https?:|mailto:|tel:)/i.test(href);
+}
+
+export function useLocalizationStrings(locale: "ar" | "en") {
+  return useQuery({
+    queryKey: ["public-localization", locale],
+    queryFn: () => getJson<Record<string, string>>(`/localization/${locale}`),
+    staleTime: 5 * 60_000,
   });
 }
