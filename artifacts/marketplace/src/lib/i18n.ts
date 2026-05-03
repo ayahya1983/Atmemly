@@ -232,13 +232,11 @@ export function useTranslation() {
       const cmsFb = cmsFallbackStrings?.[key];
       if (typeof cmsFb === "string" && cmsFb.length > 0) return cmsFb;
     }
-    if (import.meta.env.DEV) {
-      const own = translations[lang]?.[key];
-      if (own) return own;
-      if (fallbackLocale !== lang) {
-        const fb = translations[fallbackLocale]?.[key];
-        if (fb) return fb;
-      }
+    const own = translations[lang]?.[key];
+    if (own) return own;
+    if (fallbackLocale !== lang) {
+      const fb = translations[fallbackLocale]?.[key];
+      if (fb) return fb;
     }
     return key;
   };
