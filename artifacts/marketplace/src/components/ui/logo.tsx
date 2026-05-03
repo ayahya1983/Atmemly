@@ -1,17 +1,23 @@
+import { useTranslation } from "@/lib/i18n";
 import { Link } from "wouter";
+import { BRAND } from "@workspace/branding";
 
 export function Logo() {
+  const { lang } = useTranslation();
   return (
     <Link
       href="/"
-      className="flex items-center no-underline hover:opacity-90 transition-opacity"
+      className="flex items-center gap-2 no-underline hover:opacity-90 transition-opacity"
       data-testid="link-logo"
     >
       <img
         src={`${import.meta.env.BASE_URL}logo.png`}
-        alt="Atmemly"
-        className="h-9 w-auto object-contain"
+        alt={BRAND.name}
+        className="h-10 w-auto object-contain"
       />
+      <span className="font-extrabold text-xl text-primary leading-none">
+        {lang === "ar" ? BRAND.nameAr : BRAND.name}
+      </span>
     </Link>
   );
 }

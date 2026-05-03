@@ -12,6 +12,7 @@ import {
   attachmentsTable,
   usersTable,
 } from "@workspace/db";
+import { BRAND } from "@workspace/branding";
 import { requireAuth } from "../lib/auth";
 import { respond, respondError, parsePagination, paginate } from "../lib/apiResponse";
 import {
@@ -220,7 +221,7 @@ router.post("/payments/intents", requireAuth, async (req, res): Promise<void> =>
     intentResult = await gw.createIntent({
       amount: resolvedAmount,
       currency: resolvedCurrency,
-      description: parsed.data.description ?? `Khidma transaction #${tx!.id}`,
+      description: parsed.data.description ?? `${BRAND.name} transaction #${tx!.id}`,
       customerEmail: req.user!.email,
       customerName: req.user!.fullName,
       returnUrl: parsed.data.returnUrl,

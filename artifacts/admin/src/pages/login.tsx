@@ -13,6 +13,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Logo } from "@/components/ui/logo";
 import { Loader2 } from "lucide-react";
 import { effectiveAdminRole } from "@/lib/permissions";
+import { BRAND } from "@workspace/branding";
 
 const loginSchema = z.object({
   email: z.string().email("Please enter a valid email address"),
@@ -86,7 +87,7 @@ export default function AdminLogin() {
                   <FormItem>
                     <FormLabel>{lang === "ar" ? "البريد الإلكتروني" : "Email"}</FormLabel>
                     <FormControl>
-                      <Input placeholder="admin@atmemly.ae" type="email" {...field} data-testid="input-email" />
+                      <Input placeholder={`admin@${BRAND.domain}`} type="email" {...field} data-testid="input-email" />
                     </FormControl>
                     <FormMessage />
                   </FormItem>

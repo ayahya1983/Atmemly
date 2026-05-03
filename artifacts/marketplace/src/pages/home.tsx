@@ -6,6 +6,7 @@ import {
   useListJobs,
 } from "@workspace/api-client-react";
 import { useBlogPosts, useFaqs, useTestimonials } from "@/lib/api-public";
+import { BRAND } from "@workspace/branding";
 import { Link } from "wouter";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -263,7 +264,7 @@ export default function Home() {
                     >
                       <div className="aspect-[4/3] bg-gradient-to-br from-primary/20 to-primary/5 relative overflow-hidden">
                         <img
-                          src={`https://picsum.photos/seed/atmemly-svc-${f.id}/600/450`}
+                          src={`https://picsum.photos/seed/${BRAND.name.toLowerCase()}-svc-${f.id}/600/450`}
                           alt={f.headline}
                           className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                           loading="lazy"
@@ -546,7 +547,7 @@ export default function Home() {
                       <img src={p.coverUrl} alt={p.title} className="w-full h-full object-cover" loading="lazy" />
                     ) : (
                       <img
-                        src={`https://picsum.photos/seed/atmemly-blog-${p.id}/600/400`}
+                        src={`https://picsum.photos/seed/${BRAND.name.toLowerCase()}-blog-${p.id}/600/400`}
                         alt={p.title}
                         className="w-full h-full object-cover"
                         loading="lazy"
@@ -644,7 +645,7 @@ export default function Home() {
                 <div className="relative w-full h-full bg-background/95 rounded-[2.5rem] border-8 border-primary-foreground/20 shadow-2xl overflow-hidden flex items-center justify-center">
                   <div className="text-center p-8 text-primary">
                     <CheckCircle2 className="w-20 h-20 mx-auto mb-4" />
-                    <div className="text-4xl font-extrabold mb-1">{isRtl ? "أتمملي" : "Atmemly"}</div>
+                    <div className="text-4xl font-extrabold mb-1">{isRtl ? BRAND.nameAr : BRAND.name}</div>
                     <div className="text-xs tracking-[0.3em] text-muted-foreground">
                       {isRtl ? "MOBILE APP" : "تطبيق الجوال"}
                     </div>

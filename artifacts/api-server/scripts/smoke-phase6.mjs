@@ -382,7 +382,7 @@ const FREELANCER_CREDS = ["layla@khidma.ae", "freelancer1234"];
   // ───────────── Public CMS for seeded pages ─────────────
   {
     const about = await req("GET", "/cms/pages/about-us?locale=en");
-    ok("seeded about-us page reachable", about.status === 200 && about.data.title === "About Khidma", about);
+    ok("seeded about-us page reachable", about.status === 200 && about.data.title === "About ATMEMLY", about);
     const blockEn = await req("GET", "/cms/blocks/homepage_hero?locale=en");
     ok("seeded homepage_hero block reachable", blockEn.status === 200 && blockEn.data.body, blockEn);
     const blockAr = await req("GET", "/cms/blocks/homepage_hero?locale=ar");

@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { BRAND } from "@workspace/branding";
 import type {
   PaymentGateway,
   PaymentIntentInput,
@@ -26,7 +27,7 @@ export interface ManualBankDetails {
 
 export function getManualBankDetails(): ManualBankDetails {
   return {
-    accountName: process.env["MANUAL_BANK_ACCOUNT_NAME"] ?? "Khidma Marketplace LLC",
+    accountName: process.env["MANUAL_BANK_ACCOUNT_NAME"] ?? BRAND.companyName,
     bankName: process.env["MANUAL_BANK_NAME"] ?? "Bank Name (configure MANUAL_BANK_NAME)",
     iban: process.env["MANUAL_BANK_IBAN"] ?? "AE000000000000000000000",
     swift: process.env["MANUAL_BANK_SWIFT"] ?? "XXXXAEXX",

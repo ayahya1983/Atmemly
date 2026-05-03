@@ -1,5 +1,6 @@
 import bcrypt from "bcryptjs";
 import { sql } from "drizzle-orm";
+import { BRAND } from "@workspace/branding";
 import {
   db,
   pool,
@@ -76,11 +77,11 @@ async function main() {
   const [admin] = await db
     .insert(usersTable)
     .values({
-      email: "admin@atmemly.ae",
+      email: "admin@khidma.ae",
       passwordHash: adminPwd,
-      fullName: "Khidma Admin",
+      fullName: `${BRAND.name} Admin`,
       role: "admin",
-      avatarUrl: "https://api.dicebear.com/7.x/initials/svg?seed=Khidma%20Admin&backgroundColor=458CCA",
+      avatarUrl: `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(`${BRAND.name} Admin`)}&backgroundColor=458CCA`,
     })
     .returning();
   void admin;
@@ -125,7 +126,7 @@ async function main() {
 
   const freelancersData = [
     {
-      email: "layla@atmemly.ae",
+      email: "layla@khidma.ae",
       fullName: "Layla Bin Saeed",
       headline: "Senior Brand & Identity Designer",
       bio: "10+ years crafting identities for regional and international brands. Based in Dubai, fluent in Arabic and English.",
@@ -134,7 +135,7 @@ async function main() {
       location: "Dubai, UAE",
     },
     {
-      email: "omar@atmemly.ae",
+      email: "omar@khidma.ae",
       fullName: "Omar Al Saadi",
       headline: "Full-stack Developer (React + Node)",
       bio: "Building production web apps for fintech and e-commerce clients across the GCC.",
@@ -143,7 +144,7 @@ async function main() {
       location: "Riyadh, KSA",
     },
     {
-      email: "huda@atmemly.ae",
+      email: "huda@khidma.ae",
       fullName: "Huda Mansour",
       headline: "Bilingual Copywriter & Content Strategist",
       bio: "I write punchy bilingual copy for brands that want to win Arabic-speaking audiences without losing their English voice.",
@@ -152,7 +153,7 @@ async function main() {
       location: "Amman, Jordan",
     },
     {
-      email: "khalid@atmemly.ae",
+      email: "khalid@khidma.ae",
       fullName: "Khalid Al Farsi",
       headline: "Performance Marketer (Google + Meta)",
       bio: "I run profitable paid campaigns for D2C brands. AED 50M+ ad spend managed across the Gulf.",
@@ -161,7 +162,7 @@ async function main() {
       location: "Doha, Qatar",
     },
     {
-      email: "amal@atmemly.ae",
+      email: "amal@khidma.ae",
       fullName: "Amal Karim",
       headline: "Motion Designer & Video Editor",
       bio: "I make broadcast-quality short videos and motion graphics for ads, social and product launches.",
@@ -362,7 +363,7 @@ async function main() {
     await db.insert(notificationsTable).values({
       userId: f.id,
       kind: "welcome",
-      title: "Welcome to Khidma",
+      title: `Welcome to ${BRAND.name}`,
       body: "Complete your profile to start receiving proposals.",
       link: "/dashboard/freelancer/profile",
     });
@@ -374,14 +375,14 @@ async function main() {
       slug: "terms",
       version: 1,
       titleEn: "Terms of Service",
-      titleAr: "شروط الخدمة",
+      titleAr: "الشروط والأحكام",
       bodyEn:
-        "These Terms of Service govern your access to and use of the Khidma platform, " +
-        "a UAE-based marketplace for freelance services. By accessing or using Khidma you " +
+        `These Terms of Service govern your access to and use of the ${BRAND.name} platform, ` +
+        `a UAE-based marketplace for freelance services. By accessing or using ${BRAND.name} you ` +
         "agree to be bound by these terms, our Privacy Policy and applicable UAE laws " +
         "including the Federal Decree-Law No. 45 of 2021 on Personal Data Protection.",
       bodyAr:
-        "تحكم شروط الخدمة هذه وصولك إلى منصة خدمة واستخدامك لها، وهي منصة مقرها الإمارات " +
+        `تحكم هذه الشروط وصولك إلى منصة ${BRAND.nameAr} واستخدامك لها، وهي منصة مقرها الإمارات ` +
         "العربية المتحدة لخدمات العمل الحر. باستخدامك للمنصة فإنك توافق على هذه الشروط " +
         "وعلى سياسة الخصوصية والقوانين المعمول بها في دولة الإمارات.",
       isCurrent: true,
@@ -393,12 +394,12 @@ async function main() {
       titleEn: "Privacy Policy",
       titleAr: "سياسة الخصوصية",
       bodyEn:
-        "Khidma collects only the personal data needed to operate the marketplace: account " +
+        `${BRAND.name} collects only the personal data needed to operate the marketplace: account ` +
         "information, profile details, payment records and communications. Data is stored " +
         "securely and is not shared with third parties except as required to provide the " +
         "service or as required by UAE law.",
       bodyAr:
-        "تجمع منصة خدمة البيانات الشخصية اللازمة فقط لتشغيل السوق: معلومات الحساب وتفاصيل " +
+        `تجمع منصة ${BRAND.nameAr} البيانات الشخصية اللازمة فقط لتشغيل السوق: معلومات الحساب وتفاصيل ` +
         "الملف الشخصي وسجلات الدفع والمراسلات. يتم تخزين البيانات بشكل آمن ولا تتم مشاركتها " +
         "مع أطراف ثالثة إلا حسب ما يقتضيه القانون.",
       isCurrent: true,
@@ -410,11 +411,11 @@ async function main() {
       titleEn: "Confidentiality Notice",
       titleAr: "إشعار السرية",
       bodyEn:
-        "All briefs, files and communications exchanged on Khidma are considered confidential " +
+        `All briefs, files and communications exchanged on ${BRAND.name} are considered confidential ` +
         "between the contracting parties. Sharing client material outside the engagement " +
         "without written consent is prohibited.",
       bodyAr:
-        "تعتبر جميع الملفات والمراسلات المتبادلة على منصة خدمة سرية بين الأطراف المتعاقدة. " +
+        `تعتبر جميع الملفات والمراسلات المتبادلة على منصة ${BRAND.nameAr} سرية بين الأطراف المتعاقدة. ` +
         "يحظر مشاركة مواد العميل خارج نطاق التعاقد دون موافقة كتابية.",
       isCurrent: true,
       publishedById: admin!.id,
@@ -446,7 +447,7 @@ async function main() {
     },
     {
       key: "support_email",
-      value: "support@atmemly.ae",
+      value: BRAND.supportEmail,
       isPublic: 1,
       description: "Public-facing support contact",
       updatedById: admin!.id,
@@ -476,12 +477,12 @@ async function main() {
       key: "platform_trn",
       value: "100123456700003",
       isPublic: 1,
-      description: "Khidma UAE Tax Registration Number for invoices",
+      description: `${BRAND.name} UAE Tax Registration Number for invoices`,
       updatedById: admin!.id,
     },
     {
       key: "manual_bank_account_name",
-      value: process.env["MANUAL_BANK_ACCOUNT_NAME"] ?? "Khidma Marketplace LLC",
+      value: process.env["MANUAL_BANK_ACCOUNT_NAME"] ?? BRAND.companyName,
       isPublic: 1,
       description: "Bank account holder name for manual transfers",
       updatedById: admin!.id,
@@ -605,26 +606,26 @@ async function main() {
 
   // ---------- Phase 6: Admin role + content ----------
   // Promote primary admin to super_admin (admin role + adminRole = super_admin).
-  await db.execute(sql`UPDATE users SET admin_role = 'super_admin' WHERE email = 'admin@atmemly.ae'`);
+  await db.execute(sql`UPDATE users SET admin_role = 'super_admin' WHERE email = 'admin@khidma.ae'`);
 
   await db.insert(cmsPagesTable).values([
     {
       slug: "about-us",
       locale: "en",
-      title: "About Khidma",
-      body: "Khidma is the UAE's bilingual freelance marketplace connecting top regional talent with growing companies across the GCC.",
-      seoTitle: "About Khidma — UAE freelance marketplace",
-      seoDescription: "Learn about Khidma's mission to power the UAE freelance economy.",
+      title: `About ${BRAND.name}`,
+      body: `${BRAND.name} is the UAE's bilingual freelance marketplace connecting top regional talent with growing companies across the GCC.`,
+      seoTitle: `About ${BRAND.name} — UAE freelance marketplace`,
+      seoDescription: `Learn about ${BRAND.name}'s mission to power the UAE freelance economy.`,
       isPublished: true,
       updatedById: 1,
     },
     {
       slug: "about-us",
       locale: "ar",
-      title: "عن خدمة",
-      body: "خدمة هي منصة العمل الحر ثنائية اللغة في الإمارات تربط أفضل المواهب الإقليمية بالشركات النامية في دول الخليج.",
-      seoTitle: "عن خدمة — منصة العمل الحر في الإمارات",
-      seoDescription: "تعرف على رسالة خدمة في تمكين اقتصاد العمل الحر في الإمارات.",
+      title: `عن ${BRAND.nameAr}`,
+      body: `${BRAND.nameAr} هي منصة العمل الحر ثنائية اللغة في الإمارات تربط أفضل المواهب الإقليمية بالشركات النامية في دول الخليج.`,
+      seoTitle: `عن ${BRAND.nameAr} — منصة العمل الحر في الإمارات`,
+      seoDescription: `تعرف على رسالة ${BRAND.nameAr} في تمكين اقتصاد العمل الحر في الإمارات.`,
       isPublished: true,
       updatedById: 1,
     },
@@ -649,14 +650,14 @@ async function main() {
 
   await db.insert(blogPostsTable).values([
     {
-      slug: "welcome-to-khidma",
+      slug: "welcome-to-atmemly",
       locale: "en",
-      title: "Welcome to Khidma",
+      title: `Welcome to ${BRAND.name}`,
       excerpt: "We're launching the UAE's bilingual freelance marketplace.",
-      body: "Today we're proud to launch Khidma — the marketplace built for UAE freelancers and clients...",
+      body: `Today we're proud to launch ${BRAND.name} — the marketplace built for UAE freelancers and clients...`,
       category: "announcements",
       tags: ["launch", "uae", "freelance"],
-      coverUrl: "https://picsum.photos/seed/khidma-blog-en-1/800/500",
+      coverUrl: "https://picsum.photos/seed/atmemly-blog-en-1/800/500",
       isPublished: true,
       publishedAt: new Date(),
       authorId: 1,
@@ -664,12 +665,12 @@ async function main() {
     {
       slug: "writing-a-winning-proposal",
       locale: "en",
-      title: "How to write a winning proposal on Khidma",
+      title: `How to write a winning proposal on ${BRAND.name}`,
       excerpt: "Five simple rules that consistently turn proposals into accepted contracts.",
       body: "A great proposal is short, specific, and focused on the client's outcome — here's how to write one...",
       category: "tips",
       tags: ["proposals", "freelancers"],
-      coverUrl: "https://picsum.photos/seed/khidma-blog-en-2/800/500",
+      coverUrl: "https://picsum.photos/seed/atmemly-blog-en-2/800/500",
       isPublished: true,
       publishedAt: new Date(Date.now() - 4 * 86400000),
       authorId: 1,
@@ -682,20 +683,20 @@ async function main() {
       body: "Hiring well starts with a clear brief. Here's how to structure yours so the best freelancers respond...",
       category: "guides",
       tags: ["clients", "hiring"],
-      coverUrl: "https://picsum.photos/seed/khidma-blog-en-3/800/500",
+      coverUrl: "https://picsum.photos/seed/atmemly-blog-en-3/800/500",
       isPublished: true,
       publishedAt: new Date(Date.now() - 9 * 86400000),
       authorId: 1,
     },
     {
-      slug: "welcome-to-khidma",
+      slug: "welcome-to-atmemly",
       locale: "ar",
-      title: "مرحباً بكم في خدمة",
+      title: `مرحباً بكم في ${BRAND.nameAr}`,
       excerpt: "نطلق منصة العمل الحر ثنائية اللغة في الإمارات.",
-      body: "اليوم نفخر بإطلاق خدمة — المنصة المبنية للمستقلين والعملاء في الإمارات...",
+      body: `اليوم نفخر بإطلاق ${BRAND.nameAr} — المنصة المبنية للمستقلين والعملاء في الإمارات...`,
       category: "إعلانات",
       tags: ["إطلاق", "الإمارات", "عمل-حر"],
-      coverUrl: "https://picsum.photos/seed/khidma-blog-ar-1/800/500",
+      coverUrl: "https://picsum.photos/seed/atmemly-blog-ar-1/800/500",
       isPublished: true,
       publishedAt: new Date(),
       authorId: 1,
@@ -703,12 +704,12 @@ async function main() {
     {
       slug: "writing-a-winning-proposal",
       locale: "ar",
-      title: "كيف تكتب عرضاً فائزاً على منصة خدمة",
+      title: `كيف تكتب عرضاً فائزاً على منصة ${BRAND.nameAr}`,
       excerpt: "خمس قواعد بسيطة تحوّل عروضك إلى عقود مقبولة باستمرار.",
       body: "العرض المميز قصير ومحدد ويركز على نتيجة العميل — وإليك طريقة كتابته...",
       category: "نصائح",
       tags: ["عروض", "مستقلين"],
-      coverUrl: "https://picsum.photos/seed/khidma-blog-ar-2/800/500",
+      coverUrl: "https://picsum.photos/seed/atmemly-blog-ar-2/800/500",
       isPublished: true,
       publishedAt: new Date(Date.now() - 4 * 86400000),
       authorId: 1,
@@ -721,7 +722,7 @@ async function main() {
       body: "يبدأ التوظيف الجيد بمواصفات واضحة. إليك كيف تنظمها لجذب أفضل المستقلين...",
       category: "أدلة",
       tags: ["عملاء", "توظيف"],
-      coverUrl: "https://picsum.photos/seed/khidma-blog-ar-3/800/500",
+      coverUrl: "https://picsum.photos/seed/atmemly-blog-ar-3/800/500",
       isPublished: true,
       publishedAt: new Date(Date.now() - 9 * 86400000),
       authorId: 1,
@@ -729,35 +730,35 @@ async function main() {
   ]);
 
   await db.insert(faqItemsTable).values([
-    { locale: "en", category: "getting-started", question: "How do I create a Khidma account?",
+    { locale: "en", category: "getting-started", question: `How do I create a ${BRAND.name} account?`,
       answer: "Click Sign Up, enter your email, verify it, and complete your profile.", sortOrder: 10 },
-    { locale: "en", category: "payments", question: "How does escrow work on Khidma?",
+    { locale: "en", category: "payments", question: `How does escrow work on ${BRAND.name}?`,
       answer: "Clients fund a milestone in advance. Funds are released when work is approved.", sortOrder: 20 },
-    { locale: "en", category: "fees", question: "Are there any fees to join Khidma?",
-      answer: "Creating an account and posting a project is free. We charge a small service fee on completed contracts.", sortOrder: 30 },
+    { locale: "en", category: "fees", question: `Are there any fees to join ${BRAND.name}?`,
+      answer: "Creating an account and posting a project is free. We charge a small platform fee on completed contracts.", sortOrder: 30 },
     { locale: "en", category: "support", question: "How do I contact support?",
-      answer: "Use the Contact Us page or email hello@atmemly.ae — we usually respond within a few hours.", sortOrder: 40 },
-    { locale: "ar", category: "البدء", question: "كيف أنشئ حساباً في خدمة؟",
+      answer: `Use the Contact Us page or email ${BRAND.email} — we usually respond within a few hours.`, sortOrder: 40 },
+    { locale: "ar", category: "البدء", question: `كيف أنشئ حساباً في ${BRAND.nameAr}؟`,
       answer: "انقر على إنشاء حساب، أدخل بريدك الإلكتروني، وأكد التحقق وأكمل ملفك الشخصي.", sortOrder: 10 },
-    { locale: "ar", category: "المدفوعات", question: "كيف يعمل نظام الضمان في خدمة؟",
+    { locale: "ar", category: "المدفوعات", question: `كيف يعمل نظام الضمان في ${BRAND.nameAr}؟`,
       answer: "يمول العميل قيمة المرحلة مسبقاً، ويُفرج عن المبلغ للمستقل عند اعتماد التسليم.", sortOrder: 20 },
-    { locale: "ar", category: "الرسوم", question: "هل هناك رسوم للانضمام إلى خدمة؟",
-      answer: "إنشاء الحساب ونشر المشاريع مجاني. نحتسب رسم خدمة بسيط على العقود المكتملة فقط.", sortOrder: 30 },
-    { locale: "ar", category: "المستقلون", question: "كيف أبدأ كمستقل على خدمة؟",
+    { locale: "ar", category: "الرسوم", question: `هل هناك رسوم للانضمام إلى ${BRAND.nameAr}؟`,
+      answer: "إنشاء الحساب ونشر المشاريع مجاني. نحتسب عمولة بسيطة على العقود المكتملة فقط.", sortOrder: 30 },
+    { locale: "ar", category: "المستقلون", question: `كيف أبدأ كمستقل على ${BRAND.nameAr}؟`,
       answer: "أكمل ملفك الشخصي، أضف أعمالك السابقة، وقدّم عروضاً على المشاريع التي تناسب تخصصك.", sortOrder: 40 },
     { locale: "ar", category: "الدعم", question: "كيف أتواصل مع فريق الدعم؟",
-      answer: "استخدم صفحة تواصل معنا أو راسلنا على hello@atmemly.ae — نرد عادةً خلال ساعات قليلة.", sortOrder: 50 },
+      answer: `استخدم صفحة تواصل معنا أو راسلنا على ${BRAND.email} — نرد عادةً خلال ساعات قليلة.`, sortOrder: 50 },
     { locale: "ar", category: "الأمان", question: "هل بياناتي آمنة على المنصة؟",
       answer: "نعم. نستخدم تشفيراً قوياً ولا نشارك بياناتك مع أي طرف ثالث دون إذنك.", sortOrder: 60 },
   ]);
 
   await db.insert(testimonialsTable).values([
     { locale: "en", authorName: "Aisha Al-Mansoori", authorTitle: "Founder, Noor Agency",
-      body: "Khidma helped us hire a top-tier Arabic copywriter in two days. Smooth, fast, professional.",
+      body: `${BRAND.name} helped us hire a top-tier Arabic copywriter in two days. Smooth, fast, professional.`,
       rating: 5, avatarUrl: "https://api.dicebear.com/7.x/initials/svg?seed=Aisha&backgroundColor=458CCA",
       isFeatured: true, sortOrder: 10 },
     { locale: "en", authorName: "Mohammed Al-Khalifa", authorTitle: "CTO, GulfTech Studios",
-      body: "We've hired three full-stack developers through Khidma — every single hire has been excellent.",
+      body: `We've hired three full-stack developers through ${BRAND.name} — every single hire has been excellent.`,
       rating: 5, avatarUrl: "https://api.dicebear.com/7.x/initials/svg?seed=Mohammed&backgroundColor=458CCA",
       isFeatured: true, sortOrder: 20 },
     { locale: "en", authorName: "Sara Al-Otaibi", authorTitle: "Marketing Lead, Jeddah",
@@ -765,11 +766,11 @@ async function main() {
       rating: 5, avatarUrl: "https://api.dicebear.com/7.x/initials/svg?seed=Sara&backgroundColor=458CCA",
       isFeatured: true, sortOrder: 30 },
     { locale: "ar", authorName: "ليلى حسن", authorTitle: "مصممة جرافيك مستقلة",
-      body: "وجدت أفضل عملائي عبر خدمة. النظام الآمن للضمان يجعلني مرتاحة كل شهر، والمنصة بسيطة وأنيقة.",
+      body: `وجدت أفضل عملائي عبر ${BRAND.nameAr}. النظام الآمن للضمان يجعلني مرتاحة كل شهر، والمنصة بسيطة وأنيقة.`,
       rating: 5, avatarUrl: "https://api.dicebear.com/7.x/initials/svg?seed=Layla&backgroundColor=458CCA",
       isFeatured: true, sortOrder: 10 },
     { locale: "ar", authorName: "خالد المنصوري", authorTitle: "مؤسس وكالة نور",
-      body: "ساعدتنا منصة خدمة في توظيف كاتب إعلاني عربي محترف خلال يومين فقط. تجربة احترافية وسريعة.",
+      body: `ساعدتنا منصة ${BRAND.nameAr} في توظيف كاتب إعلاني عربي محترف خلال يومين فقط. تجربة احترافية وسريعة.`,
       rating: 5, avatarUrl: "https://api.dicebear.com/7.x/initials/svg?seed=Khalid&backgroundColor=458CCA",
       isFeatured: true, sortOrder: 20 },
     { locale: "ar", authorName: "سارة العتيبي", authorTitle: "مديرة تسويق، جدة",
@@ -777,7 +778,7 @@ async function main() {
       rating: 5, avatarUrl: "https://api.dicebear.com/7.x/initials/svg?seed=Sara%20AR&backgroundColor=458CCA",
       isFeatured: true, sortOrder: 30 },
     { locale: "ar", authorName: "عمر السعدي", authorTitle: "مطور برمجيات",
-      body: "كمستقل، خدمة منحتني وصولاً لعملاء جديين والمدفوعات تصل دائماً في وقتها. أنصح بها كل المستقلين.",
+      body: `كمستقل، ${BRAND.nameAr} منحتني وصولاً لعملاء جديين والمدفوعات تصل دائماً في وقتها. أنصح بها كل المستقلين.`,
       rating: 5, avatarUrl: "https://api.dicebear.com/7.x/initials/svg?seed=Omar&backgroundColor=458CCA",
       isFeatured: true, sortOrder: 40 },
   ]);

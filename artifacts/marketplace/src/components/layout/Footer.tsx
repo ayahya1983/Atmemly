@@ -2,6 +2,7 @@ import { Logo } from "../ui/logo";
 import { useTranslation } from "@/lib/i18n";
 import { Mail, Phone, MapPin, Facebook, Twitter, Instagram, Linkedin } from "lucide-react";
 import { Link } from "wouter";
+import { BRAND } from "@workspace/branding";
 
 export function Footer() {
   const { t, isRtl } = useTranslation();
@@ -89,7 +90,7 @@ export function Footer() {
             <ul className="space-y-3 text-sm text-muted-foreground">
               <li className="flex items-start gap-2">
                 <Mail className="w-4 h-4 mt-0.5 text-primary shrink-0" />
-                <a href="mailto:hello@atmemly.ae" className="hover:text-primary transition-colors">hello@atmemly.ae</a>
+                <a href={`mailto:${BRAND.email}`} className="hover:text-primary transition-colors">{BRAND.email}</a>
               </li>
               <li className="flex items-start gap-2">
                 <Phone className="w-4 h-4 mt-0.5 text-primary shrink-0" />
@@ -109,7 +110,7 @@ export function Footer() {
         </div>
 
         <div className="mt-12 pt-6 border-t flex flex-col md:flex-row md:items-center md:justify-between gap-3 text-sm text-muted-foreground">
-          <div>&copy; {year} {isRtl ? "منصة أتمملي" : "Atmemly Platform"}. {t("footer.rights")}</div>
+          <div>&copy; {year} {isRtl ? BRAND.platformNameAr : BRAND.platformName}. {t("footer.rights")}</div>
           <div className="flex items-center gap-4">
             {legalLinks.map((l) => (
               <Link key={l.href} href={l.href} className="hover:text-primary transition-colors">{l.label}</Link>

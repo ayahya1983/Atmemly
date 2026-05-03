@@ -1,4 +1,5 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
+import { BRAND } from "@workspace/branding";
 import type {
   PaymentGateway,
   PaymentIntentInput,
@@ -60,7 +61,7 @@ export const paytabsGateway: PaymentGateway = {
       tran_type: "sale",
       tran_class: "ecom",
       cart_id: input.idempotencyKey ?? `cart_${Date.now()}`,
-      cart_description: input.description ?? "Khidma payment",
+      cart_description: input.description ?? `${BRAND.name} payment`,
       cart_currency: input.currency.toUpperCase(),
       cart_amount: input.amount,
       callback: input.callbackUrl,

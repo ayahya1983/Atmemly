@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { useTranslation } from "@/lib/i18n";
 import { useFaqs } from "@/lib/api-public";
+import { BRAND } from "@workspace/branding";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
@@ -36,8 +37,8 @@ export default function Faq() {
         </h1>
         <p className="text-muted-foreground">
           {lang === "ar"
-            ? "كل ما تحتاج معرفته عن خِدمة."
-            : "Everything you need to know about Atmemly."}
+            ? `كل ما تحتاج معرفته عن ${BRAND.nameAr}.`
+            : `Everything you need to know about ${BRAND.name}.`}
         </p>
       </div>
 

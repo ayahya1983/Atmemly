@@ -8,6 +8,7 @@ import {
   categoriesTable,
   legalDocumentsTable,
 } from "@workspace/db";
+import { BRAND } from "@workspace/branding";
 import { cached } from "../lib/cache";
 
 const router: IRouter = Router();
@@ -123,7 +124,7 @@ router.get("/public/jobs/:id", async (req, res): Promise<void> => {
     status: job.status,
     createdAt: job.createdAt,
     seo: {
-      title: `${job.title} — Khidma`,
+      title: `${job.title} — ${BRAND.name}`,
       description: job.description.slice(0, 160),
     },
   });
@@ -159,7 +160,7 @@ router.get("/public/freelancers/:id", async (req, res): Promise<void> => {
     location: row.p.location,
     trustScore: row.p.trustScore ?? 0,
     seo: {
-      title: `${row.u.fullName} — Freelancer on Khidma`,
+      title: `${row.u.fullName} — Freelancer on ${BRAND.name}`,
       description: (row.p.headline || row.p.bio).slice(0, 160),
     },
   });

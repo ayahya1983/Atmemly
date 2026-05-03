@@ -1,3 +1,4 @@
+import { BRAND } from "@workspace/branding";
 import type {
   PaymentGateway,
   PaymentIntentInput,
@@ -47,7 +48,7 @@ export const telrGateway: PaymentGateway = {
       ivp_test: TEST_MODE ? 1 : 0,
       ivp_amount: input.amount.toFixed(2),
       ivp_currency: input.currency.toUpperCase(),
-      ivp_desc: input.description ?? "Khidma payment",
+      ivp_desc: input.description ?? `${BRAND.name} payment`,
       return_auth: input.returnUrl,
       return_decl: input.cancelUrl ?? input.returnUrl,
       return_can: input.cancelUrl ?? input.returnUrl,

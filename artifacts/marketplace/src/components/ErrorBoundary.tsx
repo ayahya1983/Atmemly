@@ -1,4 +1,5 @@
 import { Component, type ErrorInfo, type ReactNode } from "react";
+import { BRAND } from "@workspace/branding";
 
 interface Props {
   /** Optional descriptive label shown in the fallback (e.g. "Admin", "App"). */
@@ -62,7 +63,7 @@ export class ErrorBoundary extends Component<Props, State> {
           </h1>
           <p style={{ maxWidth: 480, color: "#475569" }}>
             {this.props.scope
-              ? `An error occurred in ${this.props.scope}. The rest of Khidma is still available.`
+              ? `An error occurred in ${this.props.scope}. The rest of ${BRAND.name} is still available.`
               : "An unexpected error occurred. Reload the page to try again."}
           </p>
           {process.env.NODE_ENV !== "production" && (

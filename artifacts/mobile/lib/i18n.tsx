@@ -8,6 +8,7 @@ import React, {
 } from "react";
 import { I18nManager } from "react-native";
 
+import { BRAND } from "@workspace/branding";
 import { getStoredLang, setStoredLang } from "./api";
 
 export type Lang = "ar" | "en";
@@ -15,7 +16,7 @@ export type Lang = "ar" | "en";
 type Dict = Record<string, { ar: string; en: string }>;
 
 const dict: Dict = {
-  appName: { ar: "خدمة", en: "Khidma" },
+  appName: { ar: BRAND.nameAr, en: BRAND.name },
   tagline: {
     ar: "سوق المستقلين الأول في الإمارات",
     en: "The UAE's leading freelance marketplace",

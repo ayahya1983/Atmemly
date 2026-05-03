@@ -12,6 +12,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { useToast } from "@/hooks/use-toast";
 import { Logo } from "@/components/ui/logo";
 import { Loader2, Briefcase, User } from "lucide-react";
+import { BRAND } from "@workspace/branding";
 
 const registerSchema = z.object({
   email: z.string().email("Please enter a valid email address"),
@@ -55,7 +56,7 @@ export default function Register() {
         login(data.token, data.user);
         toast({
           title: "Account created!",
-          description: "Welcome to Atmemly.",
+          description: `Welcome to ${BRAND.name}.`,
         });
         if (data.user.role === "client") setLocation("/dashboard/client");
         else setLocation("/dashboard/freelancer");
@@ -83,7 +84,7 @@ export default function Register() {
       <Card className="w-full max-w-lg shadow-xl border-border/50">
         <CardHeader className="space-y-2 text-center">
           <CardTitle className="text-2xl font-bold">Create an Account</CardTitle>
-          <CardDescription>Join Atmemly to hire or find work across the GCC.</CardDescription>
+          <CardDescription>Join {BRAND.name} to hire or find work across the GCC.</CardDescription>
         </CardHeader>
         <CardContent>
           <Form {...form}>
