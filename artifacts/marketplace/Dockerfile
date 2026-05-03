@@ -14,7 +14,7 @@ COPY artifacts/marketplace/index.html artifacts/marketplace/
 COPY artifacts/marketplace/components.json artifacts/marketplace/
 COPY lib ./lib
 
-RUN pnpm install --filter @workspace/marketplace...
+RUN pnpm install --frozen-lockfile --filter @workspace/marketplace...
 
 COPY artifacts/marketplace/public artifacts/marketplace/public
 COPY artifacts/marketplace/src artifacts/marketplace/src

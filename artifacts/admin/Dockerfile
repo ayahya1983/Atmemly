@@ -14,7 +14,7 @@ COPY artifacts/admin/index.html artifacts/admin/
 COPY artifacts/admin/components.json artifacts/admin/
 COPY lib ./lib
 
-RUN pnpm install --filter @workspace/admin...
+RUN pnpm install --frozen-lockfile --filter @workspace/admin...
 
 COPY artifacts/admin/public artifacts/admin/public
 COPY artifacts/admin/src artifacts/admin/src
