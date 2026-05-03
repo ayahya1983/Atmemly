@@ -9,9 +9,10 @@ import { Textarea } from "@/components/ui/textarea";
 import { useCreateComplaint } from "@workspace/api-client-react";
 import { useToast } from "@/hooks/use-toast";
 import { Card, CardContent } from "@/components/ui/card";
-import { useCmsPage } from "@/lib/api-public";
+import { useCmsPageWithFallback } from "@/lib/api-public";
 import { SeoHead } from "@/components/SeoHead";
 import { Skeleton } from "@/components/ui/skeleton";
+import NotFound from "@/pages/not-found";
 
 const contactSchema = z.object({
   subject: z.string().min(3),
@@ -22,12 +23,20 @@ export default function Contact() {
   const { t, lang } = useTranslation();
   const { toast } = useToast();
   const createComplaint = useCreateComplaint();
-  const { data: cmsPage, isLoading: cmsLoading, error: cmsError } = useCmsPage("contact", lang);
+  const { data: cmsPage, isLoading: cmsLoading, isError: cmsError, isNotFound: cmsNotFound } = useCmsPageWithFallback("contact", lang);
+  const isDev = import.meta.env.DEV;
 
   const form = useForm<z.infer<typeof contactSchema>>({
     resolver: zodResolver(contactSchema),
     defaultValues: { subject: "", body: "" },
   });
+
+  // In production, treat a missing CMS "contact" page as a 404. In dev we
+  // keep the form rendered (with the hardcoded fallback title) so the page
+  // is still useful before the CMS entry is seeded.
+  if (cmsNotFound && !isDev) {
+    return <NotFound />;
+  }
 
   const onSubmit = (values: z.infer<typeof contactSchema>) => {
     createComplaint.mutate({ data: values }, {

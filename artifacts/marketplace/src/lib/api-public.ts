@@ -2,9 +2,18 @@ import { useQuery } from "@tanstack/react-query";
 
 const BASE = `${import.meta.env.BASE_URL}api`.replace(/\/+/g, "/");
 
+export class HttpError extends Error {
+  status: number;
+  constructor(status: number, message: string) {
+    super(message);
+    this.status = status;
+    this.name = "HttpError";
+  }
+}
+
 async function getJson<T>(path: string): Promise<T> {
   const res = await fetch(`${BASE}${path}`, { headers: { Accept: "application/json" } });
-  if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
+  if (!res.ok) throw new HttpError(res.status, `${res.status} ${res.statusText}`);
   return (await res.json()) as T;
 }
 
@@ -77,6 +86,28 @@ export function useTestimonials(locale: "ar" | "en") {
   });
 }
 
+// Fetch testimonials in `locale`; if empty, fall back to the localization
+// settings' fallbackLocale so the carousel still has content even when the
+// admin only published testimonials in one language.
+export function useTestimonialsWithFallback(locale: "ar" | "en") {
+  const { data: settings } = useLocalizationSettings();
+  const primary = useTestimonials(locale);
+  const rawFb = (settings?.fallbackLocale ?? "en").toLowerCase();
+  const fbLocale: "ar" | "en" = rawFb === "ar" ? "ar" : "en";
+  const needsFallback =
+    primary.isSuccess && (primary.data?.length ?? 0) === 0 && fbLocale !== locale;
+  const fallback = useQuery({
+    queryKey: ["public-testimonials", fbLocale, "fallback"],
+    queryFn: () => getJson<Testimonial[]>(`/testimonials?locale=${fbLocale}`),
+    staleTime: 60_000,
+    enabled: needsFallback,
+  });
+  if (needsFallback && fallback.data) {
+    return { ...primary, data: fallback.data } as typeof primary;
+  }
+  return primary;
+}
+
 export function useFeaturedListings(kind?: "job" | "freelancer") {
   return useQuery({
     queryKey: ["public-featured", kind ?? "all"],
@@ -102,6 +133,47 @@ export function useCmsPage(slug: string, locale: "ar" | "en") {
     staleTime: 60_000,
     retry: false,
   });
+}
+
+// Resolve a CMS page in `locale`; if the API returns 404, transparently
+// retry against the localization fallback locale. Exposes `isNotFound`
+// (true when both lookups 404) so callers can render a 404 page.
+export function useCmsPageWithFallback(slug: string, locale: "ar" | "en") {
+  const { data: settings } = useLocalizationSettings();
+  const rawFb = (settings?.fallbackLocale ?? "en").toLowerCase();
+  const fbLocale: "ar" | "en" = rawFb === "ar" ? "ar" : "en";
+  const primary = useCmsPage(slug, locale);
+  const primary404 =
+    primary.isError && primary.error instanceof HttpError && primary.error.status === 404;
+  const enableFallback = primary404 && fbLocale !== locale;
+  const fallback = useQuery({
+    queryKey: ["public-cms-page", slug, fbLocale, "fallback"],
+    queryFn: () => getJson<CmsPage>(`/cms/pages/${slug}?locale=${fbLocale}`),
+    staleTime: 60_000,
+    retry: false,
+    enabled: enableFallback,
+  });
+  const fallback404 =
+    fallback.isError && fallback.error instanceof HttpError && fallback.error.status === 404;
+  if (primary.data) {
+    return { data: primary.data, isLoading: false, isError: false, error: null, isNotFound: false };
+  }
+  if (enableFallback && fallback.data) {
+    return { data: fallback.data, isLoading: false, isError: false, error: null, isNotFound: false };
+  }
+  if (primary404 && (!enableFallback || fallback404)) {
+    return { data: undefined, isLoading: false, isError: true, error: primary.error, isNotFound: true };
+  }
+  if (primary.isError && !primary404) {
+    return { data: undefined, isLoading: false, isError: true, error: primary.error, isNotFound: false };
+  }
+  // Fallback errored with a non-404 (e.g. 500). Surface the failure so callers
+  // don't silently render blank content.
+  if (enableFallback && fallback.isError && !fallback404) {
+    return { data: undefined, isLoading: false, isError: true, error: fallback.error, isNotFound: false };
+  }
+  const isLoading = primary.isLoading || (enableFallback && fallback.isLoading);
+  return { data: undefined, isLoading, isError: false, error: null, isNotFound: false };
 }
 
 export interface CmsBlock {

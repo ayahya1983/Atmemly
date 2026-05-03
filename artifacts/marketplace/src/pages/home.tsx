@@ -5,7 +5,7 @@ import {
   useListFreelancers,
   useListJobs,
 } from "@workspace/api-client-react";
-import { useBlogPosts, useFaqs, useTestimonials, useCmsHomepage, safeHref } from "@/lib/api-public";
+import { useBlogPosts, useFaqs, useTestimonialsWithFallback, useCmsHomepage, safeHref } from "@/lib/api-public";
 import { BRAND } from "@workspace/branding";
 import { Link } from "wouter";
 import React, { useState } from "react";
@@ -111,7 +111,7 @@ export default function Home() {
   const { data: jobs, isLoading: jobsLoading } = useListJobs({});
   const { data: blog } = useBlogPosts(lang);
   const { data: faqs } = useFaqs(lang);
-  const { data: testimonials } = useTestimonials(lang);
+  const { data: testimonials } = useTestimonialsWithFallback(lang);
   const { data: homepageCms } = useCmsHomepage();
 
   const cmsHero = homepageCms?.hero;
