@@ -110,6 +110,15 @@ extract_static artifacts/marketplace atmemly_marketplace_static
 echo "==> Extracting admin static bundle"
 extract_static artifacts/admin atmemly_admin_static
 
+# Shared pnpm content-addressable store on the host. Mounting this into
+# the one-off node containers below means successive deploys reuse the
+# downloaded package tarballs instead of refetching every dep from the
+# registry, which is the slowest part of a no-source-change deploy.
+# cloud-init creates this on first boot, but mkdir -p here keeps older
+# hosts (provisioned before this change) working too.
+PNPM_STORE_DIR=${PNPM_STORE_DIR:-/opt/atmemly/.pnpm-store}
+sudo mkdir -p "${PNPM_STORE_DIR}"
+
 echo "==> Pushing database schema (drizzle-kit push)"
 # NOTE: --env NODE_ENV=development must come AFTER --env-file so it
 # overrides the production value baked into /opt/atmemly/.env. With
@@ -120,7 +129,9 @@ docker run --rm \
   --env NODE_ENV=development \
   --env npm_config_frozen_lockfile=false \
   --env npm_config_confirm_modules_purge=false \
+  --env npm_config_store_dir=/pnpm-store \
   -v "${APP_DIR}":/repo \
+  -v "${PNPM_STORE_DIR}":/pnpm-store \
   -w /repo \
   node:20-bookworm-slim \
   bash -lc "corepack enable && corepack prepare pnpm@9 --activate && pnpm install --prod=false --filter @workspace/db... && pnpm --filter @workspace/db run push"
@@ -132,7 +143,9 @@ if [[ "${SEED}" == "1" ]]; then
     --env NODE_ENV=development \
     --env npm_config_frozen_lockfile=false \
     --env npm_config_confirm_modules_purge=false \
+    --env npm_config_store_dir=/pnpm-store \
     -v "${APP_DIR}":/repo \
+    -v "${PNPM_STORE_DIR}":/pnpm-store \
     -w /repo \
     node:20-bookworm-slim \
     bash -lc "corepack enable && corepack prepare pnpm@9 --activate && pnpm install --prod=false --filter @workspace/api-server... && pnpm --filter @workspace/api-server run seed"

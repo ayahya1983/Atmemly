@@ -91,6 +91,16 @@ runcmd:
   - mkdir -p /opt/atmemly
   - chown -R ubuntu:ubuntu /opt/atmemly
 
+  # Shared pnpm store. The schema-push and seed one-off containers in
+  # deploy.sh bind-mount this directory at /pnpm-store (with
+  # npm_config_store_dir=/pnpm-store) so successive `pnpm install` runs
+  # reuse the package cache instead of re-downloading every dependency
+  # from the registry on every deploy. The node:20-bookworm-slim image
+  # runs as root, so root ownership is correct here.
+  - mkdir -p /opt/atmemly/.pnpm-store
+  - chown -R root:root /opt/atmemly/.pnpm-store
+  - chmod 0755 /opt/atmemly/.pnpm-store
+
   # Uploads dir is bind-mounted into the api-server container at /app/uploads.
   # The container runs as uid 10001, so the host directory must be owned by
   # the same uid (the user does not exist on the host — that's fine).
