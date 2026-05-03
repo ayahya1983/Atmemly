@@ -32,29 +32,35 @@ import { audit } from "../lib/audit";
 const router: IRouter = Router();
 
 router.get("/admin/users", requireAuth, requireRole("admin"), async (_req, res): Promise<void> => {
-  const users = await db.select().from(usersTable).orderBy(desc(usersTable.createdAt));
-  const out = await Promise.all(
-    users.map(async (u) => {
-      const [jc] = await db
-        .select({ c: sql<number>`count(*)::int` })
-        .from(jobsTable)
-        .where(eq(jobsTable.clientId, u.id));
-      const [pc] = await db
-        .select({ c: sql<number>`count(*)::int` })
-        .from(proposalsTable)
-        .where(eq(proposalsTable.freelancerId, u.id));
-      return {
-        id: u.id,
-        email: u.email,
-        fullName: u.fullName,
-        role: u.role,
-        status: u.status,
-        createdAt: u.createdAt,
-        jobsCount: jc?.c ?? 0,
-        proposalsCount: pc?.c ?? 0,
-      };
-    }),
-  );
+  const [users, jobCounts, proposalCounts] = await Promise.all([
+    db.select().from(usersTable).orderBy(desc(usersTable.createdAt)),
+    db
+      .select({
+        userId: jobsTable.clientId,
+        c: sql<number>`count(*)::int`,
+      })
+      .from(jobsTable)
+      .groupBy(jobsTable.clientId),
+    db
+      .select({
+        userId: proposalsTable.freelancerId,
+        c: sql<number>`count(*)::int`,
+      })
+      .from(proposalsTable)
+      .groupBy(proposalsTable.freelancerId),
+  ]);
+  const jobsByUser = new Map(jobCounts.map((r) => [r.userId, r.c]));
+  const propsByUser = new Map(proposalCounts.map((r) => [r.userId, r.c]));
+  const out = users.map((u) => ({
+    id: u.id,
+    email: u.email,
+    fullName: u.fullName,
+    role: u.role,
+    status: u.status,
+    createdAt: u.createdAt,
+    jobsCount: jobsByUser.get(u.id) ?? 0,
+    proposalsCount: propsByUser.get(u.id) ?? 0,
+  }));
   res.json(AdminListUsersResponse.parse(out));
 });
 
