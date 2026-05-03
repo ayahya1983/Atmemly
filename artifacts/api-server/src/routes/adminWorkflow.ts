@@ -320,7 +320,13 @@ router.get(
     if (f.clientId) conds.push(eq(contractsTable.clientId, f.clientId));
     if (f.dateFrom) conds.push(gte(contractsTable.createdAt, new Date(f.dateFrom)));
     if (f.dateTo) conds.push(lte(contractsTable.createdAt, new Date(f.dateTo)));
-    if (f.q) conds.push(ilike(contractsTable.title, `%${f.q}%`));
+    if (f.q) {
+      const like = `%${f.q}%`;
+      const asId = Number(f.q);
+      const idMatch = Number.isInteger(asId) && asId > 0 ? eq(contractsTable.id, asId) : null;
+      const titleMatch = ilike(contractsTable.title, like);
+      conds.push(idMatch ? or(idMatch, titleMatch)! : titleMatch);
+    }
     const where = conds.length ? and(...conds) : undefined;
     const [{ c: total } = { c: 0 }] = await db
       .select({ c: sql<number>`count(*)::int` })

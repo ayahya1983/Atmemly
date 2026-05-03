@@ -1,6 +1,5 @@
-import { Search, Bell, Sun, Moon, Languages, LogOut, User as UserIcon, ChevronDown } from "lucide-react";
+import { Sun, Moon, Languages, LogOut, User as UserIcon, ChevronDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel,
   DropdownMenuSeparator, DropdownMenuTrigger,
@@ -11,6 +10,8 @@ import { useTranslation } from "@/lib/i18n";
 import { useThemeStore } from "@/lib/theme";
 import { useAuth } from "@/contexts/AuthContext";
 import { effectiveAdminRole, ADMIN_ROLE_LABELS } from "@/lib/permissions";
+import { GlobalSearch } from "./GlobalSearch";
+import { NotificationsBell } from "./NotificationsBell";
 
 export function TopBar() {
   const { lang, setLang } = useTranslation();
@@ -22,17 +23,7 @@ export function TopBar() {
 
   return (
     <header className="h-16 px-4 md:px-6 flex items-center gap-3 border-b border-border bg-background sticky top-0 z-30">
-      <div className="flex-1 max-w-xl">
-        <div className="relative">
-          <Search className="absolute top-1/2 -translate-y-1/2 ltr:left-3 rtl:right-3 w-4 h-4 text-muted-foreground pointer-events-none" />
-          <Input
-            type="search"
-            placeholder={lang === "ar" ? "بحث سريع..." : "Quick search..."}
-            className="ltr:pl-9 rtl:pr-9 h-10 bg-muted/40 border-muted"
-            data-testid="input-global-search"
-          />
-        </div>
-      </div>
+      <GlobalSearch />
 
       <div className="flex items-center gap-1.5">
         <Button
@@ -55,21 +46,7 @@ export function TopBar() {
           {theme === "dark" ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
         </Button>
 
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="ghost" size="icon" className="relative" data-testid="button-notifications">
-              <Bell className="w-4 h-4" />
-              <span className="absolute top-1.5 ltr:right-1.5 rtl:left-1.5 w-1.5 h-1.5 rounded-full bg-destructive" />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-80">
-            <DropdownMenuLabel>{lang === "ar" ? "الإشعارات" : "Notifications"}</DropdownMenuLabel>
-            <DropdownMenuSeparator />
-            <div className="py-8 text-center text-sm text-muted-foreground">
-              {lang === "ar" ? "لا توجد إشعارات جديدة" : "No new notifications"}
-            </div>
-          </DropdownMenuContent>
-        </DropdownMenu>
+        <NotificationsBell />
 
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
