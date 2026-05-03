@@ -115,6 +115,23 @@ function callbackUrlFor(req: Request, slug: string): string {
   return `${proto}://${host}/auth/sso/${encodeURIComponent(slug)}/callback`;
 }
 
+/**
+ * Native mobile flow: the IdP redirects to this server-side bridge, which
+ * 302s back into the app via its custom URI scheme. Hard-coded so each
+ * IdP's "allowed redirect URIs" list never needs the per-platform scheme.
+ */
+const MOBILE_REDIRECT_URI_SCHEME = "atmemly://sso-callback";
+
+function mobileBridgeUrlFor(req: Request, slug: string): string {
+  const proto = (req.header("x-forwarded-proto") || req.protocol || "https").split(",")[0]!.trim();
+  const host = req.header("x-forwarded-host") || req.header("host") || "";
+  return `${proto}://${host}/api/auth/sso/${encodeURIComponent(slug)}/mobile-bridge`;
+}
+
+function newMobileSessionToken(): string {
+  return cryptoRandomBytes(32).toString("hex");
+}
+
 function emailDomainAllowed(email: string | undefined, allowedDomains: string[]): boolean {
   if (!allowedDomains || allowedDomains.length === 0) return true;
   if (!email) return false;
@@ -319,6 +336,219 @@ router.get("/auth/sso/:provider/callback", callbackLimiter, async (req, res): Pr
     return;
   }
   res.clearCookie(SSO_BINDING_COOKIE, { path: "/api/auth/sso" });
+  await processSsoCallback(req, res, provider, session, code);
+});
+
+/**
+ * Mobile flow start: returns the IdP authorization URL plus an opaque
+ * `mobileSessionToken` the app must echo back on /mobile-callback. The
+ * token's SHA-256 hash is stored in the same `browserBindingHash` column
+ * the web flow uses, so a stolen `code+state` cannot be redeemed by any
+ * other client.
+ */
+router.post("/auth/sso/:provider/mobile-start", startLimiter, async (req, res): Promise<void> => {
+  const slug = String(req.params["provider"]);
+
+  const [provider] = await db
+    .select()
+    .from(identityProvidersTable)
+    .where(eq(identityProvidersTable.slug, slug));
+  if (!provider || !provider.enabled) {
+    await ssoAudit({
+      req,
+      action: "sso.start",
+      outcome: "failure",
+      providerSlug: slug,
+      reason: "unknown_or_disabled_provider",
+      metadata: { mobile: true },
+    });
+    res.status(404).json({ error: "Unknown SSO provider" });
+    return;
+  }
+  if (!provider.issuerUrl || !provider.clientId) {
+    res.status(500).json({ error: "ATMEMLY SSO provider is not fully configured" });
+    return;
+  }
+  const clientSecret = resolveClientSecret(provider.clientSecretRef);
+  if (!clientSecret) {
+    res.status(500).json({ error: "ATMEMLY SSO provider secret is not configured" });
+    return;
+  }
+
+  let doc;
+  try {
+    doc = await discover(provider.issuerUrl);
+  } catch (err) {
+    req.log?.warn?.({ err, slug }, "OIDC discovery failed (mobile)");
+    await ssoAudit({
+      req,
+      action: "sso.start",
+      outcome: "failure",
+      providerId: provider.id,
+      providerSlug: slug,
+      reason: "discovery_failed",
+      metadata: { mobile: true },
+    });
+    res.status(502).json({ error: "ATMEMLY could not reach the SSO provider." });
+    return;
+  }
+
+  const state = generateState();
+  const nonce = generateNonce();
+  const pkce = generatePkcePair();
+  const redirectUri = mobileBridgeUrlFor(req, slug);
+  const mobileSessionToken = newMobileSessionToken();
+
+  await db.insert(ssoSessionsTable).values({
+    providerId: provider.id,
+    state,
+    nonce,
+    codeVerifier: pkce.verifier,
+    redirectUri,
+    returnTo: null,
+    linkUserId: null,
+    browserBindingHash: hashBinding(mobileSessionToken),
+    expiresAt: new Date(Date.now() + 10 * 60 * 1000),
+  });
+
+  const url = buildAuthorizationUrl({
+    authorizationEndpoint: doc.authorization_endpoint,
+    clientId: provider.clientId,
+    redirectUri,
+    scopes: provider.scopes,
+    state,
+    nonce,
+    codeChallenge: pkce.challenge,
+  });
+
+  await ssoAudit({
+    req,
+    action: "sso.start",
+    outcome: "success",
+    providerId: provider.id,
+    providerSlug: slug,
+    metadata: { mobile: true },
+  });
+
+  res.json({ authorizationUrl: url, state, mobileSessionToken });
+});
+
+/**
+ * IdP-facing redirect target for the mobile flow. The IdP delivers
+ * `?code=...&state=...` here over HTTPS; we 302 the user-agent back
+ * into the native app via its custom URI scheme so `expo-web-browser`
+ * can capture the result. We deliberately do NOT redeem the code here —
+ * that happens on /mobile-callback once the app re-presents both the
+ * `code+state` and the secret `mobileSessionToken`.
+ */
+router.get("/auth/sso/:provider/mobile-bridge", callbackLimiter, async (req, res): Promise<void> => {
+  const code = typeof req.query["code"] === "string" ? req.query["code"] : "";
+  const state = typeof req.query["state"] === "string" ? req.query["state"] : "";
+  const errParam = typeof req.query["error"] === "string" ? req.query["error"] : "";
+
+  const params = new URLSearchParams();
+  if (code) params.set("code", code);
+  if (state) params.set("state", state);
+  if (errParam) params.set("error", errParam);
+  const target = `${MOBILE_REDIRECT_URI_SCHEME}?${params.toString()}`;
+
+  // Some in-app browsers block 302s to non-http schemes, so emit a tiny
+  // HTML page that performs the redirect via window.location as a fallback.
+  res.status(200).type("html").send(
+    `<!doctype html><html><head><meta charset="utf-8"><title>Returning to ATMEMLY…</title>` +
+      `<meta http-equiv="refresh" content="0;url=${target}"></head>` +
+      `<body><script>window.location.replace(${JSON.stringify(target)});</script>` +
+      `<p>Returning to ATMEMLY… If nothing happens, <a href="${target}">tap here</a>.</p>` +
+      `</body></html>`,
+  );
+});
+
+/**
+ * Mobile flow finish: the app re-presents the IdP `code+state` together
+ * with the opaque `mobileSessionToken` from /mobile-start. We verify all
+ * three then delegate to the same `processSsoCallback` helper the web
+ * flow uses, returning a JSON body the app can persist directly.
+ */
+router.post("/auth/sso/:provider/mobile-callback", callbackLimiter, async (req, res): Promise<void> => {
+  const slug = String(req.params["provider"]);
+  const body = (req.body ?? {}) as Record<string, unknown>;
+  const code = typeof body["code"] === "string" ? body["code"] : null;
+  const state = typeof body["state"] === "string" ? body["state"] : null;
+  const mobileSessionToken =
+    typeof body["mobileSessionToken"] === "string" ? body["mobileSessionToken"] : null;
+
+  const [provider] = await db
+    .select()
+    .from(identityProvidersTable)
+    .where(eq(identityProvidersTable.slug, slug));
+  if (!provider) {
+    res.status(404).json({ outcome: "error", message: "Unknown ATMEMLY SSO provider" });
+    return;
+  }
+  if (!code || !state || !mobileSessionToken) {
+    res.status(400).json({ outcome: "error", message: "Missing code, state, or mobileSessionToken" });
+    return;
+  }
+
+  const [session] = await db
+    .select()
+    .from(ssoSessionsTable)
+    .where(
+      and(
+        eq(ssoSessionsTable.state, state),
+        eq(ssoSessionsTable.providerId, provider.id),
+        isNull(ssoSessionsTable.consumedAt),
+        gt(ssoSessionsTable.expiresAt, new Date()),
+      ),
+    );
+  if (!session) {
+    await ssoAudit({
+      req,
+      action: "sso.callback",
+      outcome: "failure",
+      providerId: provider.id,
+      providerSlug: slug,
+      reason: "invalid_state",
+      metadata: { mobile: true },
+    });
+    res.status(400).json({ outcome: "error", message: "Invalid or expired SSO session" });
+    return;
+  }
+  if (
+    !session.browserBindingHash ||
+    hashBinding(mobileSessionToken) !== session.browserBindingHash
+  ) {
+    await ssoAudit({
+      req,
+      action: "sso.callback",
+      outcome: "failure",
+      providerId: provider.id,
+      providerSlug: slug,
+      reason: "mobile_session_token_mismatch",
+      metadata: { mobile: true },
+    });
+    res
+      .status(400)
+      .json({ outcome: "error", message: "SSO session is not valid for this device" });
+    return;
+  }
+
+  await processSsoCallback(req, res, provider, session, code);
+});
+
+/**
+ * Shared post-binding callback logic. Both the cookie-bound web callback
+ * and the token-bound mobile callback delegate here once they have
+ * verified that the caller is allowed to redeem this `session`.
+ */
+async function processSsoCallback(
+  req: Request,
+  res: import("express").Response,
+  provider: IdentityProvider,
+  session: typeof ssoSessionsTable.$inferSelect,
+  code: string,
+): Promise<void> {
+  const slug = provider.slug;
   await db
     .update(ssoSessionsTable)
     .set({ consumedAt: new Date() })
@@ -641,7 +871,7 @@ router.get("/auth/sso/:provider/callback", callbackLimiter, async (req, res): Pr
     fullName,
     returnTo: session.returnTo,
   });
-});
+}
 
 async function signInExistingIdentity(
   req: Request,

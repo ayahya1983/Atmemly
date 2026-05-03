@@ -1291,6 +1291,56 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/SsoCallbackResponse"
+  /auth/sso/{provider}/mobile-start:
+    post:
+      operationId: ssoMobileStart
+      tags: [auth]
+      description: |
+        Begin an OIDC sign-in for a native mobile app. Unlike the web flow,
+        the browser-binding cookie is replaced with a server-issued opaque
+        `mobileSessionToken` that the app keeps in memory and presents to
+        `ssoMobileCallback`. The IdP is redirected to the API server's
+        `/mobile-bridge` endpoint, which 302s back to the app's custom
+        URI scheme so `expo-web-browser` can capture the result.
+      parameters:
+        - in: path
+          name: provider
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Authorization URL plus the opaque mobile session token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SsoMobileStartResponse"
+  /auth/sso/{provider}/mobile-callback:
+    post:
+      operationId: ssoMobileCallback
+      tags: [auth]
+      description: |
+        Exchange the OIDC `code`+`state` captured by the mobile app for a
+        signed-in session. Requires the `mobileSessionToken` returned by
+        `ssoMobileStart` so a stolen `code+state` cannot be redeemed by
+        another client.
+      parameters:
+        - in: path
+          name: provider
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SsoMobileCallbackBody"
+      responses:
+        "200":
+          description: Callback result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SsoCallbackResponse"
   /auth/sso/link:
     post:
       operationId: ssoLink
@@ -2500,6 +2550,22 @@ components:
       properties:
         linkChallengeToken: { type: string }
         password: { type: string }
+
+    SsoMobileStartResponse:
+      type: object
+      required: [authorizationUrl, state, mobileSessionToken]
+      properties:
+        authorizationUrl: { type: string }
+        state: { type: string }
+        mobileSessionToken: { type: string }
+
+    SsoMobileCallbackBody:
+      type: object
+      required: [code, state, mobileSessionToken]
+      properties:
+        code: { type: string }
+        state: { type: string }
+        mobileSessionToken: { type: string }
 
     SsoUnlinkBody:
       type: object

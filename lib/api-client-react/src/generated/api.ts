@@ -82,6 +82,8 @@ import type {
   SsoCallbackResponse,
   SsoGlobalSettings,
   SsoLinkBody,
+  SsoMobileCallbackBody,
+  SsoMobileStartResponse,
   SsoProviderAdmin,
   SsoProviderPublic,
   SsoProviderUpsertBody,
@@ -5893,6 +5895,181 @@ export function useSsoCallback<
 
   return { ...query, queryKey: queryOptions.queryKey };
 }
+
+/**
+ * Begin an OIDC sign-in for a native mobile app. Unlike the web flow,
+the browser-binding cookie is replaced with a server-issued opaque
+`mobileSessionToken` that the app keeps in memory and presents to
+`ssoMobileCallback`. The IdP is redirected to the API server's
+`/mobile-bridge` endpoint, which 302s back to the app's custom
+URI scheme so `expo-web-browser` can capture the result.
+
+ */
+export const getSsoMobileStartUrl = (provider: string) => {
+  return `/api/auth/sso/${provider}/mobile-start`;
+};
+
+export const ssoMobileStart = async (
+  provider: string,
+  options?: RequestInit,
+): Promise<SsoMobileStartResponse> => {
+  return customFetch<SsoMobileStartResponse>(getSsoMobileStartUrl(provider), {
+    ...options,
+    method: "POST",
+  });
+};
+
+export const getSsoMobileStartMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof ssoMobileStart>>,
+    TError,
+    { provider: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof ssoMobileStart>>,
+  TError,
+  { provider: string },
+  TContext
+> => {
+  const mutationKey = ["ssoMobileStart"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof ssoMobileStart>>,
+    { provider: string }
+  > = (props) => {
+    const { provider } = props ?? {};
+
+    return ssoMobileStart(provider, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type SsoMobileStartMutationResult = NonNullable<
+  Awaited<ReturnType<typeof ssoMobileStart>>
+>;
+
+export type SsoMobileStartMutationError = ErrorType<unknown>;
+
+export const useSsoMobileStart = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof ssoMobileStart>>,
+    TError,
+    { provider: string },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof ssoMobileStart>>,
+  TError,
+  { provider: string },
+  TContext
+> => {
+  return useMutation(getSsoMobileStartMutationOptions(options));
+};
+
+/**
+ * Exchange the OIDC `code`+`state` captured by the mobile app for a
+signed-in session. Requires the `mobileSessionToken` returned by
+`ssoMobileStart` so a stolen `code+state` cannot be redeemed by
+another client.
+
+ */
+export const getSsoMobileCallbackUrl = (provider: string) => {
+  return `/api/auth/sso/${provider}/mobile-callback`;
+};
+
+export const ssoMobileCallback = async (
+  provider: string,
+  ssoMobileCallbackBody: SsoMobileCallbackBody,
+  options?: RequestInit,
+): Promise<SsoCallbackResponse> => {
+  return customFetch<SsoCallbackResponse>(getSsoMobileCallbackUrl(provider), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(ssoMobileCallbackBody),
+  });
+};
+
+export const getSsoMobileCallbackMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof ssoMobileCallback>>,
+    TError,
+    { provider: string; data: BodyType<SsoMobileCallbackBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof ssoMobileCallback>>,
+  TError,
+  { provider: string; data: BodyType<SsoMobileCallbackBody> },
+  TContext
+> => {
+  const mutationKey = ["ssoMobileCallback"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof ssoMobileCallback>>,
+    { provider: string; data: BodyType<SsoMobileCallbackBody> }
+  > = (props) => {
+    const { provider, data } = props ?? {};
+
+    return ssoMobileCallback(provider, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type SsoMobileCallbackMutationResult = NonNullable<
+  Awaited<ReturnType<typeof ssoMobileCallback>>
+>;
+export type SsoMobileCallbackMutationBody = BodyType<SsoMobileCallbackBody>;
+export type SsoMobileCallbackMutationError = ErrorType<unknown>;
+
+export const useSsoMobileCallback = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof ssoMobileCallback>>,
+    TError,
+    { provider: string; data: BodyType<SsoMobileCallbackBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof ssoMobileCallback>>,
+  TError,
+  { provider: string; data: BodyType<SsoMobileCallbackBody> },
+  TContext
+> => {
+  return useMutation(getSsoMobileCallbackMutationOptions(options));
+};
 
 export const getSsoLinkUrl = () => {
   return `/api/auth/sso/link`;

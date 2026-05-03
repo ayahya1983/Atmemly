@@ -1892,6 +1892,82 @@ export const SsoCallbackResponse = zod.object({
   returnTo: zod.string().nullish(),
 });
 
+/**
+ * Begin an OIDC sign-in for a native mobile app. Unlike the web flow,
+the browser-binding cookie is replaced with a server-issued opaque
+`mobileSessionToken` that the app keeps in memory and presents to
+`ssoMobileCallback`. The IdP is redirected to the API server's
+`/mobile-bridge` endpoint, which 302s back to the app's custom
+URI scheme so `expo-web-browser` can capture the result.
+
+ */
+export const SsoMobileStartParams = zod.object({
+  provider: zod.coerce.string(),
+});
+
+export const SsoMobileStartResponse = zod.object({
+  authorizationUrl: zod.string(),
+  state: zod.string(),
+  mobileSessionToken: zod.string(),
+});
+
+/**
+ * Exchange the OIDC `code`+`state` captured by the mobile app for a
+signed-in session. Requires the `mobileSessionToken` returned by
+`ssoMobileStart` so a stolen `code+state` cannot be redeemed by
+another client.
+
+ */
+export const SsoMobileCallbackParams = zod.object({
+  provider: zod.coerce.string(),
+});
+
+export const SsoMobileCallbackBody = zod.object({
+  code: zod.string(),
+  state: zod.string(),
+  mobileSessionToken: zod.string(),
+});
+
+export const SsoMobileCallbackResponse = zod.object({
+  outcome: zod.enum(["signed_in", "needs_linking", "denied", "error"]),
+  token: zod.string().nullish(),
+  refreshToken: zod.string().nullish(),
+  user: zod
+    .union([
+      zod.object({
+        id: zod.number(),
+        email: zod.string(),
+        fullName: zod.string(),
+        role: zod.enum(["client", "freelancer", "admin"]),
+        adminRole: zod.string().nullish(),
+        status: zod.enum([
+          "active",
+          "suspended",
+          "pending_email_verification",
+          "banned",
+          "deleted",
+        ]),
+        avatarUrl: zod.string().nullish(),
+        createdAt: zod.coerce.date(),
+        emailVerifiedAt: zod.coerce.date().nullish(),
+        lastLoginAt: zod.coerce.date().nullish(),
+        phone: zod.string().nullish(),
+        country: zod.string().nullish(),
+        city: zod.string().nullish(),
+        verificationStatus: zod
+          .enum(["not_submitted", "pending", "verified", "rejected", "expired"])
+          .optional(),
+      }),
+      zod.null(),
+    ])
+    .optional(),
+  linkChallengeToken: zod.string().nullish(),
+  candidateEmail: zod.string().nullish(),
+  provider: zod.string().nullish(),
+  message: zod.string().nullish(),
+  returnTo: zod.string().nullish(),
+});
+
 export const SsoLinkBody = zod.object({
   linkChallengeToken: zod.string(),
   password: zod.string(),

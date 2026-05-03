@@ -92,6 +92,8 @@ export * from "./ssoCallbackResponseOutcome";
 export * from "./ssoGlobalSettings";
 export * from "./ssoGlobalSettingsDefaultLoginMethod";
 export * from "./ssoLinkBody";
+export * from "./ssoMobileCallbackBody";
+export * from "./ssoMobileStartResponse";
 export * from "./ssoProviderAdmin";
 export * from "./ssoProviderAdminMetadata";
 export * from "./ssoProviderAdminRoleMappingJson";

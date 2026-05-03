@@ -986,6 +986,18 @@ export interface SsoLinkBody {
   password: string;
 }
 
+export interface SsoMobileStartResponse {
+  authorizationUrl: string;
+  state: string;
+  mobileSessionToken: string;
+}
+
+export interface SsoMobileCallbackBody {
+  code: string;
+  state: string;
+  mobileSessionToken: string;
+}
+
 export interface SsoUnlinkBody {
   identityId: number;
 }
