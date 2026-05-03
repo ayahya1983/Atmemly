@@ -11,6 +11,38 @@ packages:
   - postgresql-client
 
 write_files:
+  - path: /opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json
+    permissions: "0644"
+    content: |
+      {
+        "agent": {
+          "metrics_collection_interval": 60,
+          "run_as_user": "cwagent"
+        },
+        "metrics": {
+          "namespace": "CWAgent",
+          "append_dimensions": {
+            "InstanceId": "$${aws:InstanceId}"
+          },
+          "metrics_collected": {
+            "disk": {
+              "measurement": ["used_percent"],
+              "metrics_collection_interval": 60,
+              "resources": ["/"],
+              "drop_device": false
+            },
+            "mem": {
+              "measurement": ["mem_used_percent", "mem_available_percent"],
+              "metrics_collection_interval": 60
+            },
+            "swap": {
+              "measurement": ["swap_used_percent"],
+              "metrics_collection_interval": 60
+            }
+          }
+        }
+      }
+
   - path: /etc/atmemly/site.env
     permissions: "0644"
     content: |
@@ -78,6 +110,17 @@ runcmd:
   - apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
   - usermod -aG docker ubuntu
   - systemctl enable --now docker
+
+  # Install + start the CloudWatch Agent so the disk/memory alarms in
+  # monitoring.tf (CWAgent namespace, metric `disk_used_percent` with
+  # dimensions InstanceId/path=//fstype=ext4/device=nvme0n1p1) actually
+  # have a data source. Without this the alarm sits in INSUFFICIENT_DATA
+  # forever and a full root disk pages no one. The EC2 IAM role already
+  # carries `CloudWatchAgentServerPolicy` (see iam.tf) so no extra creds
+  # are needed -- the agent picks them up via IMDS.
+  - bash -c 'dpkg -s amazon-cloudwatch-agent >/dev/null 2>&1 || (curl -fsSL "https://s3.${region}.amazonaws.com/amazoncloudwatch-agent-${region}/ubuntu/amd64/latest/amazon-cloudwatch-agent.deb" -o /tmp/amazon-cloudwatch-agent.deb && dpkg -i -E /tmp/amazon-cloudwatch-agent.deb && rm -f /tmp/amazon-cloudwatch-agent.deb)'
+  - /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl -a fetch-config -m ec2 -s -c file:/opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json
+  - systemctl enable --now amazon-cloudwatch-agent
 
   # Install AWS CLI v2 (skip if already present so re-runs are cheap)
   - bash -c 'command -v aws >/dev/null 2>&1 || (curl -fsSL "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o /tmp/awscliv2.zip && unzip -q /tmp/awscliv2.zip -d /tmp && /tmp/aws/install && rm -rf /tmp/aws /tmp/awscliv2.zip)'

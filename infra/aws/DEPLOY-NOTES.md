@@ -576,32 +576,54 @@ aws sns subscribe --region us-east-1 \
 
 Or set `alert_phone` to an E.164 number for SMS.
 
-**EC2 disk metric prerequisite**: `disk_used_percent` is published by the
-CloudWatch Agent, which is *not* installed by default. Install it once on
-the box (one-time, idempotent):
+**EC2 disk + memory metrics**: published by the CloudWatch Agent, which
+is now **installed and started automatically by cloud-init on first
+boot** (see `infra/aws/terraform/cloud-init.yaml.tpl` — the agent .deb is
+fetched from the regional S3 mirror, the config is written to
+`/opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json`, and
+the `amazon-cloudwatch-agent` systemd unit is enabled). No manual
+install step is required for new boxes.
+
+Metrics published into the `CWAgent` namespace (1-minute interval,
+dimensioned by `InstanceId` plus the plugin-specific dimensions):
+
+| Plugin | Metric                  | Dimensions                                |
+| ------ | ----------------------- | ----------------------------------------- |
+| `disk` | `disk_used_percent`     | `InstanceId`, `path`, `fstype`, `device`  |
+| `mem`  | `mem_used_percent`      | `InstanceId`                              |
+| `mem`  | `mem_available_percent` | `InstanceId`                              |
+| `swap` | `swap_used_percent`     | `InstanceId`                              |
+
+The `atmemly-ec2-disk-used-high` alarm in `monitoring.tf` matches the
+`disk` row above (path `/`, fstype `ext4`, device `nvme0n1p1` on the
+current t3 AMI). `CloudWatchAgentServerPolicy` is attached to the EC2
+role by Terraform (`iam.tf` `cwagent` attachment) so the agent picks up
+credentials via IMDS and is allowed to `PutMetricData`.
+
+For the existing live box (provisioned before this change), install the
+agent once via SSM:
 
 ```bash
-aws ssm start-session --target i-09d44904cddfaa638
-sudo wget -q https://s3.amazonaws.com/amazoncloudwatch-agent/ubuntu/amd64/latest/amazon-cloudwatch-agent.deb
-sudo dpkg -i -E amazon-cloudwatch-agent.deb
-sudo tee /opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json >/dev/null <<'JSON'
-{ "metrics": { "append_dimensions": { "InstanceId": "${aws:InstanceId}" },
-  "metrics_collected": { "disk": { "measurement": ["used_percent"],
-    "resources": ["/"], "metrics_collection_interval": 60 } } } }
-JSON
-sudo /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl \
-  -a fetch-config -m ec2 -s \
-  -c file:/opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json
+aws ssm send-command --region eu-west-1 \
+  --instance-ids i-09d44904cddfaa638 \
+  --document-name AWS-RunShellScript \
+  --parameters 'commands=["sudo cloud-init single --name cc_runcmd || true"]'
+# Or run the same curl/dpkg/amazon-cloudwatch-agent-ctl steps from the
+# cloud-init template by hand.
 ```
 
-`CloudWatchAgentServerPolicy` is attached to the EC2 role by Terraform
-(see `iam.tf` `cwagent` attachment), so the agent is allowed to
-`PutMetricData` into the `CWAgent` namespace. If metrics don't appear
-within ~5 minutes after install, check
-`/opt/aws/amazon-cloudwatch-agent/logs/amazon-cloudwatch-agent.log`.
+Then verify metrics show up within ~5 minutes:
 
-Until the agent is installed, the disk alarm sits in `INSUFFICIENT_DATA`
-(intentional — `treat_missing_data = "missing"`), which does not page.
+```bash
+aws cloudwatch list-metrics --namespace CWAgent --region eu-west-1 \
+  --dimensions Name=InstanceId,Value=i-09d44904cddfaa638
+```
+
+If metrics never appear, check
+`/opt/aws/amazon-cloudwatch-agent/logs/amazon-cloudwatch-agent.log` on
+the box. Until the agent is running the disk alarm sits in
+`INSUFFICIENT_DATA` (intentional — `treat_missing_data = "missing"`),
+which does not page.
 
 **Verify after `terraform apply`**:
 
