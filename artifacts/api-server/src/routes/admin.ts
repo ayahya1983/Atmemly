@@ -579,4 +579,111 @@ router.post("/complaints", requireAuth, async (req, res): Promise<void> => {
   );
 });
 
+// ---------------------------------------------------------------------------
+// Server-side CSV export endpoints. These stream the full filtered dataset
+// without loading every row into the browser, which was previously the only
+// way the admin UI could export users / payments. The endpoints are
+// admin-only and emit RFC 4180 CSV with a header row.
+// ---------------------------------------------------------------------------
+
+function csvEscape(val: unknown): string {
+  if (val === null || val === undefined) return "";
+  const s = String(val);
+  if (/[",\n\r]/.test(s)) return `"${s.replace(/"/g, '""')}"`;
+  return s;
+}
+
+function csvRow(values: unknown[]): string {
+  return values.map(csvEscape).join(",");
+}
+
+router.get(
+  "/admin/users.csv",
+  requireAuth,
+  requireRole("admin"),
+  async (req, res): Promise<void> => {
+    const role = typeof req.query.role === "string" ? req.query.role : undefined;
+    const q = typeof req.query.q === "string" ? req.query.q.trim().toLowerCase() : "";
+    const conds = [];
+    if (role && role !== "all") conds.push(eq(usersTable.role, role as "admin" | "client" | "freelancer"));
+    const baseQuery = db.select().from(usersTable);
+    const rows = await (conds.length
+      ? baseQuery.where(and(...conds))
+      : baseQuery
+    ).orderBy(desc(usersTable.createdAt));
+    const filtered = q
+      ? rows.filter(
+          (u) =>
+            u.fullName.toLowerCase().includes(q) ||
+            u.email.toLowerCase().includes(q),
+        )
+      : rows;
+    res.setHeader("Content-Type", "text/csv; charset=utf-8");
+    res.setHeader("Content-Disposition", `attachment; filename="users.csv"`);
+    res.write(
+      csvRow(["id", "email", "fullName", "role", "status", "country", "city", "createdAt"]) + "\n",
+    );
+    for (const u of filtered) {
+      res.write(
+        csvRow([
+          u.id,
+          u.email,
+          u.fullName,
+          u.role,
+          u.status,
+          u.country,
+          u.city,
+          u.createdAt instanceof Date ? u.createdAt.toISOString() : u.createdAt,
+        ]) + "\n",
+      );
+    }
+    res.end();
+  },
+);
+
+router.get(
+  "/admin/payments.csv",
+  requireAuth,
+  requireRole("admin"),
+  async (req, res): Promise<void> => {
+    const status = typeof req.query.status === "string" ? req.query.status : undefined;
+    const conds = [];
+    if (status && status !== "all") conds.push(eq(paymentsTable.status, status as "paid" | "pending" | "refunded" | "failed"));
+    const baseQuery = db.select().from(paymentsTable);
+    const rows = await (conds.length
+      ? baseQuery.where(and(...conds))
+      : baseQuery
+    ).orderBy(desc(paymentsTable.createdAt));
+    res.setHeader("Content-Type", "text/csv; charset=utf-8");
+    res.setHeader("Content-Disposition", `attachment; filename="payments.csv"`);
+    res.write(
+      csvRow([
+        "id",
+        "jobId",
+        "payerId",
+        "payeeId",
+        "amount",
+        "currency",
+        "status",
+        "createdAt",
+      ]) + "\n",
+    );
+    for (const p of rows) {
+      res.write(
+        csvRow([
+          p.id,
+          p.jobId,
+          p.payerId,
+          p.payeeId,
+          p.amount,
+          p.currency,
+          p.status,
+          p.createdAt instanceof Date ? p.createdAt.toISOString() : p.createdAt,
+        ]) + "\n",
+      );
+    }
+    res.end();
+  },
+);
+
 export default router;

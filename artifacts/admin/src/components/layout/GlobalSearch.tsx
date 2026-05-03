@@ -1,18 +1,21 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useLocation } from "wouter";
-import { Search, Loader2, User as UserIcon, Briefcase, FileText } from "lucide-react";
+import { Search, Loader2, User as UserIcon, Briefcase, FileText, Building2, KeyRound } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { useTranslation } from "@/lib/i18n";
 import { useAuth } from "@/contexts/AuthContext";
 import { hasPermission } from "@/lib/permissions";
 import { adminApi } from "@/lib/api-admin";
+import { useAdminListSsoProviders } from "@workspace/api-client-react";
 
 interface UserHit { id: number; fullName: string; email: string; role: string; }
 interface JobHit { id: number; title: string; status: string; clientName: string; }
 interface ContractHit { id: number; title: string; status: string; }
+interface FreelancerHit { userId: number; fullName: string; email: string; headline: string | null; }
+interface ClientHit { userId: number; fullName: string; email: string; companyName: string | null; }
 
 interface ResultGroup {
-  key: "users" | "jobs" | "contracts";
+  key: "users" | "jobs" | "contracts" | "freelancers" | "clients" | "sso";
   labelEn: string;
   labelAr: string;
   icon: typeof UserIcon;
@@ -52,6 +55,11 @@ export function GlobalSearch() {
   const canUsers = hasPermission(user, "users", "read");
   const canJobs = hasPermission(user, "jobs", "read");
   const canContracts = hasPermission(user, "contracts", "read");
+  const canFreelancers = hasPermission(user, "freelancers", "read");
+  const canClients = hasPermission(user, "clients", "read");
+  // SSO providers are listed via the generated hook; only super admins
+  // typically have read access. We also filter the cached list locally.
+  const { data: ssoProviders } = useAdminListSsoProviders();
 
   // Click-outside to close.
   useEffect(() => {
@@ -147,6 +155,69 @@ export function GlobalSearch() {
           .catch(() => null),
       );
     }
+    if (canFreelancers) {
+      tasks.push(
+        adminApi
+          .get<{ items: FreelancerHit[] }>(`/admin/freelancers?q=${qs}&limit=5`)
+          .then((r) => ({
+            key: "freelancers" as const,
+            labelEn: "Freelancers",
+            labelAr: "المستقلون",
+            icon: UserIcon,
+            items: (r.items ?? []).map((f) => ({
+              id: `f-${f.userId}`,
+              href: `/freelancers?focus=${f.userId}`,
+              primary: f.fullName || f.email,
+              secondary: f.headline ?? f.email,
+            })),
+          }))
+          .catch(() => null),
+      );
+    }
+    if (canClients) {
+      tasks.push(
+        adminApi
+          .get<{ items: ClientHit[] }>(`/admin/clients?q=${qs}&limit=5`)
+          .then((r) => ({
+            key: "clients" as const,
+            labelEn: "Clients",
+            labelAr: "العملاء",
+            icon: Building2,
+            items: (r.items ?? []).map((c) => ({
+              id: `cl-${c.userId}`,
+              href: `/clients?focus=${c.userId}`,
+              primary: c.fullName || c.email,
+              secondary: c.companyName ?? c.email,
+            })),
+          }))
+          .catch(() => null),
+      );
+    }
+    // SSO providers are filtered client-side from the already-cached list.
+    if (ssoProviders && ssoProviders.length) {
+      const needle = debounced.toLowerCase();
+      const matches = ssoProviders.filter((p) =>
+        p.slug.toLowerCase().includes(needle) ||
+        p.displayName.toLowerCase().includes(needle) ||
+        p.type.toLowerCase().includes(needle),
+      );
+      if (matches.length) {
+        tasks.push(
+          Promise.resolve({
+            key: "sso" as const,
+            labelEn: "SSO providers",
+            labelAr: "مزوّدو الدخول الموحّد",
+            icon: KeyRound,
+            items: matches.slice(0, 5).map((p) => ({
+              id: `sso-${p.id}`,
+              href: `/sso/providers/${p.id}`,
+              primary: p.displayName,
+              secondary: `${p.slug} · ${p.type}${p.enabled ? "" : " · disabled"}`,
+            })),
+          }),
+        );
+      }
+    }
 
     Promise.all(tasks).then((results) => {
       if (cancelled) return;
@@ -157,7 +228,7 @@ export function GlobalSearch() {
     return () => {
       cancelled = true;
     };
-  }, [debounced, canUsers, canJobs, canContracts]);
+  }, [debounced, canUsers, canJobs, canContracts, canFreelancers, canClients, ssoProviders]);
 
   // Flat list for keyboard navigation.
   const flatItems = useMemo(
@@ -194,7 +265,8 @@ export function GlobalSearch() {
   }
 
   const showDropdown = open && debounced.length >= 2;
-  const hasAnyPermission = canUsers || canJobs || canContracts;
+  const hasAnyPermission =
+    canUsers || canJobs || canContracts || canFreelancers || canClients;
 
   if (!hasAnyPermission) {
     return <div className="flex-1 max-w-xl" />;
@@ -216,7 +288,7 @@ export function GlobalSearch() {
           }}
           onFocus={() => setOpen(true)}
           onKeyDown={onKeyDown}
-          placeholder={lang === "ar" ? "بحث سريع..." : "Quick search users, jobs, contracts..."}
+          placeholder={lang === "ar" ? "بحث سريع..." : "Quick search users, jobs, contracts, SSO…"}
           className="ltr:pl-9 rtl:pr-9 ltr:pr-12 rtl:pl-12 h-10 bg-muted/40 border-muted"
           data-testid="input-global-search"
           aria-autocomplete="list"

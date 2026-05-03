@@ -16,6 +16,7 @@ import {
   ShieldOff,
   ArrowRight,
 } from "lucide-react";
+import { BRAND } from "@workspace/branding";
 
 export default function AdminSsoOverview() {
   const { data: providers } = useAdminListSsoProviders();
@@ -29,7 +30,7 @@ export default function AdminSsoOverview() {
   return (
     <div className="container mx-auto py-8 space-y-6">
       <PageHeader
-        title="ATMEMLY SSO overview"
+        title={`${BRAND.name} SSO overview`}
         description="Snapshot of single sign-on configuration, providers, and recent activity."
       />
 

@@ -57,7 +57,7 @@ export default function AdminSsoProviders() {
   return (
     <div className="container mx-auto py-8 space-y-6">
       <PageHeader
-        title="ATMEMLY SSO Providers"
+        title={`${BRAND.name} SSO Providers`}
         description={`Configure enterprise sign-in for ${BRAND.name}. Add Google, Microsoft, LinkedIn, Keycloak or any OIDC provider.`}
         actions={
           <Button onClick={() => setLocation("/sso/providers/new")} data-testid="button-add-provider">
@@ -69,7 +69,7 @@ export default function AdminSsoProviders() {
       {isLoading && <p className="text-muted-foreground">Loading providers…</p>}
       {!isLoading && (data?.length ?? 0) === 0 && (
         <div className="border rounded-lg p-12 text-center text-muted-foreground">
-          No SSO providers configured yet for ATMEMLY.
+          No SSO providers configured yet for {BRAND.name}.
         </div>
       )}
 
@@ -149,7 +149,7 @@ export default function AdminSsoProviders() {
               variant="ghost"
               size="sm"
               onClick={async () => {
-                if (!confirm(`Delete ATMEMLY SSO provider "${p.displayName}"?`)) return;
+                if (!confirm(`Delete ${BRAND.name} SSO provider "${p.displayName}"?`)) return;
                 await deleteMut.mutateAsync({ id: p.id });
                 await refresh();
                 toast({ title: "Provider deleted" });

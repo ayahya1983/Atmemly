@@ -4,14 +4,27 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1" />
     <title>ATMEMLY · Admin</title>
+    <meta name="description" content="ATMEMLY admin console — manage users, jobs, payments and content for the ATMEMLY freelance marketplace." />
+    <meta name="robots" content="noindex, nofollow" />
     <meta name="theme-color" content="#458cca" />
     <link rel="icon" href="/admin/favicon.ico" />
+    <link rel="icon" type="image/svg+xml" href="/admin/favicon.svg" />
     <link rel="apple-touch-icon" href="/admin/logo-192.png" />
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="ATMEMLY · Admin" />
+    <meta property="og:description" content="Admin console for the ATMEMLY freelance marketplace." />
+    <meta property="og:image" content="/admin/opengraph.jpg" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="ATMEMLY · Admin" />
+    <meta name="twitter:description" content="Admin console for the ATMEMLY freelance marketplace." />
+    <meta name="twitter:image" content="/admin/opengraph.jpg" />
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <script>
-      // Pre-hydration setup for lang/dir/theme to avoid flash.
+      // Pre-hydration setup for lang/dir/theme to avoid flash. Storage keys
+      // are intentionally namespaced and stable; renaming them would log
+      // every existing admin out without benefit.
       try {
         const langRaw = localStorage.getItem('atmemly-lang');
         let lang = 'ar';

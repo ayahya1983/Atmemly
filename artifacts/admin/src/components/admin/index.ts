@@ -6,3 +6,4 @@ export { FilterBar } from "./FilterBar";
 export { ConfirmActionDialog } from "./ConfirmActionDialog";
 export { FormDialog } from "./FormDialog";
 export { EmptyState } from "./EmptyState";
+export { ImageUploadField } from "./ImageUploadField";

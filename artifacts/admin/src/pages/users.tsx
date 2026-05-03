@@ -4,9 +4,11 @@ import { Button } from "@/components/ui/button";
 import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { formatDistanceToNow } from "date-fns";
+import { Download } from "lucide-react";
 import { useTranslation } from "@/lib/i18n";
 import { useAuth } from "@/contexts/AuthContext";
 import { hasPermission } from "@/lib/permissions";
+import { downloadCsv } from "@/lib/api-admin";
 import {
   DataTable, type Column, type BulkAction, StatusBadge, PageHeader, FilterBar, ConfirmActionDialog,
 } from "@/components/admin";
@@ -131,7 +133,13 @@ export default function AdminUsers() {
         search={search}
         enableSelection={canWrite}
         bulkActions={bulkActions}
-        csvFilename="users.csv"
+        onCsvExport={() => {
+          const params = new URLSearchParams();
+          if (search) params.set("q", search);
+          if (roleFilter && roleFilter !== "all") params.set("role", roleFilter);
+          const qs = params.toString();
+          return downloadCsv(`/admin/users.csv${qs ? `?${qs}` : ""}`, "users.csv");
+        }}
       />
     </div>
   );

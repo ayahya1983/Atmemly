@@ -16,6 +16,7 @@ import {
 import { Label } from "@/components/ui/label";
 import { PageHeader } from "@/components/admin";
 import { format } from "date-fns";
+import { BRAND } from "@workspace/branding";
 
 const OUTCOME_VARIANT: Record<string, "default" | "secondary" | "destructive" | "outline"> = {
   success: "default",
@@ -53,7 +54,7 @@ export default function AdminSsoAudit() {
   return (
     <div className="container mx-auto py-8 space-y-6">
       <PageHeader
-        title="ATMEMLY SSO audit log"
+        title={`${BRAND.name} SSO audit log`}
         description="Every SSO sign-in, link, unlink and admin change."
       />
 
@@ -113,7 +114,7 @@ export default function AdminSsoAudit() {
           <Input
             value={emailFilter}
             onChange={(e) => setEmailFilter(e.target.value)}
-            placeholder="user@atmemly.com"
+            placeholder={`user@${BRAND.domain}`}
           />
         </div>
       </div>

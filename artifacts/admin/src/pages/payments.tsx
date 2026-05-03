@@ -1,7 +1,10 @@
 import { useState } from "react";
 import { useAdminListPayments, type Payment } from "@workspace/api-client-react";
 import { formatDistanceToNow } from "date-fns";
+import { Button } from "@/components/ui/button";
+import { Download } from "lucide-react";
 import { formatCurrency, useTranslation } from "@/lib/i18n";
+import { downloadCsv } from "@/lib/api-admin";
 import { DataTable, type Column, StatusBadge, PageHeader, FilterBar } from "@/components/admin";
 
 type PaymentRow = Payment;
@@ -85,7 +88,12 @@ export default function AdminPayments() {
         rowKey={(p) => p.id}
         isLoading={isLoading}
         search={search}
-        csvFilename="payments.csv"
+        onCsvExport={() => {
+          const params = new URLSearchParams();
+          if (statusFilter && statusFilter !== "all") params.set("status", statusFilter);
+          const qs = params.toString();
+          return downloadCsv(`/admin/payments.csv${qs ? `?${qs}` : ""}`, "payments.csv");
+        }}
       />
     </div>
   );

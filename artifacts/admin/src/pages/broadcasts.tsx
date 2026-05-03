@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useAdminMutation, adminApi } from "@/lib/api-admin";
+import { useAdminMutation, adminApi, AdminApiError } from "@/lib/api-admin";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { useTranslation } from "@/lib/i18n";
 import { Megaphone } from "lucide-react";
+import { ConfirmActionDialog } from "@/components/admin";
 
 interface BroadcastBody {
   audience: "all" | "freelancers" | "clients" | "user_ids";
@@ -34,10 +35,10 @@ export default function AdminBroadcasts() {
     (input) => adminApi.post("/admin/notifications/broadcast", input),
   );
 
-  const handleSend = () => {
+  const validate = (): BroadcastBody | null => {
     if (!title.trim() || !body.trim()) {
       toast({ variant: "destructive", title: lang === "ar" ? "العنوان والمحتوى مطلوبان" : "Title and body required" });
-      return;
+      return null;
     }
     const payload: BroadcastBody = {
       audience, kind, title: title.trim(), body: body.trim(),
@@ -45,16 +46,42 @@ export default function AdminBroadcasts() {
     };
     if (audience === "user_ids") {
       const ids = userIdsRaw.split(/[,\s]+/).filter(Boolean).map(Number).filter((n) => Number.isFinite(n) && n > 0);
-      if (!ids.length) { toast({ variant: "destructive", title: lang === "ar" ? "أدخل معرفات صحيحة" : "Enter valid user IDs" }); return; }
+      if (!ids.length) {
+        toast({ variant: "destructive", title: lang === "ar" ? "أدخل معرفات صحيحة" : "Enter valid user IDs" });
+        return null;
+      }
       payload.userIds = ids;
     }
-    broadcast.mutate(payload, {
-      onSuccess: (r) => {
-        toast({ title: lang === "ar" ? `تم الإرسال إلى ${r.count} مستخدم` : `Sent to ${r.count} users` });
-        setTitle(""); setBody(""); setLink(""); setUserIdsRaw("");
-      },
-      onError: (e) => toast({ variant: "destructive", title: "Error", description: e.message }),
-    });
+    return payload;
+  };
+
+  const handleSend = async () => {
+    const payload = validate();
+    if (!payload) return;
+    try {
+      const r = await broadcast.mutateAsync(payload);
+      toast({ title: lang === "ar" ? `تم الإرسال إلى ${r.count} مستخدم` : `Sent to ${r.count} users` });
+      setTitle(""); setBody(""); setLink(""); setUserIdsRaw("");
+    } catch (e) {
+      const isLimited = e instanceof AdminApiError && e.status === 429;
+      const seconds = isLimited ? (e as AdminApiError).retryAfterSeconds ?? 30 : null;
+      toast({
+        variant: "destructive",
+        title: isLimited
+          ? (lang === "ar" ? "محاولات كثيرة" : "Rate limited")
+          : (lang === "ar" ? "خطأ" : "Error"),
+        description: isLimited && seconds !== null
+          ? (lang === "ar" ? `أعد المحاولة بعد ${seconds} ثانية.` : `Retry in ${seconds}s.`)
+          : (e instanceof Error ? e.message : String(e)),
+      });
+    }
+  };
+
+  const audienceLabel: Record<BroadcastBody["audience"], { en: string; ar: string }> = {
+    all: { en: "all users", ar: "جميع المستخدمين" },
+    freelancers: { en: "all freelancers", ar: "جميع المستقلين" },
+    clients: { en: "all clients", ar: "جميع العملاء" },
+    user_ids: { en: "selected users", ar: "مستخدمين محددين" },
   };
 
   return (
@@ -109,10 +136,24 @@ export default function AdminBroadcasts() {
             <Input value={link} onChange={(e) => setLink(e.target.value)} placeholder="/jobs" />
           </div>
 
-          <Button onClick={handleSend} disabled={broadcast.isPending} className="w-full">
-            <Megaphone className="w-4 h-4 mr-2" />
-            {broadcast.isPending ? (lang === "ar" ? "جاري الإرسال..." : "Sending...") : (lang === "ar" ? "إرسال الآن" : "Send Broadcast")}
-          </Button>
+          <ConfirmActionDialog
+            trigger={
+              <Button disabled={broadcast.isPending} className="w-full" data-testid="button-broadcast-open-confirm">
+                <Megaphone className="w-4 h-4 mr-2" />
+                {broadcast.isPending
+                  ? (lang === "ar" ? "جاري الإرسال..." : "Sending...")
+                  : (lang === "ar" ? "إرسال الآن" : "Send Broadcast")}
+              </Button>
+            }
+            title={lang === "ar" ? "تأكيد الإرسال" : "Confirm broadcast"}
+            description={
+              lang === "ar"
+                ? `سيتم إرسال إشعار "${title || "—"}" إلى ${audienceLabel[audience].ar}. لا يمكن التراجع.`
+                : `Sends "${title || "—"}" to ${audienceLabel[audience].en}. This cannot be undone.`
+            }
+            confirmLabel={lang === "ar" ? "إرسال" : "Send"}
+            onConfirm={handleSend}
+          />
         </CardContent>
       </Card>
     </div>

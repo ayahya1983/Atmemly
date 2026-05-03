@@ -11,18 +11,15 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useTranslation } from "@/lib/i18n";
 import { adminApi, useAdminGet, useAdminMutation } from "@/lib/api-admin";
+import {
+  useListNotifications,
+  useMarkAllNotificationsRead,
+  getListNotificationsQueryKey,
+  type Notification as ApiNotification,
+} from "@workspace/api-client-react";
 
-interface AdminNotification {
-  id: number;
-  kind: string;
-  title: string;
-  body: string;
-  link: string | null;
-  read: boolean;
-  createdAt: string;
-}
+type AdminNotification = ApiNotification;
 
-const LIST_KEY = ["admin-notifications"] as const;
 const COUNT_KEY = ["admin-notifications-unread-count"] as const;
 
 function formatRelative(iso: string, lang: "en" | "ar"): string {
@@ -48,11 +45,12 @@ export function NotificationsBell() {
   const [, setLocation] = useLocation();
   const qc = useQueryClient();
 
-  const { data: notifications, isLoading } = useAdminGet<AdminNotification[]>(
-    LIST_KEY,
-    "/notifications",
-    { refetchInterval: 60_000 },
-  );
+  const LIST_KEY = getListNotificationsQueryKey();
+  const { data: notifications, isLoading } = useListNotifications({
+    query: { queryKey: LIST_KEY, refetchInterval: 60_000 },
+  });
+  // unread-count endpoint is not yet in the OpenAPI contract; keep the
+  // legacy admin helper for it (still benefits from the shared 429 handling).
   const { data: countData } = useAdminGet<{ count: number }>(
     COUNT_KEY,
     "/notifications/unread-count",
@@ -63,10 +61,14 @@ export function NotificationsBell() {
     (id) => adminApi.patch<AdminNotification>(`/notifications/${id}/read`),
     [LIST_KEY, COUNT_KEY],
   );
-  const markAllRead = useAdminMutation<void, null>(
-    () => adminApi.post(`/notifications/read-all`),
-    [LIST_KEY, COUNT_KEY],
-  );
+  const markAllRead = useMarkAllNotificationsRead({
+    mutation: {
+      onSuccess: () => {
+        qc.invalidateQueries({ queryKey: LIST_KEY });
+        qc.setQueryData<{ count: number }>(COUNT_KEY, { count: 0 });
+      },
+    },
+  });
 
   const unread = countData?.count ?? 0;
   const items = notifications ?? [];

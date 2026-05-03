@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { Loader2 } from "lucide-react";
 import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
+import { BRAND } from "@workspace/branding";
 
 interface Props {
   returnTo?: string;
@@ -36,7 +37,7 @@ export function SsoButtons({ returnTo, link = false }: Props) {
     } catch (err) {
       toast({
         variant: "destructive",
-        title: "ATMEMLY SSO unavailable",
+        title: `${BRAND.name} SSO unavailable`,
         description: err instanceof Error ? err.message : "Could not start SSO sign-in.",
       });
       setPending(null);

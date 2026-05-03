@@ -13,6 +13,7 @@ import { hasPermission } from "@/lib/permissions";
 import { Plus, Pencil, Trash2 } from "lucide-react";
 import {
   DataTable, type Column, StatusBadge, PageHeader, FilterBar, ConfirmActionDialog, FormDialog,
+  ImageUploadField,
 } from "@/components/admin";
 
 interface BlogRow {
@@ -198,7 +199,13 @@ export default function AdminBlog() {
         <div><Label>{lang === "ar" ? "المقتطف" : "Excerpt"}</Label><Textarea value={form.excerpt} onChange={(e) => setForm({ ...form, excerpt: e.target.value })} rows={2} /></div>
         <div><Label>{lang === "ar" ? "المحتوى (HTML)" : "Body (HTML)"}</Label><Textarea value={form.body} onChange={(e) => setForm({ ...form, body: e.target.value })} rows={10} className="font-mono text-sm" /></div>
         <div className="grid grid-cols-2 gap-3">
-          <div><Label>{lang === "ar" ? "صورة الغلاف (URL)" : "Cover URL"}</Label><Input value={form.coverUrl} onChange={(e) => setForm({ ...form, coverUrl: e.target.value })} /></div>
+          <ImageUploadField
+            label={lang === "ar" ? "صورة الغلاف" : "Cover image"}
+            value={form.coverUrl}
+            onChange={(url) => setForm({ ...form, coverUrl: url })}
+            kind="blog-cover"
+            testId="blog-cover"
+          />
           <div><Label>{lang === "ar" ? "الفئة" : "Category"}</Label><Input value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })} /></div>
         </div>
         <div><Label>{lang === "ar" ? "العلامات (مفصولة بفواصل)" : "Tags (comma separated)"}</Label><Input value={form.tags} onChange={(e) => setForm({ ...form, tags: e.target.value })} /></div>

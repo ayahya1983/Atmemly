@@ -43,7 +43,7 @@ export default function AdminSsoSettings() {
       data: { allowLocalPassword, defaultLoginMethod, forceSsoForOrganizations },
     });
     await qc.invalidateQueries({ queryKey: getAdminGetSsoSettingsQueryKey() });
-    toast({ title: "ATMEMLY SSO settings saved" });
+    toast({ title: `${BRAND.name} SSO settings saved` });
   };
 
   if (isLoading) return <p className="p-8 text-muted-foreground">Loading…</p>;
@@ -51,7 +51,7 @@ export default function AdminSsoSettings() {
   return (
     <div className="container mx-auto py-8 max-w-2xl space-y-6">
       <PageHeader
-        title="ATMEMLY SSO settings"
+        title={`${BRAND.name} SSO settings`}
         description={`Global SSO behaviour for ${BRAND.name}.`}
       />
       <Card>

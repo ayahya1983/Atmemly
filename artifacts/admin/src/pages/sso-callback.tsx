@@ -10,6 +10,7 @@ import { Loader2 } from "lucide-react";
 import { useForm } from "react-hook-form";
 import { useToast } from "@/hooks/use-toast";
 import { effectiveAdminRole } from "@/lib/permissions";
+import { BRAND } from "@workspace/branding";
 import type { Me } from "@workspace/api-client-react";
 
 type Phase =
@@ -44,7 +45,7 @@ export default function AdminSsoCallback() {
           if (!effectiveAdminRole(res.user as Me)) {
             setPhase({
               kind: "error",
-              message: "This ATMEMLY account does not have admin access.",
+              message: `This ${BRAND.name} account does not have admin access.`,
             });
             return;
           }
@@ -61,7 +62,7 @@ export default function AdminSsoCallback() {
         } else {
           setPhase({
             kind: "error",
-            message: res.message ?? "ATMEMLY SSO sign-in failed.",
+            message: res.message ?? `${BRAND.name} SSO sign-in failed.`,
           });
         }
       })
@@ -80,13 +81,13 @@ export default function AdminSsoCallback() {
           toast({
             variant: "destructive",
             title: "Not authorized",
-            description: "This account is not an ATMEMLY admin.",
+            description: `This account is not an ${BRAND.name} admin.`,
           });
           return;
         }
         login(data.token, data.user as Me);
         if (data.refreshToken) localStorage.setItem("refresh_token", data.refreshToken);
-        toast({ title: "ATMEMLY admin account linked" });
+        toast({ title: `${BRAND.name} admin account linked` });
         setLocation("/");
       },
       onError: (err: unknown) =>
@@ -104,7 +105,7 @@ export default function AdminSsoCallback() {
         {phase.kind === "loading" && (
           <CardContent className="py-16 flex flex-col items-center gap-3">
             <Loader2 className="w-8 h-8 animate-spin text-primary" />
-            <p className="text-muted-foreground">Completing ATMEMLY admin sign-in…</p>
+            <p className="text-muted-foreground">{`Completing ${BRAND.name} admin sign-in…`}</p>
           </CardContent>
         )}
         {phase.kind === "error" && (
@@ -142,10 +143,10 @@ function LinkForm(props: {
   return (
     <>
       <CardHeader>
-        <CardTitle>Link your ATMEMLY admin account</CardTitle>
+        <CardTitle>{`Link your ${BRAND.name} admin account`}</CardTitle>
         <CardDescription>
           An admin account already exists for <b>{props.phase.candidateEmail}</b>. Enter your
-          ATMEMLY password to link <b>{props.phase.provider}</b> sign-in.
+          {BRAND.name} password to link <b>{props.phase.provider}</b> sign-in.
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -160,7 +161,7 @@ function LinkForm(props: {
               rules={{ required: true }}
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>ATMEMLY password</FormLabel>
+                  <FormLabel>{`${BRAND.name} password`}</FormLabel>
                   <FormControl>
                     <Input type="password" {...field} />
                   </FormControl>

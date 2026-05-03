@@ -31,6 +31,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useQueryClient } from "@tanstack/react-query";
 import { PageHeader } from "@/components/admin";
 import { ArrowLeft, Save } from "lucide-react";
+import { BRAND } from "@workspace/branding";
 
 const PROVIDER_TYPES = ["google", "microsoft", "linkedin", "keycloak", "oidc"] as const;
 
@@ -150,10 +151,10 @@ export default function AdminSsoProviderEdit() {
     try {
       if (isNew) {
         await createMut.mutateAsync({ data: payload });
-        toast({ title: "ATMEMLY SSO provider created" });
+        toast({ title: `${BRAND.name} SSO provider created` });
       } else {
         await updateMut.mutateAsync({ id: id!, data: payload });
-        toast({ title: "ATMEMLY SSO provider updated" });
+        toast({ title: `${BRAND.name} SSO provider updated` });
       }
       await qc.invalidateQueries({ queryKey: getAdminListSsoProvidersQueryKey() });
       setLocation("/sso/providers");
@@ -166,7 +167,7 @@ export default function AdminSsoProviderEdit() {
     <div className="container mx-auto py-8 max-w-3xl space-y-6">
       <PageHeader
         title={isNew ? "New SSO provider" : `Edit SSO provider`}
-        description="Provider-agnostic OIDC. ATMEMLY discovers endpoints from the issuer URL."
+        description={`Provider-agnostic OIDC. ${BRAND.name} discovers endpoints from the issuer URL.`}
         actions={
           <Button variant="outline" onClick={() => setLocation("/sso/providers")}>
             <ArrowLeft className="w-4 h-4 mr-2" /> Back
@@ -176,13 +177,13 @@ export default function AdminSsoProviderEdit() {
       <Card>
         <CardHeader>
           <CardTitle>Identity</CardTitle>
-          <CardDescription>Public details shown on ATMEMLY login pages.</CardDescription>
+          <CardDescription>Public details shown on {BRAND.name} login pages.</CardDescription>
         </CardHeader>
         <CardContent className="grid gap-4 md:grid-cols-2">
           <div className="space-y-2">
             <Label>Slug</Label>
             <Input
-              placeholder="atmemly-google"
+              placeholder={`${BRAND.domain.split(".")[0]}-google`}
               value={form.slug}
               onChange={(e) => update("slug", e.target.value)}
             />
@@ -229,7 +230,7 @@ export default function AdminSsoProviderEdit() {
           <CardTitle>OIDC connection</CardTitle>
           <CardDescription>
             Issuer URL must serve <code>/.well-known/openid-configuration</code>. The client secret
-            value is read from an environment variable on the ATMEMLY API server — only the
+            value is read from an environment variable on the {BRAND.name} API server — only the
             reference is stored.
           </CardDescription>
         </CardHeader>
@@ -301,7 +302,7 @@ export default function AdminSsoProviderEdit() {
         <CardHeader>
           <CardTitle>Provisioning &amp; role mapping</CardTitle>
           <CardDescription>
-            Decide how ATMEMLY treats new accounts coming from this provider.
+            Decide how {BRAND.name} treats new accounts coming from this provider.
           </CardDescription>
         </CardHeader>
         <CardContent className="grid gap-4">
@@ -310,7 +311,7 @@ export default function AdminSsoProviderEdit() {
               checked={form.autoProvision}
               onCheckedChange={(v) => update("autoProvision", v)}
             />
-            <Label>Auto-create ATMEMLY accounts on first sign-in</Label>
+            <Label>Auto-create {BRAND.name} accounts on first sign-in</Label>
           </div>
           <div className="grid gap-4 md:grid-cols-2">
             <div className="space-y-2">
@@ -330,7 +331,7 @@ export default function AdminSsoProviderEdit() {
             <div className="space-y-2">
               <Label>Allowed email domains (comma-separated)</Label>
               <Input
-                placeholder="atmemly.com, partner.com"
+                placeholder={`${BRAND.domain}, partner.com`}
                 value={form.allowedDomains}
                 onChange={(e) => update("allowedDomains", e.target.value)}
               />
@@ -345,7 +346,7 @@ export default function AdminSsoProviderEdit() {
               onChange={(e) => update("roleMappingJson", e.target.value)}
             />
             <p className="text-xs text-muted-foreground">
-              Example: {`{"rules":[{"claim":"email","matches":"*@atmemly.com","role":"admin","adminRole":"super_admin"}],"default":{"role":"client"}}`}
+              Example: {`{"rules":[{"claim":"email","matches":"*@${BRAND.domain}","role":"admin","adminRole":"super_admin"}],"default":{"role":"client"}}`}
             </p>
           </div>
         </CardContent>
