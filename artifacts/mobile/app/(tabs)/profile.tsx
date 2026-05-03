@@ -186,7 +186,7 @@ export default function ProfileScreen() {
         >
           <Pressable onPress={onChangeAvatar} disabled={uploadingAvatar}>
             <View>
-              <Avatar name={user.fullName ?? user.name} size={56} />
+              <Avatar name={user.fullName ?? user.name} size={56} uri={user.avatarUrl} />
               <View
                 style={{
                   position: "absolute",
