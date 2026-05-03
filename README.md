@@ -28,6 +28,114 @@ Workflows (not `pnpm dev`) start each service. The shared proxy on
 `localhost:80` routes `/api/*` to the API server, `/` to the marketplace,
 `/mobile` to Expo, and `/mockup` to the mockup sandbox.
 
+## Getting started
+
+```bash
+pnpm install                                       # install all workspace deps
+pnpm --filter @workspace/api-spec run codegen      # generate types/zod/hooks
+pnpm --filter @workspace/db run push               # apply schema to DATABASE_URL
+pnpm --filter @workspace/api-server run seed       # one-time seed (dev DB only)
+pnpm run typecheck                                 # full project typecheck
+```
+
+To run individual artifacts, use the Replit workflows panel rather than
+`pnpm dev`. Each workflow wires up the per-artifact `PORT` and any
+required env vars.
+
+### Per-artifact scripts
+
+| Workspace package          | Script                                      | Purpose                          |
+| -------------------------- | ------------------------------------------- | -------------------------------- |
+| `@workspace/api-server`    | `pnpm --filter @workspace/api-server run start` | Start built API (port `$PORT`)   |
+| `@workspace/api-server`    | `pnpm --filter @workspace/api-server run seed`  | Seed dev DB with demo data       |
+| `@workspace/marketplace`   | (workflow) `vite`                           | Marketplace frontend             |
+| `@workspace/admin`         | (workflow) `vite`                           | Admin panel frontend             |
+| `@workspace/mobile`        | (workflow) `expo start`                     | Expo dev server                  |
+| `@workspace/db`            | `pnpm --filter @workspace/db run push`      | Push Drizzle schema to Postgres  |
+| `@workspace/api-spec`      | `pnpm --filter @workspace/api-spec run codegen` | Regenerate types / Zod / hooks   |
+
+## Environment variables
+
+`DATABASE_URL` and `SESSION_SECRET` are managed by Replit and should not be
+set manually. Everything else is optional unless the matching gateway /
+feature is enabled. See `.env.example` for the canonical list. The API
+server validates env on boot via `src/lib/env.ts` (Zod) — invalid or
+missing required values fail fast instead of degrading silently.
+
+| Variable                       | Required           | Notes                                                  |
+| ------------------------------ | ------------------ | ------------------------------------------------------ |
+| `DATABASE_URL`                 | yes (auto)         | Provisioned by Replit                                  |
+| `SESSION_SECRET` / `JWT_SECRET`| prod only          | Must be set in production; dev uses safe placeholder   |
+| `STRIPE_SECRET_KEY`            | only for Stripe    | Must match `sk_(test|live)_…`                          |
+| `STRIPE_WEBHOOK_SECRET`        | only for Stripe    | Must match `whsec_…`                                   |
+| `STRIPE_PUBLIC_KEY`            | only for Stripe    | Bundled into the marketplace; never use a secret here  |
+| `PAYTABS_PROFILE_ID` / `PAYTABS_SERVER_KEY` / `PAYTABS_REGION` | only for PayTabs | UAE region (`ARE`) by default       |
+| `TELR_STORE_ID` / `TELR_AUTH_KEY` / `TELR_TEST_MODE` | only for Telr | `TELR_TEST_MODE=1` by default                |
+| `DEFAULT_PAYMENT_GATEWAY`      | no                 | `mock | stripe | paytabs | telr | manual`              |
+| `PLATFORM_CURRENCY` / `PLATFORM_FEE_PERCENTAGE` | no | Defaults: `AED`, `10`                                  |
+| `MANUAL_BANK_*`                | no                 | Shown to clients on the manual transfer flow           |
+| `CORS_ORIGINS`                 | recommended (prod) | Comma-separated allow-list; unset = open in dev only   |
+| `LOG_LEVEL`                    | no                 | `fatal|error|warn|info|debug|trace`                    |
+
+## Default seeded logins (dev only)
+
+The seed script creates demo accounts for local development. **Rotate or
+delete these in any non-development environment.**
+
+| Role        | Email                  | Password         |
+| ----------- | ---------------------- | ---------------- |
+| Super admin | `admin@atmemly.com`    | `admin1234`      |
+| Client      | e.g. `layla@atmemly.com` | `client1234`   |
+| Freelancer  | e.g. `noor@atmemly.com`  | `freelancer1234` |
+
+## Payments
+
+Stripe, PayTabs, Telr, and a manual bank-transfer adapter are all
+implemented. All payment status mutations happen on the backend; the
+frontend never marks a payment as paid. Webhook handlers persist every
+event in `payment_webhooks` and are idempotent on `(gateway, provider_event_id)`.
+Escrow release goes through `releaseToWallet()` which checks the milestone
+state machine and the milestone's pending balance before crediting the
+wallet, so a double release is rejected. The wallet payout endpoint
+additionally supports the `Idempotency-Key` header (`withIdempotency`
+middleware backed by the `idempotency_keys` table) to make client retries
+safe.
+
+Set `DEFAULT_PAYMENT_GATEWAY=mock` for local smoke tests; set it to
+`stripe`, `paytabs`, `telr`, or `manual` and provide the matching
+credentials to enable a real provider. All invoice templates use the
+ATMEMLY brand strings from `lib/branding`.
+
+## SSO / Keycloak readiness
+
+The platform auth is JWT + refresh-token based today. Enterprise SSO
+(Google, LinkedIn, Microsoft, OIDC, Keycloak) is being layered in via a
+separate set of tasks (#8, #16, #17, #18). The DB groundwork (provider
+table, identity-link table) is owned by those tasks. Provider client
+secrets are intended to be stored server-side and masked in admin
+responses; never expose SSO secrets in the marketplace bundle.
+
+## Deployment notes
+
+* The repo is a pnpm workspace. Always install with `pnpm install` and
+  never commit `package-lock.json` / `yarn.lock` (the root preinstall
+  hook deletes them).
+* Production must set `SESSION_SECRET` (or `JWT_SECRET`) and a real
+  `CORS_ORIGINS` allow-list. The env validator refuses to boot with the
+  `dev-secret` placeholder in production.
+* Run `pnpm --filter @workspace/db run push` (or generated migrations
+  in `lib/db/drizzle/`) against the production database before the
+  first boot.
+* Do **not** run the seed script against production — it inserts demo
+  users with publicly known passwords.
+* `artifacts/api-server/uploads/` is the local file store. For
+  production, swap the `LocalFileStore` in `src/lib/storage.ts` for an
+  S3 / GCS / Replit Object Storage implementation of the same `FileStore`
+  interface.
+* `helmet` is mounted on the API server. The marketplace ships its own
+  CSP. CORP is `cross-origin` so `/api/uploads/*` stays embeddable from
+  the marketplace origin.
+
 ## Architecture audit (May 2026)
 
 The May 2026 audit added a set of safe, non-breaking hardening passes
