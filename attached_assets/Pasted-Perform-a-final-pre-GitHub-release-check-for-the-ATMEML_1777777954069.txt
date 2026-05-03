@@ -1,0 +1,108 @@
+Perform a final pre-GitHub release check for the ATMEMLY platform.
+
+Do not rebuild.
+Do not add new major features.
+Only verify, fix safe issues, and prepare the repository for GitHub push.
+
+Checklist:
+
+1. Branding
+- Confirm all user-facing Khidma references are removed
+- Confirm ATMEMLY / أتمملي is used everywhere
+- Confirm page titles, SEO, footer, emails, payments, invoices, admin, mobile, CMS, and seed data are updated
+
+2. Build verification
+- Run backend type check
+- Run frontend type check
+- Run admin app type check
+- Run mobile app checks if included
+- Run lint where configured
+- Confirm no blocking TypeScript errors
+- Confirm no broken imports
+
+3. Database
+- Verify Drizzle schema
+- Verify migrations are valid
+- Verify seed script runs
+- Confirm no destructive migration
+- Confirm indexes and foreign keys are safe
+- Confirm migration files are committed
+
+4. Security
+- Confirm no secrets are hardcoded
+- Confirm .env is not committed
+- Confirm .env.example is updated
+- Confirm JWT/payment/SSO keys are environment-based
+- Confirm payment secrets are not exposed to frontend
+- Confirm admin routes are protected
+- Confirm SSO secrets are masked
+
+5. Payments
+- Confirm Stripe, PayTabs, Telr, and manual payment structure exists
+- Confirm payment status is backend-controlled only
+- Confirm webhook idempotency exists
+- Confirm escrow release/refund cannot happen twice
+- Confirm invoices use ATMEMLY branding
+
+6. Admin panel
+- Confirm separate /admin app works
+- Confirm admin login works
+- Confirm role/permission checks work
+- Confirm users, services, projects, payments, disputes, CMS, settings, reports pages do not crash
+- Confirm dark/light and RTL layout work
+
+7. Marketplace frontend
+- Confirm home page loads
+- Confirm login/register work
+- Confirm freelancer/service/project pages load
+- Confirm API data is connected
+- Confirm loading/error/empty states exist
+- Confirm Arabic RTL is default
+
+8. API
+- Confirm health endpoint works
+- Confirm auth endpoints work
+- Confirm public settings endpoint works
+- Confirm admin endpoints are protected
+- Confirm pagination exists on list APIs
+- Confirm Zod validation exists on new endpoints
+
+9. Repository hygiene
+- Remove temporary files
+- Remove debug logs
+- Remove unused mock data where replaced by API
+- Remove broken or duplicate files
+- Ensure README is updated
+- Ensure .gitignore is correct
+- Ensure package scripts are documented
+- Ensure no node_modules, dist, build, .env, logs, or local DB files are staged
+
+10. Documentation
+- Update README with:
+  - Project name ATMEMLY
+  - Setup instructions
+  - Environment variables
+  - Database migration command
+  - Seed command
+  - Backend run command
+  - Marketplace run command
+  - Admin run command
+  - Default admin login
+  - Payment gateway notes
+  - SSO/Keycloak readiness notes
+  - Deployment notes
+
+11. GitHub readiness
+- Run git status
+- Confirm intended files only
+- Confirm no secrets in git diff
+- Confirm no Khidma user-facing references
+- Provide final summary:
+  - Checks passed
+  - Issues fixed
+  - Remaining non-blocking items
+  - Commands run
+  - Safe to push: YES/NO
+
+Final goal:
+Prepare ATMEMLY for a clean, professional GitHub push with no secrets, no broken builds, no mixed branding, and no unsafe migrations.
