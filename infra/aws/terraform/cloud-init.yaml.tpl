@@ -8,7 +8,6 @@ packages:
   - git
   - unzip
   - jq
-  - nginx
   - postgresql-client
 
 write_files:
@@ -68,12 +67,6 @@ runcmd:
   - apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
   - usermod -aG docker ubuntu
   - systemctl enable --now docker
-
-  # The apt `nginx` package above starts on install and grabs port 80,
-  # which would prevent the dockerised nginx from binding. Stop and
-  # disable it so the docker-compose stack owns :80 deterministically.
-  - systemctl stop nginx || true
-  - systemctl disable nginx || true
 
   # Install AWS CLI v2
   - curl -fsSL "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o /tmp/awscliv2.zip

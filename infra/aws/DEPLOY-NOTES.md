@@ -331,10 +331,13 @@ end-to-end against a fresh AWS account:
    block to a runtime variable + Docker's embedded `resolver
    127.0.0.11`. Without this, nginx exits at start-up if it loses the
    DNS race against api-server during `docker compose up`.
-10. EC2 cloud-init installs the `nginx` apt package, which binds port
-    80. Cloud-init now runs `systemctl stop nginx && systemctl
-    disable nginx` immediately after Docker is up, so the dockerised
-    nginx can deterministically bind :80 on first boot.
+10. EC2 cloud-init no longer installs the `nginx` apt package. The
+    dockerised nginx in `docker-compose.prod.yml` (or caddy in
+    `docker-compose.tls.yml`) is what serves traffic on :80/:443, so
+    installing the system nginx only created a port-80 conflict that
+    had to be worked around with `systemctl stop nginx && systemctl
+    disable nginx`. Dropping the package removes the manual step on
+    fresh-box rebuilds.
 11. Cloud-init now creates `/opt/atmemly/uploads` owned by uid 10001,
     matching the api-server container's runtime user, so first-boot
     deploys can write uploaded files without a manual `chown`.
