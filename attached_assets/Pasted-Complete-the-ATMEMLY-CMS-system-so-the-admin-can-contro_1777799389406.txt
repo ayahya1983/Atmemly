@@ -1,0 +1,286 @@
+Complete the ATMEMLY CMS system so the admin can control all public-facing marketplace content.
+
+Do not rebuild.
+Keep the existing Drizzle/Express backend, existing frontend, separate /admin app, and current database.
+
+Goal:
+Make all major public website content editable from the admin panel instead of hardcoded in frontend files or seed-only data.
+
+Branding:
+- Use ATMEMLY / أتمملي only.
+- Do not introduce Khidma references.
+- Arabic-first and RTL-first.
+
+CMS sections to support:
+
+1. Homepage CMS
+Admin can edit:
+- Hero title Arabic/English
+- Hero subtitle Arabic/English
+- Hero search placeholder Arabic/English
+- Hero image/illustration
+- Hero CTA buttons
+- Featured categories
+- Featured services
+- Featured freelancers
+- Latest projects section title
+- Testimonials section
+- Blog section
+- FAQ preview section
+- Mobile app section
+- Footer CTA
+
+2. Static Pages CMS
+Admin can edit:
+- About page
+- Terms of Use
+- Privacy Policy
+- Cancellation Policy
+- Help Center
+- Contact page
+- How it works page
+
+Each page needs:
+- slug
+- titleAr
+- titleEn
+- contentAr
+- contentEn
+- seoTitleAr
+- seoTitleEn
+- seoDescriptionAr
+- seoDescriptionEn
+- status: DRAFT / PUBLISHED / ARCHIVED
+- publishedAt
+- updatedAt
+
+3. Blog CMS
+Admin can:
+- Create article
+- Edit article
+- Publish/unpublish article
+- Delete/soft-delete article
+- Upload cover image
+- Add category
+- Add tags
+- Set featured article
+- Edit SEO title/description
+- Manage Arabic and English versions
+
+Blog fields:
+- slug
+- titleAr / titleEn
+- excerptAr / excerptEn
+- bodyAr / bodyEn
+- coverImage
+- categoryId
+- tags
+- status
+- isFeatured
+- publishedAt
+
+4. FAQ CMS
+Admin can:
+- Create FAQ
+- Edit FAQ
+- Delete/disable FAQ
+- Reorder FAQs
+- Assign FAQ category
+- Add Arabic and English question/answer
+
+5. Testimonials CMS
+Admin can:
+- Create testimonial
+- Edit testimonial
+- Delete/disable testimonial
+- Reorder testimonials
+- Add name, role, company, location
+- Add Arabic/English quote
+- Add avatar/image
+- Mark as featured
+
+6. Footer CMS
+Admin can control:
+- Footer description Arabic/English
+- Footer link groups
+- Social media links
+- Contact email
+- WhatsApp/contact number
+- Copyright text
+- Legal links
+
+7. Navigation CMS
+Admin can control:
+- Header menu labels Arabic/English
+- Footer menu labels Arabic/English
+- Enable/disable menu items
+- Reorder menu items
+- Add custom links
+
+8. Media Library
+Admin can:
+- Upload images
+- View uploaded media
+- Delete unused media
+- Copy media URL
+- Assign image alt text Arabic/English
+- Use images in hero, categories, services, blog, testimonials, mobile app section
+
+9. SEO CMS
+Admin can control:
+- Global meta title
+- Global meta description
+- Open Graph image
+- Page-level SEO
+- Blog SEO
+- Category SEO
+- Job/project SEO fallback
+- Freelancer profile SEO fallback
+- Sitemap-ready published content
+
+10. Localization CMS
+Admin can manage:
+- Static labels Arabic/English
+- CMS content Arabic/English
+- Default language
+- RTL settings
+- Translation completeness status
+
+Database requirements using Drizzle migrations:
+Add or extend tables:
+- cms_pages
+- cms_sections
+- cms_homepage
+- blog_posts
+- blog_categories
+- faqs
+- faq_categories
+- testimonials
+- navigation_items
+- footer_link_groups
+- footer_links
+- media_assets
+- seo_settings
+- localization_strings
+
+Use existing tables if already present. Do not duplicate.
+
+Backend API requirements:
+Public endpoints:
+- GET /api/cms/homepage
+- GET /api/cms/pages/:slug
+- GET /api/blog
+- GET /api/blog/:slug
+- GET /api/faqs
+- GET /api/testimonials
+- GET /api/navigation
+- GET /api/footer
+- GET /api/seo
+
+Admin endpoints:
+- GET /api/admin/cms/homepage
+- PATCH /api/admin/cms/homepage
+- GET /api/admin/cms/pages
+- POST /api/admin/cms/pages
+- PATCH /api/admin/cms/pages/:id
+- DELETE /api/admin/cms/pages/:id
+- GET /api/admin/blog
+- POST /api/admin/blog
+- PATCH /api/admin/blog/:id
+- DELETE /api/admin/blog/:id
+- GET /api/admin/faqs
+- POST /api/admin/faqs
+- PATCH /api/admin/faqs/:id
+- DELETE /api/admin/faqs/:id
+- GET /api/admin/testimonials
+- POST /api/admin/testimonials
+- PATCH /api/admin/testimonials/:id
+- DELETE /api/admin/testimonials/:id
+- GET /api/admin/navigation
+- PATCH /api/admin/navigation
+- GET /api/admin/footer
+- PATCH /api/admin/footer
+- GET /api/admin/media
+- POST /api/admin/media/upload
+- DELETE /api/admin/media/:id
+- GET /api/admin/seo
+- PATCH /api/admin/seo
+- GET /api/admin/localization
+- PATCH /api/admin/localization
+
+Admin UI pages:
+- /admin/cms/homepage
+- /admin/cms/pages
+- /admin/cms/navigation
+- /admin/cms/footer
+- /admin/blog
+- /admin/faqs
+- /admin/testimonials
+- /admin/media
+- /admin/seo
+- /admin/localization
+
+Frontend requirements:
+- Replace hardcoded homepage content with CMS API data
+- Replace hardcoded footer/navigation with CMS API data
+- Replace hardcoded About/Terms/Privacy/FAQ/Blog/Testimonial content with CMS API data
+- Keep fallback content only for development safety
+- Add loading, empty, and error states
+- Use Arabic content first by default
+- Use English content when language is switched
+- Use proper SEO metadata from CMS
+
+Admin UI requirements:
+- Arabic-first RTL interface
+- Forms for Arabic and English fields
+- Status badges: draft, published, archived
+- Image picker from media library
+- Reorder controls for FAQ, testimonials, navigation, footer links
+- Preview button where possible
+- Publish/unpublish controls
+- Search and filters
+- Pagination
+- Confirmation modals for delete/archive actions
+
+Security and permissions:
+- Only CONTENT_MANAGER, ADMIN, and SUPER_ADMIN can manage CMS
+- Only SUPER_ADMIN can update global SEO and navigation if desired
+- Validate all CMS payloads with Zod
+- Sanitize rich text content
+- Use soft delete where appropriate
+- Audit log every create/update/delete/publish action
+
+Seed data:
+Add high-quality Arabic/English seed data for:
+- Homepage sections
+- About page
+- Terms
+- Privacy
+- Cancellation Policy
+- Help Center
+- Contact
+- Blog articles
+- FAQ categories and FAQs
+- Testimonials
+- Footer links
+- Navigation items
+- SEO settings
+- Media placeholders
+
+Regional visual/content direction:
+- GCC/UAE-focused
+- Arab local talent
+- Dubai/GCC business environment
+- Trusted freelancers
+- Secure milestones and payments
+- Arabic-first marketplace positioning
+
+Final verification:
+- Search for hardcoded public content that should come from CMS
+- Confirm public pages render from CMS APIs
+- Confirm admin can update content and changes appear on public pages
+- Confirm no Khidma references remain
+- Confirm all CMS content supports Arabic and English
+
+Final goal:
+ATMEMLY public website content should be fully admin-manageable through CMS, including homepage, pages, blog, FAQ, testimonials, navigation, footer, media, SEO, and localization.
