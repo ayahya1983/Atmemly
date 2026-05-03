@@ -1,4 +1,5 @@
 import { useListSsoProviders, ssoStart } from "@workspace/api-client-react";
+import { BRAND } from "@workspace/branding";
 import { Button } from "@/components/ui/button";
 import { Loader2 } from "lucide-react";
 import { useState } from "react";
@@ -36,7 +37,7 @@ export function SsoButtons({ returnTo, link = false }: Props) {
     } catch (err) {
       toast({
         variant: "destructive",
-        title: "ATMEMLY SSO unavailable",
+        title: `${BRAND.name} SSO unavailable`,
         description: err instanceof Error ? err.message : "Could not start SSO sign-in.",
       });
       setPending(null);
