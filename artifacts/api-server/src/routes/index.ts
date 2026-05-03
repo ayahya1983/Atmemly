@@ -46,49 +46,16 @@ import adminContentRouter from "./adminContent";
 import adminBroadcastRouter from "./adminBroadcast";
 import adminReportsRouter from "./adminReports";
 import { attachUser } from "../lib/auth";
-import { rateLimit } from "../lib/rateLimit";
+import { mountRateLimitPolicies } from "../lib/rateLimitPolicies";
 
 const router: IRouter = Router();
 
 router.use(attachUser);
 
-// ATMEMLY architecture audit (May 2026) — bound retry storms on payment
-// gateway webhook callbacks. Each gateway already dedupes on
-// (gateway, eventId) UNIQUE, but a runaway gateway shouldn't be able to
-// flood the API. 600/min per IP is well above any normal gateway retry rate.
-const webhookLimiter = rateLimit({
-  windowMs: 60 * 1000,
-  max: 600,
-  keyPrefix: "webhook",
-  message: "Webhook rate limit exceeded — backing off.",
-});
-router.use(
-  [
-    "/payments/stripe/webhook",
-    "/payments/paytabs/callback",
-    "/payments/telr/callback",
-    "/payments/mock/webhook",
-    "/payments/webhook/:gateway",
-  ],
-  webhookLimiter,
-);
-
-// ATMEMLY architecture audit (May 2026) — bound damage from a compromised
-// or misbehaving admin session. Read traffic (GET/HEAD/OPTIONS) is not
-// limited so dashboards stay snappy; only state-changing verbs are
-// throttled. 120/min/IP is far above any real admin's click-rate.
-const adminMutationLimiter = rateLimit({
-  windowMs: 60 * 1000,
-  max: 120,
-  keyPrefix: "admin-mut",
-  message: "Admin mutation rate limit exceeded — slow down.",
-});
-router.use("/admin", (req, res, next) => {
-  if (req.method === "GET" || req.method === "HEAD" || req.method === "OPTIONS") {
-    return next();
-  }
-  return adminMutationLimiter(req, res, next);
-});
+// Per-IP limiters for payment gateway webhooks/callbacks and admin write
+// actions. Mounted before route handlers so they sit in the request
+// pipeline. See ../lib/rateLimitPolicies.ts for limits and rationale.
+mountRateLimitPolicies(router);
 
 router.use(healthRouter);
 router.use(authRouter);
