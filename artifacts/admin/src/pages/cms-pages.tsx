@@ -13,6 +13,7 @@ import { hasPermission } from "@/lib/permissions";
 import { Plus, Pencil, Trash2 } from "lucide-react";
 import {
   DataTable, type Column, StatusBadge, PageHeader, FilterBar, ConfirmActionDialog, FormDialog,
+  ImageUploadField,
 } from "@/components/admin";
 
 interface CmsPageRow {
@@ -45,6 +46,45 @@ export default function AdminCmsPages() {
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<CmsPageRow | null>(null);
   const [form, setForm] = useState<PageForm>(emptyForm);
+  const [pendingImage, setPendingImage] = useState("");
+  const [insertedTag, setInsertedTag] = useState<string | null>(null);
+
+  const insertImage = () => {
+    const url = pendingImage.trim();
+    if (!url) return;
+    const newTag = `<img src="${url}" alt="" />`;
+    setForm((f) => {
+      let body = f.body;
+      const idx = insertedTag ? body.indexOf(insertedTag) : -1;
+      if (insertedTag && idx >= 0) {
+        body = body.slice(0, idx) + newTag + body.slice(idx + insertedTag.length);
+      } else {
+        body = body ? `${body}\n${newTag}` : newTag;
+      }
+      return { ...f, body };
+    });
+    setInsertedTag(newTag);
+  };
+
+  const removeInsertedImage = () => {
+    if (insertedTag) {
+      setForm((f) => {
+        const body = f.body;
+        const withNewline = `\n${insertedTag}`;
+        const nIdx = body.indexOf(withNewline);
+        if (nIdx >= 0) {
+          return { ...f, body: body.slice(0, nIdx) + body.slice(nIdx + withNewline.length) };
+        }
+        const idx = body.indexOf(insertedTag);
+        if (idx >= 0) {
+          return { ...f, body: body.slice(0, idx) + body.slice(idx + insertedTag.length) };
+        }
+        return f;
+      });
+    }
+    setInsertedTag(null);
+    setPendingImage("");
+  };
 
   const createMutation = useAdminMutation<PageForm>(
     (input) => adminApi.post("/admin/cms/pages", { ...input, seoTitle: input.seoTitle || null, seoDescription: input.seoDescription || null }),
@@ -59,13 +99,15 @@ export default function AdminCmsPages() {
     [key, ["public-cms-page"]],
   );
 
-  const startCreate = () => { setEditing(null); setForm(emptyForm); setOpen(true); };
+  const resetImageState = () => { setPendingImage(""); setInsertedTag(null); };
+  const startCreate = () => { setEditing(null); setForm(emptyForm); resetImageState(); setOpen(true); };
   const startEdit = (row: CmsPageRow) => {
     setEditing(row);
     setForm({
       slug: row.slug, locale: row.locale as "en" | "ar", title: row.title, body: row.body,
       seoTitle: row.seoTitle ?? "", seoDescription: row.seoDescription ?? "", isPublished: row.isPublished,
     });
+    resetImageState();
     setOpen(true);
   };
   const save = async () => {
@@ -198,6 +240,38 @@ export default function AdminCmsPages() {
         </div>
         <div><Label>{lang === "ar" ? "العنوان" : "Title"}</Label><Input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} /></div>
         <div><Label>{lang === "ar" ? "المحتوى (HTML)" : "Body (HTML)"}</Label><Textarea value={form.body} onChange={(e) => setForm({ ...form, body: e.target.value })} rows={10} className="font-mono text-sm" /></div>
+        <div className="space-y-2">
+          <ImageUploadField
+            label={lang === "ar" ? "صورة للمحتوى" : "Image for body"}
+            value={pendingImage}
+            onChange={setPendingImage}
+            kind="cms-page"
+            testId="cms-page-image"
+          />
+          <div className="flex gap-2">
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={insertImage}
+              disabled={!pendingImage.trim()}
+              data-testid="button-cms-page-image-insert"
+            >
+              {insertedTag
+                ? (lang === "ar" ? "استبدال في المحتوى" : "Replace in body")
+                : (lang === "ar" ? "إدراج في المحتوى" : "Insert into body")}
+            </Button>
+            {insertedTag && (
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={removeInsertedImage}
+                data-testid="button-cms-page-image-remove"
+              >
+                {lang === "ar" ? "إزالة من المحتوى" : "Remove from body"}
+              </Button>
+            )}
+          </div>
+        </div>
         <div><Label>{lang === "ar" ? "عنوان SEO" : "SEO Title"}</Label><Input value={form.seoTitle} onChange={(e) => setForm({ ...form, seoTitle: e.target.value })} /></div>
         <div><Label>{lang === "ar" ? "وصف SEO" : "SEO Description"}</Label><Textarea value={form.seoDescription} onChange={(e) => setForm({ ...form, seoDescription: e.target.value })} rows={2} /></div>
         <div className="flex items-center gap-2">

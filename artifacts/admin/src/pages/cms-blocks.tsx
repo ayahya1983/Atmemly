@@ -12,6 +12,7 @@ import { hasPermission } from "@/lib/permissions";
 import { Plus, Pencil } from "lucide-react";
 import {
   DataTable, type Column, PageHeader, FilterBar, FormDialog,
+  ImageUploadField,
 } from "@/components/admin";
 
 interface CmsBlockRow {
@@ -34,6 +35,45 @@ export default function AdminCmsBlocks() {
   const [localeFilter, setLocaleFilter] = useState("all");
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState<BlockForm>(emptyForm);
+  const [pendingImage, setPendingImage] = useState("");
+  const [insertedTag, setInsertedTag] = useState<string | null>(null);
+
+  const insertImage = () => {
+    const url = pendingImage.trim();
+    if (!url) return;
+    const newTag = `<img src="${url}" alt="" />`;
+    setForm((f) => {
+      let body = f.body;
+      const idx = insertedTag ? body.indexOf(insertedTag) : -1;
+      if (insertedTag && idx >= 0) {
+        body = body.slice(0, idx) + newTag + body.slice(idx + insertedTag.length);
+      } else {
+        body = body ? `${body}\n${newTag}` : newTag;
+      }
+      return { ...f, body };
+    });
+    setInsertedTag(newTag);
+  };
+
+  const removeInsertedImage = () => {
+    if (insertedTag) {
+      setForm((f) => {
+        const body = f.body;
+        const withNewline = `\n${insertedTag}`;
+        const nIdx = body.indexOf(withNewline);
+        if (nIdx >= 0) {
+          return { ...f, body: body.slice(0, nIdx) + body.slice(nIdx + withNewline.length) };
+        }
+        const idx = body.indexOf(insertedTag);
+        if (idx >= 0) {
+          return { ...f, body: body.slice(0, idx) + body.slice(idx + insertedTag.length) };
+        }
+        return f;
+      });
+    }
+    setInsertedTag(null);
+    setPendingImage("");
+  };
 
   const upsertMutation = useAdminMutation<BlockForm>(
     (input) => adminApi.put("/admin/cms/blocks", { ...input, title: input.title || null }),
@@ -43,6 +83,8 @@ export default function AdminCmsBlocks() {
   const startEdit = (b?: CmsBlockRow) => {
     if (b) setForm({ key: b.key, locale: b.locale as "en" | "ar", title: b.title ?? "", body: b.body });
     else setForm(emptyForm);
+    setPendingImage("");
+    setInsertedTag(null);
     setOpen(true);
   };
   const save = async () => { await upsertMutation.mutateAsync(form); };
@@ -145,6 +187,38 @@ export default function AdminCmsBlocks() {
         </div>
         <div><Label>{lang === "ar" ? "العنوان" : "Title"}</Label><Input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} /></div>
         <div><Label>{lang === "ar" ? "المحتوى" : "Body"}</Label><Textarea value={form.body} onChange={(e) => setForm({ ...form, body: e.target.value })} rows={6} /></div>
+        <div className="space-y-2">
+          <ImageUploadField
+            label={lang === "ar" ? "صورة للمحتوى" : "Image for body"}
+            value={pendingImage}
+            onChange={setPendingImage}
+            kind="cms-block"
+            testId="cms-block-image"
+          />
+          <div className="flex gap-2">
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={insertImage}
+              disabled={!pendingImage.trim()}
+              data-testid="button-cms-block-image-insert"
+            >
+              {insertedTag
+                ? (lang === "ar" ? "استبدال في المحتوى" : "Replace in body")
+                : (lang === "ar" ? "إدراج في المحتوى" : "Insert into body")}
+            </Button>
+            {insertedTag && (
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={removeInsertedImage}
+                data-testid="button-cms-block-image-remove"
+              >
+                {lang === "ar" ? "إزالة من المحتوى" : "Remove from body"}
+              </Button>
+            )}
+          </div>
+        </div>
       </FormDialog>
     </div>
   );
