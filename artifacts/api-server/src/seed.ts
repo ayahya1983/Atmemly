@@ -47,14 +47,16 @@ async function main() {
     RESTART IDENTITY CASCADE`);
 
   const categories = [
-    { slug: "design", nameEn: "Design & Creative", nameAr: "التصميم والإبداع" },
+    { slug: "design", nameEn: "Brand & Identity Design", nameAr: "تصميم الهوية والعلامات" },
     { slug: "development", nameEn: "Web & Mobile Development", nameAr: "تطوير الويب والتطبيقات" },
-    { slug: "writing", nameEn: "Writing & Translation", nameAr: "الكتابة والترجمة" },
+    { slug: "writing", nameEn: "Arabic Copywriting", nameAr: "الكتابة باللغة العربية" },
+    { slug: "translation", nameEn: "Translation EN ⇄ AR", nameAr: "الترجمة بين العربية والإنجليزية" },
     { slug: "marketing", nameEn: "Marketing & SEO", nameAr: "التسويق وتحسين محركات البحث" },
-    { slug: "video", nameEn: "Video & Motion", nameAr: "الفيديو والموشن" },
+    { slug: "video", nameEn: "Video & Motion", nameAr: "الفيديو والموشن جرافيك" },
+    { slug: "photography", nameEn: "Photography", nameAr: "التصوير الفوتوغرافي" },
     { slug: "consulting", nameEn: "Business Consulting", nameAr: "استشارات الأعمال" },
     { slug: "data", nameEn: "Data & Analytics", nameAr: "البيانات والتحليلات" },
-    { slug: "support", nameEn: "Admin & Support", nameAr: "الدعم الإداري" },
+    { slug: "legal-finance", nameEn: "Legal & Finance", nameAr: "الخدمات القانونية والمالية" },
   ];
   await db.insert(categoriesTable).values(categories);
 
@@ -81,7 +83,7 @@ async function main() {
       passwordHash: adminPwd,
       fullName: `${BRAND.name} Admin`,
       role: "admin",
-      avatarUrl: `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(`${BRAND.name} Admin`)}&backgroundColor=458CCA`,
+      avatarUrl: null,
     })
     .returning();
   void admin;
@@ -111,7 +113,7 @@ async function main() {
         passwordHash: clientPwd,
         fullName: c.fullName,
         role: "client",
-        avatarUrl: `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(c.fullName)}&backgroundColor=458CCA`,
+        avatarUrl: null,
       })
       .returning();
     await db.insert(clientProfilesTable).values({
@@ -119,7 +121,7 @@ async function main() {
       companyName: c.companyName,
       overview: c.overview,
       location: c.location,
-      logoUrl: `https://api.dicebear.com/7.x/shapes/svg?seed=${encodeURIComponent(c.companyName)}&backgroundColor=458CCA`,
+      logoUrl: null,
     });
     clients.push(u!);
   }
@@ -181,7 +183,7 @@ async function main() {
         passwordHash: freelancerPwd,
         fullName: f.fullName,
         role: "freelancer",
-        avatarUrl: `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(f.fullName)}&backgroundColor=458CCA`,
+        avatarUrl: null,
       })
       .returning();
     await db.insert(freelancerProfilesTable).values({
@@ -261,7 +263,7 @@ async function main() {
     {
       title: "Translate 40 pages of legal docs EN to AR",
       description: "Sworn translation quality required. Legal background a plus. PDF deliverable with parallel formatting.",
-      categorySlug: "writing",
+      categorySlug: "translation",
       budgetType: "fixed", budgetMin: 3000, budgetMax: 5500,
       skills: ["Translation EN-AR", "Arabic Copywriting"],
       clientIdx: 0,
@@ -275,11 +277,11 @@ async function main() {
       clientIdx: 1,
     },
     {
-      title: "Virtual assistant for inbox + calendar",
-      description: "Part-time VA, Arabic and English. Manage exec inbox, calendar, and travel for a Dubai-based founder.",
-      categorySlug: "support",
+      title: "Bookkeeping + VAT filing for Dubai SME",
+      description: "Monthly bookkeeping in Zoho Books, quarterly VAT returns to FTA, and an end-of-year financial pack for a Dubai-based trading SME.",
+      categorySlug: "legal-finance",
       budgetType: "hourly", budgetMin: 60, budgetMax: 110,
-      skills: ["Virtual Assistance", "Project Management"],
+      skills: ["Bookkeeping", "VAT Filing", "Zoho Books"],
       clientIdx: 0,
     },
     {
@@ -657,7 +659,7 @@ async function main() {
       body: `Today we're proud to launch ${BRAND.name} — the marketplace built for UAE freelancers and clients...`,
       category: "announcements",
       tags: ["launch", "uae", "freelance"],
-      coverUrl: "https://picsum.photos/seed/atmemly-blog-en-1/800/500",
+      coverUrl: "/assets/blog/blog-01.svg",
       isPublished: true,
       publishedAt: new Date(),
       authorId: 1,
@@ -670,7 +672,7 @@ async function main() {
       body: "A great proposal is short, specific, and focused on the client's outcome — here's how to write one...",
       category: "tips",
       tags: ["proposals", "freelancers"],
-      coverUrl: "https://picsum.photos/seed/atmemly-blog-en-2/800/500",
+      coverUrl: "/assets/blog/blog-02.svg",
       isPublished: true,
       publishedAt: new Date(Date.now() - 4 * 86400000),
       authorId: 1,
@@ -683,7 +685,7 @@ async function main() {
       body: "Hiring well starts with a clear brief. Here's how to structure yours so the best freelancers respond...",
       category: "guides",
       tags: ["clients", "hiring"],
-      coverUrl: "https://picsum.photos/seed/atmemly-blog-en-3/800/500",
+      coverUrl: "/assets/blog/blog-03.svg",
       isPublished: true,
       publishedAt: new Date(Date.now() - 9 * 86400000),
       authorId: 1,
@@ -696,7 +698,7 @@ async function main() {
       body: `اليوم نفخر بإطلاق ${BRAND.nameAr} — المنصة المبنية للمستقلين والعملاء في الإمارات...`,
       category: "إعلانات",
       tags: ["إطلاق", "الإمارات", "عمل-حر"],
-      coverUrl: "https://picsum.photos/seed/atmemly-blog-ar-1/800/500",
+      coverUrl: "/assets/blog/blog-01.svg",
       isPublished: true,
       publishedAt: new Date(),
       authorId: 1,
@@ -709,7 +711,7 @@ async function main() {
       body: "العرض المميز قصير ومحدد ويركز على نتيجة العميل — وإليك طريقة كتابته...",
       category: "نصائح",
       tags: ["عروض", "مستقلين"],
-      coverUrl: "https://picsum.photos/seed/atmemly-blog-ar-2/800/500",
+      coverUrl: "/assets/blog/blog-02.svg",
       isPublished: true,
       publishedAt: new Date(Date.now() - 4 * 86400000),
       authorId: 1,
@@ -722,7 +724,7 @@ async function main() {
       body: "يبدأ التوظيف الجيد بمواصفات واضحة. إليك كيف تنظمها لجذب أفضل المستقلين...",
       category: "أدلة",
       tags: ["عملاء", "توظيف"],
-      coverUrl: "https://picsum.photos/seed/atmemly-blog-ar-3/800/500",
+      coverUrl: "/assets/blog/blog-03.svg",
       isPublished: true,
       publishedAt: new Date(Date.now() - 9 * 86400000),
       authorId: 1,
@@ -753,34 +755,33 @@ async function main() {
   ]);
 
   await db.insert(testimonialsTable).values([
-    { locale: "en", authorName: "Aisha Al-Mansoori", authorTitle: "Founder, Noor Agency",
+    { locale: "en", authorName: "Aisha Al-Mansoori", authorTitle: "UAE SME owner — Dubai",
       body: `${BRAND.name} helped us hire a top-tier Arabic copywriter in two days. Smooth, fast, professional.`,
-      rating: 5, avatarUrl: "https://api.dicebear.com/7.x/initials/svg?seed=Aisha&backgroundColor=458CCA",
-      isFeatured: true, sortOrder: 10 },
-    { locale: "en", authorName: "Mohammed Al-Khalifa", authorTitle: "CTO, GulfTech Studios",
+      rating: 5, avatarUrl: null, isFeatured: true, sortOrder: 10 },
+    { locale: "en", authorName: "Mohammed Al-Khalifa", authorTitle: "Saudi startup founder — Riyadh",
       body: `We've hired three full-stack developers through ${BRAND.name} — every single hire has been excellent.`,
-      rating: 5, avatarUrl: "https://api.dicebear.com/7.x/initials/svg?seed=Mohammed&backgroundColor=458CCA",
-      isFeatured: true, sortOrder: 20 },
-    { locale: "en", authorName: "Sara Al-Otaibi", authorTitle: "Marketing Lead, Jeddah",
+      rating: 5, avatarUrl: null, isFeatured: true, sortOrder: 20 },
+    { locale: "en", authorName: "Sara Al-Otaibi", authorTitle: "GCC marketing manager — Jeddah",
       body: "Reliable freelancers, clean payments, and a beautiful Arabic interface. It's the marketplace we needed.",
-      rating: 5, avatarUrl: "https://api.dicebear.com/7.x/initials/svg?seed=Sara&backgroundColor=458CCA",
-      isFeatured: true, sortOrder: 30 },
-    { locale: "ar", authorName: "ليلى حسن", authorTitle: "مصممة جرافيك مستقلة",
+      rating: 5, avatarUrl: null, isFeatured: true, sortOrder: 30 },
+    { locale: "en", authorName: "Hamad Al Thani", authorTitle: "Dubai consultant",
+      body: `${BRAND.name} is the only marketplace where I get bilingual proposals from real GCC professionals — same-day, every time.`,
+      rating: 5, avatarUrl: null, isFeatured: true, sortOrder: 40 },
+    { locale: "ar", authorName: "ليلى حسن", authorTitle: "مستقلة محلية — أبوظبي",
       body: `وجدت أفضل عملائي عبر ${BRAND.nameAr}. النظام الآمن للضمان يجعلني مرتاحة كل شهر، والمنصة بسيطة وأنيقة.`,
-      rating: 5, avatarUrl: "https://api.dicebear.com/7.x/initials/svg?seed=Layla&backgroundColor=458CCA",
-      isFeatured: true, sortOrder: 10 },
-    { locale: "ar", authorName: "خالد المنصوري", authorTitle: "مؤسس وكالة نور",
+      rating: 5, avatarUrl: null, isFeatured: true, sortOrder: 10 },
+    { locale: "ar", authorName: "خالد المنصوري", authorTitle: "صاحب شركة صغيرة في الإمارات — دبي",
       body: `ساعدتنا منصة ${BRAND.nameAr} في توظيف كاتب إعلاني عربي محترف خلال يومين فقط. تجربة احترافية وسريعة.`,
-      rating: 5, avatarUrl: "https://api.dicebear.com/7.x/initials/svg?seed=Khalid&backgroundColor=458CCA",
-      isFeatured: true, sortOrder: 20 },
-    { locale: "ar", authorName: "سارة العتيبي", authorTitle: "مديرة تسويق، جدة",
+      rating: 5, avatarUrl: null, isFeatured: true, sortOrder: 20 },
+    { locale: "ar", authorName: "سارة العتيبي", authorTitle: "مديرة تسويق خليجية — جدة",
       body: "مستقلون موثوقون، مدفوعات نظيفة، وواجهة عربية جميلة. هذه هي المنصة التي كنا نحتاجها فعلاً.",
-      rating: 5, avatarUrl: "https://api.dicebear.com/7.x/initials/svg?seed=Sara%20AR&backgroundColor=458CCA",
-      isFeatured: true, sortOrder: 30 },
-    { locale: "ar", authorName: "عمر السعدي", authorTitle: "مطور برمجيات",
-      body: `كمستقل، ${BRAND.nameAr} منحتني وصولاً لعملاء جديين والمدفوعات تصل دائماً في وقتها. أنصح بها كل المستقلين.`,
-      rating: 5, avatarUrl: "https://api.dicebear.com/7.x/initials/svg?seed=Omar&backgroundColor=458CCA",
-      isFeatured: true, sortOrder: 40 },
+      rating: 5, avatarUrl: null, isFeatured: true, sortOrder: 30 },
+    { locale: "ar", authorName: "عمر السعدي", authorTitle: "مؤسس شركة ناشئة سعودية — الرياض",
+      body: `كمستقل ومؤسس، ${BRAND.nameAr} منحتني وصولاً لعملاء جديين عبر الخليج والمدفوعات تصل دائماً في وقتها.`,
+      rating: 5, avatarUrl: null, isFeatured: true, sortOrder: 40 },
+    { locale: "ar", authorName: "حمد آل ثاني", authorTitle: "مستشار أعمال — دبي",
+      body: `أتمملي هي السوق الوحيد الذي يقدم لي عروضاً ثنائية اللغة من محترفين خليجيين حقيقيين، في نفس اليوم.`,
+      rating: 5, avatarUrl: null, isFeatured: true, sortOrder: 50 },
   ]);
 
   await db.insert(bannedWordsTable).values([

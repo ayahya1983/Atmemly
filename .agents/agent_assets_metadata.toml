@@ -1,0 +1,14 @@
+uploads = []
+outputs = []
+
+[[generated]]
+id = "y0bHp-is_aoVsfOQeKAaD"
+uri = "file://artifacts/marketplace/public/assets/hero/gcc-talent-hero.png"
+type = "image"
+title = "emirati professional hero"
+
+[[generated]]
+id = "PsKO1tszXQGJDjm4xltYq"
+uri = "file://artifacts/marketplace/public/assets/mobile/gcc-mobile-app.png"
+type = "image"
+title = "gcc mobile app user"

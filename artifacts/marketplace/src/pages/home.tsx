@@ -40,7 +40,9 @@ import {
   Video,
   LineChart,
   Database,
-  Headphones,
+  Camera,
+  Scale,
+  Languages,
   CheckCircle2,
   TrendingUp,
   Quote,
@@ -55,11 +57,13 @@ const CATEGORY_ICONS: Record<string, React.ComponentType<{ className?: string }>
   design: PenLine,
   development: Code2,
   writing: PenLine,
+  translation: Languages,
   marketing: Megaphone,
   video: Video,
+  photography: Camera,
   consulting: LineChart,
+  "legal-finance": Scale,
   data: Database,
-  support: Headphones,
 };
 
 export default function Home() {
@@ -173,8 +177,11 @@ export default function Home() {
               <div className="relative aspect-square max-w-md mx-auto">
                 <div className="absolute inset-4 rounded-full bg-primary/10 blur-3xl" />
                 <img
-                  src="https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=600&h=600&fit=crop&crop=faces"
-                  alt={t("hero.title")}
+                  src={`${import.meta.env.BASE_URL}assets/hero/gcc-talent-hero.png`}
+                  alt={isRtl ? "أتمملي — منصة المستقلين العرب في الإمارات والخليج" : "ATMEMLY — UAE & GCC freelance marketplace"}
+                  width={600}
+                  height={600}
+                  fetchPriority="high"
                   className="relative z-10 w-full h-full object-cover rounded-3xl shadow-2xl"
                   data-testid="hero-image"
                 />
@@ -256,7 +263,7 @@ export default function Home() {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
             {freelancersLoading
               ? Array(4).fill(0).map((_, i) => <Skeleton key={i} className="h-72 rounded-xl" />)
-              : freelancers?.slice(0, 4).map((f) => (
+              : freelancers?.slice(0, 4).map((f, idx) => (
                   <Link key={`svc-${f.id}`} href={`/freelancers/${f.id}`}>
                     <Card
                       className="hover-elevate cursor-pointer h-full overflow-hidden group"
@@ -264,8 +271,10 @@ export default function Home() {
                     >
                       <div className="aspect-[4/3] bg-gradient-to-br from-primary/20 to-primary/5 relative overflow-hidden">
                         <img
-                          src={`https://picsum.photos/seed/${BRAND.name.toLowerCase()}-svc-${f.id}/600/450`}
+                          src={`${import.meta.env.BASE_URL}assets/services/service-0${(idx % 6) + 1}.svg`}
                           alt={f.headline}
+                          width={600}
+                          height={450}
                           className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                           loading="lazy"
                         />
@@ -276,7 +285,7 @@ export default function Home() {
                         </h3>
                         <div className="flex items-center gap-2">
                           {f.avatarUrl ? (
-                            <img src={f.avatarUrl} alt={f.fullName} className="w-7 h-7 rounded-full object-cover" />
+                            <img src={f.avatarUrl} alt={f.fullName} loading="lazy" width={28} height={28} className="w-7 h-7 rounded-full object-cover" />
                           ) : (
                             <div className="w-7 h-7 rounded-full bg-primary/10 text-primary flex items-center justify-center text-xs font-bold">
                               {f.fullName.charAt(0)}
@@ -330,7 +339,7 @@ export default function Home() {
                       <CardContent className="p-5 flex-1 flex flex-col">
                         <div className="flex items-start gap-3 mb-3">
                           {f.avatarUrl ? (
-                            <img src={f.avatarUrl} alt={f.fullName} className="w-14 h-14 rounded-full object-cover border-2 border-background shadow-sm" />
+                            <img src={f.avatarUrl} alt={f.fullName} loading="lazy" width={56} height={56} className="w-14 h-14 rounded-full object-cover border-2 border-background shadow-sm" />
                           ) : (
                             <div className="w-14 h-14 rounded-full bg-primary/10 text-primary flex items-center justify-center text-lg font-bold">
                               {f.fullName.charAt(0)}
@@ -494,7 +503,7 @@ export default function Home() {
                     </p>
                     <div className="flex items-center gap-3 pt-4 border-t">
                       {tst.avatarUrl ? (
-                        <img src={tst.avatarUrl} alt={tst.authorName} className="w-11 h-11 rounded-full object-cover" />
+                        <img src={tst.avatarUrl} alt={tst.authorName} loading="lazy" width={44} height={44} className="w-11 h-11 rounded-full object-cover" />
                       ) : (
                         <div className="w-11 h-11 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold">
                           {tst.authorName.charAt(0)}
@@ -543,16 +552,14 @@ export default function Home() {
                   data-testid={`blog-card-${p.id}`}
                 >
                   <div className="aspect-[16/10] bg-primary/10 relative overflow-hidden">
-                    {p.coverUrl ? (
-                      <img src={p.coverUrl} alt={p.title} className="w-full h-full object-cover" loading="lazy" />
-                    ) : (
-                      <img
-                        src={`https://picsum.photos/seed/${BRAND.name.toLowerCase()}-blog-${p.id}/600/400`}
-                        alt={p.title}
-                        className="w-full h-full object-cover"
-                        loading="lazy"
-                      />
-                    )}
+                    <img
+                      src={p.coverUrl || `${import.meta.env.BASE_URL}assets/blog/blog-0${((p.id - 1) % 3) + 1}.svg`}
+                      alt={p.title}
+                      width={800}
+                      height={500}
+                      className="w-full h-full object-cover"
+                      loading="lazy"
+                    />
                   </div>
                   <CardContent className="p-5 flex flex-col flex-1">
                     {p.category && (
@@ -642,15 +649,15 @@ export default function Home() {
             <div className={`relative ${isRtl ? "lg:order-1" : ""}`}>
               <div className="relative max-w-sm mx-auto aspect-[3/4]">
                 <div className="absolute inset-6 rounded-3xl bg-primary-foreground/10 blur-2xl" />
-                <div className="relative w-full h-full bg-background/95 rounded-[2.5rem] border-8 border-primary-foreground/20 shadow-2xl overflow-hidden flex items-center justify-center">
-                  <div className="text-center p-8 text-primary">
-                    <CheckCircle2 className="w-20 h-20 mx-auto mb-4" />
-                    <div className="text-4xl font-extrabold mb-1">{isRtl ? BRAND.nameAr : BRAND.name}</div>
-                    <div className="text-xs tracking-[0.3em] text-muted-foreground">
-                      {isRtl ? "MOBILE APP" : "تطبيق الجوال"}
-                    </div>
-                  </div>
-                </div>
+                <img
+                  src={`${import.meta.env.BASE_URL}assets/mobile/gcc-mobile-app.png`}
+                  alt={isRtl ? `تطبيق ${BRAND.nameAr} للجوال` : `${BRAND.name} mobile app`}
+                  width={600}
+                  height={800}
+                  loading="lazy"
+                  className="relative w-full h-full object-cover rounded-[2.5rem] border-8 border-primary-foreground/20 shadow-2xl"
+                  data-testid="app-image"
+                />
               </div>
             </div>
           </div>
