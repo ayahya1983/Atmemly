@@ -279,6 +279,29 @@ async function main() {
     WHERE avatar_url LIKE '%dicebear%'
   `);
 
+  // ---------- Cleanup: legacy QA "Phase Six Tester" rows ----------
+  // Earlier QA seeds (see scripts/smoke-phase6.mjs) created freelancer
+  // accounts named "Phase Six Tester" with empty headlines and zero
+  // ratings. They leak into the homepage Recommended Services section
+  // because it slices the first 4 freelancers. Delete them so only the
+  // 5 production demo freelancers remain in the homepage demo set.
+  await db.execute(sql`
+    DELETE FROM reviews
+    WHERE from_user_id IN (SELECT id FROM users WHERE full_name ILIKE 'Phase Six Tester%')
+       OR to_user_id IN (SELECT id FROM users WHERE full_name ILIKE 'Phase Six Tester%')
+  `);
+  await db.execute(sql`
+    DELETE FROM proposals
+    WHERE freelancer_id IN (SELECT id FROM users WHERE full_name ILIKE 'Phase Six Tester%')
+  `);
+  await db.execute(sql`
+    DELETE FROM freelancer_profiles
+    WHERE user_id IN (SELECT id FROM users WHERE full_name ILIKE 'Phase Six Tester%')
+  `);
+  await db.execute(sql`
+    DELETE FROM users WHERE full_name ILIKE 'Phase Six Tester%'
+  `);
+
   // ---------- Demo marketplace content (jobs/proposals/payments/reviews) ----------
   // No natural unique key; gate on emptiness so re-running doesn't duplicate.
   const [{ count: existingJobsCount }] = await db

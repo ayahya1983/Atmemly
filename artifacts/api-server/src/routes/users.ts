@@ -66,7 +66,12 @@ router.get("/freelancers", async (req, res): Promise<void> => {
     typeof req.query["sort"] === "string" ? (req.query["sort"] as string) : "relevance";
   const limit = Math.min(Math.max(Number(req.query["limit"] ?? 100), 1), 200);
   const offset = Math.max(Number(req.query["offset"] ?? 0), 0);
-  const conditions = [eq(usersTable.role, "freelancer"), eq(usersTable.status, "active")];
+  const conditions = [
+    eq(usersTable.role, "freelancer"),
+    eq(usersTable.status, "active"),
+    sql`coalesce(trim(${freelancerProfilesTable.headline}), '') <> ''`,
+    sql`${usersTable.fullName} not ilike 'Phase Six Tester%'`,
+  ];
   if (q) {
     conditions.push(
       or(
