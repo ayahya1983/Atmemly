@@ -21,8 +21,14 @@ COPY artifacts/api-server/src artifacts/api-server/src
 COPY artifacts/api-server/scripts artifacts/api-server/scripts
 RUN pnpm --filter @workspace/api-server run build
 
-# Prune dev deps from the api-server package for a slimmer runtime image
-RUN pnpm --filter @workspace/api-server prune --prod || true
+# Produce a self-contained, prod-only deploy tree at /deploy. `pnpm deploy`
+# resolves all workspace symlinks (including the .pnpm tree under the
+# workspace root) into a flat node_modules so the runtime stage can copy
+# a single directory without leaving dangling symlinks. This replaces the
+# previous "COPY artifact node_modules" approach which silently relied on
+# pnpm 9's node_modules layout — pnpm 10 isolates deps via .pnpm/, so the
+# artifact-local node_modules contained only symlinks back into /repo.
+RUN pnpm --filter @workspace/api-server deploy --prod --legacy /deploy
 
 ### --- runtime ---
 FROM node:20-bookworm-slim AS runtime
@@ -36,8 +42,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && useradd --system --create-home --uid 10001 atmemly
 
 COPY --from=builder /repo/artifacts/api-server/dist ./dist
-COPY --from=builder /repo/artifacts/api-server/package.json ./package.json
-COPY --from=builder /repo/artifacts/api-server/node_modules ./node_modules
+COPY --from=builder /deploy/package.json ./package.json
+COPY --from=builder /deploy/node_modules ./node_modules
 
 USER atmemly
 EXPOSE 8080

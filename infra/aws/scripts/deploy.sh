@@ -174,6 +174,7 @@ echo "==> Pushing database schema (drizzle-kit push)"
 docker run --rm \
   --env-file "${ENV_FILE}" \
   --env NODE_ENV=development \
+  --env CI=true \
   --env npm_config_frozen_lockfile=false \
   --env npm_config_confirm_modules_purge=false \
   --env npm_config_store_dir=/pnpm-store \
@@ -181,13 +182,14 @@ docker run --rm \
   -v "${PNPM_STORE_DIR}":/pnpm-store \
   -w /repo \
   node:20-bookworm-slim \
-  bash -lc "corepack enable && corepack prepare pnpm@9 --activate && pnpm install --prod=false --filter @workspace/db... && pnpm --filter @workspace/db run push"
+  bash -lc "corepack enable && corepack prepare pnpm@10.26.1 --activate && pnpm install --prod=false --filter @workspace/db... && pnpm --filter @workspace/db run push"
 
 if [[ "${SEED}" == "1" ]]; then
   echo "==> Seeding database (DESTRUCTIVE — wipes data)"
   docker run --rm \
     --env-file "${ENV_FILE}" \
     --env NODE_ENV=development \
+    --env CI=true \
     --env npm_config_frozen_lockfile=false \
     --env npm_config_confirm_modules_purge=false \
     --env npm_config_store_dir=/pnpm-store \
@@ -195,7 +197,7 @@ if [[ "${SEED}" == "1" ]]; then
     -v "${PNPM_STORE_DIR}":/pnpm-store \
     -w /repo \
     node:20-bookworm-slim \
-    bash -lc "corepack enable && corepack prepare pnpm@9 --activate && pnpm install --prod=false --filter @workspace/api-server... && pnpm --filter @workspace/api-server run seed"
+    bash -lc "corepack enable && corepack prepare pnpm@10.26.1 --activate && pnpm install --prod=false --filter @workspace/api-server... && pnpm --filter @workspace/api-server run seed"
 fi
 
 echo "==> Restarting containers"
