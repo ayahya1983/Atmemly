@@ -1,17 +1,13 @@
 import { Router, type IRouter, type Request, type Response } from "express";
-import path from "node:path";
-import fs from "node:fs";
-import { createHash, randomBytes } from "node:crypto";
+import { createHash } from "node:crypto";
 import multer from "multer";
 import { eq } from "drizzle-orm";
 import { db, attachmentsTable } from "@workspace/db";
 import { requireAuth } from "../lib/auth";
 import { audit } from "../lib/audit";
+import { fileStore } from "../lib/storage";
 
 const router: IRouter = Router();
-
-const UPLOAD_DIR = path.resolve(process.cwd(), "uploads");
-fs.mkdirSync(UPLOAD_DIR, { recursive: true });
 
 const ALLOWED_MIME = new Set([
   "image/jpeg",
@@ -30,17 +26,10 @@ const ALLOWED_MIME = new Set([
 
 const MAX_BYTES = 10 * 1024 * 1024;
 
-const storage = multer.diskStorage({
-  destination: (_req, _file, cb) => cb(null, UPLOAD_DIR),
-  filename: (_req, file, cb) => {
-    const ext = path.extname(file.originalname).toLowerCase().slice(0, 16);
-    const stored = `${Date.now()}-${randomBytes(8).toString("hex")}${ext}`;
-    cb(null, stored);
-  },
-});
-
+// Memory storage so the same Buffer can be handed to either the local-disk
+// or S3 backend without writing a temp file we'd then have to re-read.
 const upload = multer({
-  storage,
+  storage: multer.memoryStorage(),
   limits: { fileSize: MAX_BYTES },
   fileFilter: (_req, file, cb) => {
     if (!ALLOWED_MIME.has(file.mimetype)) {
@@ -66,33 +55,32 @@ router.post(
   },
   async (req, res): Promise<void> => {
     const file = (req as Request & { file?: Express.Multer.File }).file;
-    if (!file) {
+    if (!file || !file.buffer) {
       res.status(400).json({ error: "No file provided" });
       return;
     }
-    const buf = await fs.promises.readFile(file.path);
-    const sha256 = createHash("sha256").update(buf).digest("hex");
+    const sha256 = createHash("sha256").update(file.buffer).digest("hex");
     const kind =
       typeof req.body?.kind === "string" && req.body.kind.length <= 32
         ? req.body.kind
         : "general";
-    const url = `/api/uploads/${file.filename}`;
+    const stored = await fileStore.put(file.originalname, file.buffer, file.mimetype);
     const [row] = await db
       .insert(attachmentsTable)
       .values({
         uploaderId: req.user!.id,
         kind,
         originalName: file.originalname,
-        storedName: file.filename,
+        storedName: stored.storedName,
         mimeType: file.mimetype,
-        sizeBytes: file.size,
+        sizeBytes: stored.sizeBytes,
         sha256,
-        url,
+        url: stored.url,
       })
       .returning();
     await audit(req, "upload.create", "attachment", row!.id, {
       mime: file.mimetype,
-      size: file.size,
+      size: stored.sizeBytes,
       kind,
     });
     res.json({
@@ -114,11 +102,6 @@ router.get("/uploads/:filename", async (req, res): Promise<void> => {
     res.status(400).json({ error: "Invalid filename" });
     return;
   }
-  const filePath = path.join(UPLOAD_DIR, name);
-  if (!filePath.startsWith(UPLOAD_DIR)) {
-    res.status(400).json({ error: "Invalid path" });
-    return;
-  }
   const [row] = await db
     .select()
     .from(attachmentsTable)
@@ -127,7 +110,14 @@ router.get("/uploads/:filename", async (req, res): Promise<void> => {
     res.status(404).json({ error: "Not found" });
     return;
   }
-  if (!fs.existsSync(filePath)) {
+  if (!(await fileStore.has(name))) {
+    res.status(404).json({ error: "File missing" });
+    return;
+  }
+  let buf: Buffer;
+  try {
+    buf = await fileStore.read(name);
+  } catch {
     res.status(404).json({ error: "File missing" });
     return;
   }
@@ -136,7 +126,8 @@ router.get("/uploads/:filename", async (req, res): Promise<void> => {
     "Content-Disposition",
     `inline; filename="${encodeURIComponent(row.originalName)}"`,
   );
-  fs.createReadStream(filePath).pipe(res);
+  res.setHeader("Content-Length", String(buf.byteLength));
+  res.end(buf);
 });
 
 router.get("/uploads/meta/:id", requireAuth, async (req, res): Promise<void> => {

@@ -23,6 +23,30 @@ const EnvSchema = z.object({
     .string()
     .regex(/^whsec_[A-Za-z0-9]+$/, "STRIPE_WEBHOOK_SECRET must look like whsec_…")
     .optional(),
+  // File storage backend. `local` writes to ./uploads on disk (default for
+  // dev); `s3` writes to the bucket named by S3_BUCKET in AWS_REGION.
+  STORAGE_DRIVER: z.enum(["local", "s3"]).default("local"),
+  S3_BUCKET: z.string().min(1).optional(),
+  AWS_REGION: z.string().min(1).optional(),
+  S3_KEY_PREFIX: z.string().optional(),
+})
+.superRefine((v, ctx) => {
+  if (v.STORAGE_DRIVER === "s3") {
+    if (!v.S3_BUCKET) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["S3_BUCKET"],
+        message: "S3_BUCKET is required when STORAGE_DRIVER=s3",
+      });
+    }
+    if (!v.AWS_REGION) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["AWS_REGION"],
+        message: "AWS_REGION is required when STORAGE_DRIVER=s3",
+      });
+    }
+  }
 });
 
 export type AppEnv = z.infer<typeof EnvSchema>;

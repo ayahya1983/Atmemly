@@ -87,3 +87,9 @@ resource "aws_ssm_parameter" "aws_region" {
   type  = "String"
   value = var.region
 }
+
+resource "aws_ssm_parameter" "storage_driver" {
+  name  = "/${var.project}/STORAGE_DRIVER"
+  type  = "String"
+  value = "s3"
+}
