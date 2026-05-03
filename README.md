@@ -34,9 +34,25 @@ Workflows (not `pnpm dev`) start each service. The shared proxy on
 pnpm install                                       # install all workspace deps
 pnpm --filter @workspace/api-spec run codegen      # generate types/zod/hooks
 pnpm --filter @workspace/db run push               # apply schema to DATABASE_URL
-pnpm --filter @workspace/api-server run seed       # one-time seed (dev DB only)
+pnpm --filter @workspace/api-server run seed       # seed dev DB (safe to re-run)
 pnpm run typecheck                                 # full project typecheck
 ```
+
+The seed script is idempotent. Re-running it is safe and is the recommended
+way to roll out updated branding strings, support email, manual-bank
+details, payment-gateway metadata, currency lists, FX rates, and
+subscription plans to a database that was seeded with an older version:
+
+* Static lookup tables (`platform_settings`, `payment_gateways`,
+  `currencies`, `fx_rates`, `subscription_plans`) are upserted by their
+  natural unique key so changing a value in the seed *does* propagate to
+  existing rows. (`payment_gateways.is_active` is intentionally **not**
+  overwritten so admin toggles survive re-runs.)
+* Demo users, profiles, jobs, proposals, payments, reviews, FAQs,
+  testimonials, blog posts, CMS pages and legal documents are
+  create-if-missing only — re-running never overwrites passwords,
+  profile content, or already-published content.
+
 
 To run individual artifacts, use the Replit workflows panel rather than
 `pnpm dev`. Each workflow wires up the per-artifact `PORT` and any
