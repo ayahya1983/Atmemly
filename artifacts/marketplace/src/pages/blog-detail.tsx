@@ -1,6 +1,6 @@
 import { Link, useParams } from "wouter";
 import { useTranslation } from "@/lib/i18n";
-import { useBlogPost, useBlogCategories } from "@/lib/api-public";
+import { useBlogPostWithFallback, useBlogCategories } from "@/lib/api-public";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -12,7 +12,7 @@ import { SeoHead } from "@/components/SeoHead";
 export default function BlogDetail() {
   const { slug } = useParams<{ slug: string }>();
   const { lang } = useTranslation();
-  const { data: post, isLoading, error } = useBlogPost(slug ?? "", lang);
+  const { data: post, isLoading, error } = useBlogPostWithFallback(slug ?? "", lang);
   const { data: categories } = useBlogCategories();
   const cat = post?.categoryId ? categories?.find((c) => c.id === post.categoryId) : undefined;
   const catSeoTitle = cat ? (lang === "ar" ? cat.seoTitleAr : cat.seoTitleEn) : null;
@@ -59,9 +59,9 @@ export default function BlogDetail() {
         </Button>
       </Link>
 
-      {post.category && (
+      {(cat || post.category) && (
         <Badge variant="secondary" className="mb-4 capitalize">
-          {post.category}
+          {cat ? (lang === "ar" ? cat.nameAr : cat.nameEn) : post.category}
         </Badge>
       )}
 

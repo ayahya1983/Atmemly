@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { z } from "zod";
-import { eq, and, desc, isNull } from "drizzle-orm";
+import { eq, and, desc, isNull, sql } from "drizzle-orm";
 import {
   db,
   cmsPagesTable,
@@ -297,6 +297,9 @@ const BlogBody = z.object({
   isPublished: z.boolean().optional(),
   isFeatured: z.boolean().optional(),
   status: ContentStatus.optional(),
+  // Optional explicit publish timestamp. May be in the future to schedule publication.
+  // Public endpoints hide posts whose publishedAt is in the future.
+  publishedAt: z.string().datetime().nullable().optional(),
 });
 
 router.get(
@@ -341,7 +344,12 @@ router.post(
           isFeatured: parsed.data.isFeatured ?? false,
           ...(() => {
             const f = deriveStatusFlags(parsed.data);
-            return { status: f.status, isPublished: f.isPublished, publishedAt: f.isPublished ? new Date() : null };
+            const explicit = parsed.data.publishedAt ? new Date(parsed.data.publishedAt) : null;
+            return {
+              status: f.status,
+              isPublished: f.isPublished,
+              publishedAt: explicit ?? (f.isPublished ? new Date() : null),
+            };
           })(),
           authorId: req.user!.id,
         })
@@ -404,7 +412,12 @@ router.patch(
       const f = deriveStatusFlags(parsed.data);
       patch["status"] = f.status;
       patch["isPublished"] = f.isPublished;
-      if (f.isPublished && !before.publishedAt) patch["publishedAt"] = new Date();
+      if (f.isPublished && !before.publishedAt && parsed.data.publishedAt === undefined) {
+        patch["publishedAt"] = new Date();
+      }
+    }
+    if (parsed.data.publishedAt !== undefined) {
+      patch["publishedAt"] = parsed.data.publishedAt ? new Date(parsed.data.publishedAt) : null;
     }
     let after;
     try {
@@ -463,6 +476,8 @@ router.get("/blog", async (req, res): Promise<void> => {
       eq(blogPostsTable.locale, parsed.data.locale),
       eq(blogPostsTable.isPublished, true),
       isNull(blogPostsTable.deletedAt),
+      // Hide scheduled (future-dated) posts.
+      sql`(${blogPostsTable.publishedAt} IS NULL OR ${blogPostsTable.publishedAt} <= now())`,
     ))
     .orderBy(desc(blogPostsTable.publishedAt));
   res.json(rows);
@@ -493,6 +508,7 @@ router.get("/blog/:slug", async (req, res, next): Promise<void> => {
       eq(blogPostsTable.locale, parsed.data.locale),
       eq(blogPostsTable.isPublished, true),
       isNull(blogPostsTable.deletedAt),
+      sql`(${blogPostsTable.publishedAt} IS NULL OR ${blogPostsTable.publishedAt} <= now())`,
     ));
   if (!row) {
     res.status(404).json({ error: "not found" });

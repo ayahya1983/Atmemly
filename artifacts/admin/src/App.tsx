@@ -43,7 +43,10 @@ import AdminCmsSeo from "@/pages/cms-seo";
 import AdminCmsLocalization from "@/pages/cms-localization";
 import AdminCmsBlogCategories from "@/pages/cms-blog-categories";
 import AdminBlog from "@/pages/blog-admin";
+import AdminCmsBlog from "@/pages/cms-blog";
+import AdminCmsBlogEdit from "@/pages/cms-blog-edit";
 import AdminFaqs from "@/pages/faqs";
+import AdminCmsFaq from "@/pages/cms-faq";
 import AdminTestimonials from "@/pages/testimonials";
 import AdminBannedWords from "@/pages/banned-words";
 import AdminBroadcasts from "@/pages/broadcasts";
@@ -134,13 +137,21 @@ function Routes() {
       <Route path="/cms/localization"><ProtectedRoute resource="localization"><AdminCmsLocalization /></ProtectedRoute></Route>
       <Route path="/cms/pages"><ProtectedRoute resource="cms"><AdminCmsPages /></ProtectedRoute></Route>
       <Route path="/cms/blocks"><ProtectedRoute resource="cms"><AdminCmsBlocks /></ProtectedRoute></Route>
-      <Route path="/cms/blog"><ProtectedRoute resource="blog"><AdminBlog /></ProtectedRoute></Route>
+      <Route path="/cms/blog"><ProtectedRoute resource="blog"><AdminCmsBlog /></ProtectedRoute></Route>
+      <Route path="/cms/blog/new"><ProtectedRoute resource="blog"><AdminCmsBlogEdit /></ProtectedRoute></Route>
+      <Route path="/cms/blog/:id"><ProtectedRoute resource="blog"><AdminCmsBlogEdit /></ProtectedRoute></Route>
+      <Route path="/cms-blog"><ProtectedRoute resource="blog"><AdminCmsBlog /></ProtectedRoute></Route>
+      <Route path="/cms-blog/new"><ProtectedRoute resource="blog"><AdminCmsBlogEdit /></ProtectedRoute></Route>
+      <Route path="/cms-blog/:id"><ProtectedRoute resource="blog"><AdminCmsBlogEdit /></ProtectedRoute></Route>
       <Route path="/cms/blog-categories"><ProtectedRoute resource="blog"><AdminCmsBlogCategories /></ProtectedRoute></Route>
       <Route path="/cms-blog-categories"><ProtectedRoute resource="blog"><AdminCmsBlogCategories /></ProtectedRoute></Route>
-      <Route path="/cms/faqs"><ProtectedRoute resource="faqs"><AdminFaqs /></ProtectedRoute></Route>
+      <Route path="/cms/faqs"><ProtectedRoute resource="faqs"><AdminCmsFaq /></ProtectedRoute></Route>
+      <Route path="/cms-faqs"><ProtectedRoute resource="faqs"><AdminCmsFaq /></ProtectedRoute></Route>
       <Route path="/cms/testimonials"><ProtectedRoute resource="testimonials"><AdminTestimonials /></ProtectedRoute></Route>
-      <Route path="/blog"><ProtectedRoute resource="blog"><AdminBlog /></ProtectedRoute></Route>
-      <Route path="/faqs"><ProtectedRoute resource="faqs"><AdminFaqs /></ProtectedRoute></Route>
+      <Route path="/blog"><ProtectedRoute resource="blog"><AdminCmsBlog /></ProtectedRoute></Route>
+      <Route path="/blog-legacy"><ProtectedRoute resource="blog"><AdminBlog /></ProtectedRoute></Route>
+      <Route path="/faqs"><ProtectedRoute resource="faqs"><AdminCmsFaq /></ProtectedRoute></Route>
+      <Route path="/faqs-legacy"><ProtectedRoute resource="faqs"><AdminFaqs /></ProtectedRoute></Route>
       <Route path="/testimonials"><ProtectedRoute resource="testimonials"><AdminTestimonials /></ProtectedRoute></Route>
 
       <Route path="/banned-words"><ProtectedRoute resource="moderation"><AdminBannedWords /></ProtectedRoute></Route>

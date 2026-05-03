@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { useTranslation } from "@/lib/i18n";
-import { useFaqs } from "@/lib/api-public";
+import { useFaqsWithFallback, useFaqCategories } from "@/lib/api-public";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
@@ -13,13 +13,20 @@ import {
 
 export default function Faq() {
   const { lang, t } = useTranslation();
-  const { data: faqs, isLoading } = useFaqs(lang);
+  const { data: faqs, isLoading } = useFaqsWithFallback(lang);
+  const { data: faqCats } = useFaqCategories();
   const [activeCategory, setActiveCategory] = useState<string>("all");
 
   const categories = useMemo(() => {
     if (!faqs) return [];
     return Array.from(new Set(faqs.map((f) => f.category)));
   }, [faqs]);
+
+  const labelForCategory = (slug: string): string => {
+    const cat = faqCats?.find((c) => c.slug === slug);
+    if (cat) return lang === "ar" ? cat.nameAr : cat.nameEn;
+    return slug;
+  };
 
   const filtered = useMemo(() => {
     if (!faqs) return [];
@@ -67,8 +74,9 @@ export default function Faq() {
                   size="sm"
                   onClick={() => setActiveCategory(cat)}
                   className="capitalize"
+                  data-testid={`button-faq-category-${cat}`}
                 >
-                  {cat}
+                  {labelForCategory(cat)}
                 </Button>
               ))}
             </div>
@@ -84,9 +92,11 @@ export default function Faq() {
                 <AccordionTrigger className="text-start hover:no-underline">
                   {faq.question}
                 </AccordionTrigger>
-                <AccordionContent className="text-muted-foreground whitespace-pre-line">
-                  {faq.answer}
-                </AccordionContent>
+                <AccordionContent
+                  className="text-muted-foreground whitespace-pre-line prose prose-sm max-w-none dark:prose-invert"
+                  dir={faq.locale === "ar" ? "rtl" : "ltr"}
+                  dangerouslySetInnerHTML={{ __html: faq.answer }}
+                />
               </AccordionItem>
             ))}
           </Accordion>

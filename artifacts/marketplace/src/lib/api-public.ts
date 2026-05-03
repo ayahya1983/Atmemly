@@ -85,12 +85,54 @@ export function useBlogPosts(locale: "ar" | "en") {
   });
 }
 
+// Returns posts in `locale`; if the result is empty, falls back to the
+// localization settings' fallbackLocale so the blog index still has content
+// when posts have only been authored in one language.
+export function useBlogPostsWithFallback(locale: "ar" | "en") {
+  const { data: settings } = useLocalizationSettings();
+  const primary = useBlogPosts(locale);
+  const rawFb = (settings?.fallbackLocale ?? "en").toLowerCase();
+  const fbLocale: "ar" | "en" = rawFb === "ar" ? "ar" : "en";
+  const needsFallback =
+    primary.isSuccess && (primary.data?.length ?? 0) === 0 && fbLocale !== locale;
+  const fallback = useQuery({
+    queryKey: ["public-blog", fbLocale, "fallback"],
+    queryFn: () => getJson<BlogPost[]>(`/blog?locale=${fbLocale}`),
+    staleTime: 60_000,
+    enabled: needsFallback,
+  });
+  if (needsFallback && fallback.data) {
+    return { ...primary, data: fallback.data } as typeof primary;
+  }
+  return primary;
+}
+
 export function useFaqs(locale: "ar" | "en") {
   return useQuery({
     queryKey: ["public-faqs", locale],
     queryFn: () => getJson<FaqItem[]>(`/faqs?locale=${locale}`),
     staleTime: 60_000,
   });
+}
+
+// FAQ list with locale fallback (mirrors `useBlogPostsWithFallback`).
+export function useFaqsWithFallback(locale: "ar" | "en") {
+  const { data: settings } = useLocalizationSettings();
+  const primary = useFaqs(locale);
+  const rawFb = (settings?.fallbackLocale ?? "en").toLowerCase();
+  const fbLocale: "ar" | "en" = rawFb === "ar" ? "ar" : "en";
+  const needsFallback =
+    primary.isSuccess && (primary.data?.length ?? 0) === 0 && fbLocale !== locale;
+  const fallback = useQuery({
+    queryKey: ["public-faqs", fbLocale, "fallback"],
+    queryFn: () => getJson<FaqItem[]>(`/faqs?locale=${fbLocale}`),
+    staleTime: 60_000,
+    enabled: needsFallback,
+  });
+  if (needsFallback && fallback.data) {
+    return { ...primary, data: fallback.data } as typeof primary;
+  }
+  return primary;
 }
 
 export function useTestimonials(locale: "ar" | "en") {
@@ -218,6 +260,48 @@ export function useBlogPost(slug: string, locale: "ar" | "en") {
   });
 }
 
+// Single-post fetch with locale fallback. If the post 404s in the requested
+// locale, transparently retry against the configured fallback locale so
+// deep links stay functional even when only one translation has been
+// authored. Mirrors `useCmsPageWithFallback` semantics: fallback only on
+// 404, and stays in `loading` state while the fallback is in flight so
+// callers don't briefly render a "not found" view.
+export function useBlogPostWithFallback(slug: string, locale: "ar" | "en") {
+  const { data: settings } = useLocalizationSettings();
+  const rawFb = (settings?.fallbackLocale ?? "en").toLowerCase();
+  const fbLocale: "ar" | "en" = rawFb === "ar" ? "ar" : "en";
+  const primary = useBlogPost(slug, locale);
+  const primary404 =
+    primary.isError && primary.error instanceof HttpError && primary.error.status === 404;
+  const enableFallback = primary404 && fbLocale !== locale && slug.length > 0;
+  const fallback = useQuery({
+    queryKey: ["public-blog-post", slug, fbLocale, "fallback"],
+    queryFn: () => getJson<BlogPost>(`/blog/${encodeURIComponent(slug)}?locale=${fbLocale}`),
+    staleTime: 60_000,
+    retry: false,
+    enabled: enableFallback,
+  });
+  const fallback404 =
+    fallback.isError && fallback.error instanceof HttpError && fallback.error.status === 404;
+  if (primary.data) {
+    return { data: primary.data, isLoading: false, isError: false, error: null as unknown };
+  }
+  if (enableFallback && fallback.data) {
+    return { data: fallback.data, isLoading: false, isError: false, error: null as unknown };
+  }
+  if (enableFallback && !fallback.data && !fallback404 && !fallback.isError) {
+    // Fallback in flight — keep loading state so we don't flash "not found".
+    return { data: undefined, isLoading: true, isError: false, error: null as unknown };
+  }
+  if (primary404 && (!enableFallback || fallback404)) {
+    return { data: undefined, isLoading: false, isError: true, error: primary.error as unknown };
+  }
+  if (primary.isError && !primary404) {
+    return { data: undefined, isLoading: false, isError: true, error: primary.error as unknown };
+  }
+  return { data: undefined, isLoading: primary.isLoading, isError: false, error: null as unknown };
+}
+
 // CMS public hooks (homepage, navigation, footer, SEO, i18n).
 
 export interface CmsHomepageHero {
@@ -322,6 +406,23 @@ export function useBlogCategories() {
   return useQuery({
     queryKey: ["public-blog-categories"],
     queryFn: () => getJson<BlogCategory[]>("/blog/categories"),
+    staleTime: 5 * 60_000,
+  });
+}
+
+export interface FaqCategory {
+  id: number;
+  slug: string;
+  nameAr: string; nameEn: string;
+  sortOrder: number; isActive: boolean;
+  seoTitleAr: string | null; seoTitleEn: string | null;
+  seoDescriptionAr: string | null; seoDescriptionEn: string | null;
+  seoImageUrl: string | null;
+}
+export function useFaqCategories() {
+  return useQuery({
+    queryKey: ["public-faq-categories"],
+    queryFn: () => getJson<FaqCategory[]>("/faq/categories"),
     staleTime: 5 * 60_000,
   });
 }

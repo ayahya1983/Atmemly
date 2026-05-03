@@ -1,6 +1,6 @@
 import { Link, useSearch } from "wouter";
 import { useTranslation } from "@/lib/i18n";
-import { useBlogPosts, useBlogCategories } from "@/lib/api-public";
+import { useBlogPostsWithFallback, useBlogCategories } from "@/lib/api-public";
 import { SeoHead } from "@/components/SeoHead";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -12,7 +12,7 @@ export default function Blog() {
   const { lang, t } = useTranslation();
   const search = useSearch();
   const categoryFilter = new URLSearchParams(search).get("category");
-  const { data: posts, isLoading } = useBlogPosts(lang);
+  const { data: posts, isLoading } = useBlogPostsWithFallback(lang);
   const { data: categories } = useBlogCategories();
   const activeCat = categoryFilter ? categories?.find((c) => c.slug === categoryFilter) : undefined;
   const visiblePosts = activeCat
@@ -81,11 +81,18 @@ export default function Blog() {
                   <div className="aspect-video bg-gradient-to-br from-primary/10 to-primary/5" />
                 )}
                 <CardContent className="p-5">
-                  {post.category && (
-                    <Badge variant="secondary" className="mb-3 capitalize">
-                      {post.category}
-                    </Badge>
-                  )}
+                  {(() => {
+                    const cat = post.categoryId
+                      ? categories?.find((c) => c.id === post.categoryId)
+                      : categories?.find((c) => c.slug === post.category);
+                    const label = cat ? (lang === "ar" ? cat.nameAr : cat.nameEn) : post.category;
+                    if (!label) return null;
+                    return (
+                      <Badge variant="secondary" className="mb-3 capitalize" data-testid={`badge-blog-category-${post.id}`}>
+                        {label}
+                      </Badge>
+                    );
+                  })()}
                   <h2 className="font-bold text-lg mb-2 line-clamp-2 group-hover:text-primary transition-colors">
                     {post.title}
                   </h2>
