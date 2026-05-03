@@ -2,7 +2,7 @@
 FROM node:20-bookworm-slim AS builder
 ENV PNPM_HOME=/pnpm
 ENV PATH=$PNPM_HOME:$PATH
-RUN corepack enable && corepack prepare pnpm@9 --activate
+RUN corepack enable && corepack prepare pnpm@10.26.1 --activate
 
 WORKDIR /repo
 COPY pnpm-workspace.yaml pnpm-lock.yaml package.json ./

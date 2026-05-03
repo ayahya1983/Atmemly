@@ -2,20 +2,19 @@
 FROM node:20-bookworm-slim AS builder
 ENV PNPM_HOME=/pnpm
 ENV PATH=$PNPM_HOME:$PATH
-RUN corepack enable && corepack prepare pnpm@9 --activate
+RUN corepack enable && corepack prepare pnpm@10.26.1 --activate
 
 WORKDIR /repo
 
 # Copy workspace manifests for cache-friendly install
-COPY pnpm-workspace.yaml package.json ./
+COPY pnpm-workspace.yaml pnpm-lock.yaml package.json ./
 COPY tsconfig.base.json tsconfig.json* ./
 COPY artifacts/api-server/package.json artifacts/api-server/
 COPY artifacts/api-server/build.mjs artifacts/api-server/
 COPY artifacts/api-server/tsconfig.json artifacts/api-server/
 COPY lib ./lib
 
-RUN pnpm install --filter @workspace/api-server... --frozen-lockfile=false --prefer-offline || \
-    pnpm install --filter @workspace/api-server...
+RUN pnpm install --filter @workspace/api-server... --frozen-lockfile
 
 # Copy source and build
 COPY artifacts/api-server/src artifacts/api-server/src
