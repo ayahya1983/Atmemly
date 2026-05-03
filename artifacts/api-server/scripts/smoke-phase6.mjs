@@ -44,9 +44,9 @@ async function login(email, password) {
   return { token: r.data.token, userId: r.data.user.id };
 }
 
-const ADMIN_CREDS = ["admin@khidma.ae", "admin1234"];
-const CLIENT_CREDS = ["noor@nooragency.ae", "client1234"];
-const FREELANCER_CREDS = ["layla@khidma.ae", "freelancer1234"];
+const ADMIN_CREDS = ["admin@atmemly.com", "admin1234"];
+const CLIENT_CREDS = ["noor@atmemly.com", "client1234"];
+const FREELANCER_CREDS = ["layla@atmemly.com", "freelancer1234"];
 
 (async () => {
   const admin = await login(...ADMIN_CREDS);
@@ -77,7 +77,7 @@ const FREELANCER_CREDS = ["layla@khidma.ae", "freelancer1234"];
   let createdUserId;
   {
     // Sign up a throwaway user to exercise PATCH/DELETE/notes/reset.
-    const email = `phase6-${Date.now()}@khidma.ae`;
+    const email = `phase6-${Date.now()}@atmemly.com`;
     const sign = await req("POST", "/auth/register", {
       email,
       password: "P@ssword123",

@@ -37,11 +37,11 @@ async function login(email, password) {
 
 (async () => {
   // ---- 1. Login as admin, client, freelancer ----
-  const admin = await login("admin@khidma.ae", "admin1234");
+  const admin = await login("admin@atmemly.com", "admin1234");
   check("login admin", !!admin.token);
-  const client = await login("noor@nooragency.ae", "client1234");
+  const client = await login("noor@atmemly.com", "client1234");
   check("login client", !!client.token);
-  const fl = await login("layla@khidma.ae", "freelancer1234");
+  const fl = await login("layla@atmemly.com", "freelancer1234");
   check("login freelancer", !!fl.token);
 
   // ---- 2. Public settings ----

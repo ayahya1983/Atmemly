@@ -77,7 +77,7 @@ async function main() {
   const [admin] = await db
     .insert(usersTable)
     .values({
-      email: "admin@khidma.ae",
+      email: "admin@atmemly.com",
       passwordHash: adminPwd,
       fullName: `${BRAND.name} Admin`,
       role: "admin",
@@ -88,14 +88,14 @@ async function main() {
 
   const clientsData = [
     {
-      email: "noor@nooragency.ae",
+      email: "noor@atmemly.com",
       fullName: "Noor Al Hashimi",
       companyName: "Noor Creative Agency",
       overview: "A Dubai-based creative agency working with regional brands across the Gulf.",
       location: "Dubai, UAE",
     },
     {
-      email: "saeed@gulftech.ae",
+      email: "saeed@atmemly.com",
       fullName: "Saeed Al Maktoum",
       companyName: "GulfTech Studios",
       overview: "Building modern digital products for SMBs across the GCC.",
@@ -126,7 +126,7 @@ async function main() {
 
   const freelancersData = [
     {
-      email: "layla@khidma.ae",
+      email: "layla@atmemly.com",
       fullName: "Layla Bin Saeed",
       headline: "Senior Brand & Identity Designer",
       bio: "10+ years crafting identities for regional and international brands. Based in Dubai, fluent in Arabic and English.",
@@ -135,7 +135,7 @@ async function main() {
       location: "Dubai, UAE",
     },
     {
-      email: "omar@khidma.ae",
+      email: "omar@atmemly.com",
       fullName: "Omar Al Saadi",
       headline: "Full-stack Developer (React + Node)",
       bio: "Building production web apps for fintech and e-commerce clients across the GCC.",
@@ -144,7 +144,7 @@ async function main() {
       location: "Riyadh, KSA",
     },
     {
-      email: "huda@khidma.ae",
+      email: "huda@atmemly.com",
       fullName: "Huda Mansour",
       headline: "Bilingual Copywriter & Content Strategist",
       bio: "I write punchy bilingual copy for brands that want to win Arabic-speaking audiences without losing their English voice.",
@@ -153,7 +153,7 @@ async function main() {
       location: "Amman, Jordan",
     },
     {
-      email: "khalid@khidma.ae",
+      email: "khalid@atmemly.com",
       fullName: "Khalid Al Farsi",
       headline: "Performance Marketer (Google + Meta)",
       bio: "I run profitable paid campaigns for D2C brands. AED 50M+ ad spend managed across the Gulf.",
@@ -162,7 +162,7 @@ async function main() {
       location: "Doha, Qatar",
     },
     {
-      email: "amal@khidma.ae",
+      email: "amal@atmemly.com",
       fullName: "Amal Karim",
       headline: "Motion Designer & Video Editor",
       bio: "I make broadcast-quality short videos and motion graphics for ads, social and product launches.",
@@ -606,7 +606,7 @@ async function main() {
 
   // ---------- Phase 6: Admin role + content ----------
   // Promote primary admin to super_admin (admin role + adminRole = super_admin).
-  await db.execute(sql`UPDATE users SET admin_role = 'super_admin' WHERE email = 'admin@khidma.ae'`);
+  await db.execute(sql`UPDATE users SET admin_role = 'super_admin' WHERE email = 'admin@atmemly.com'`);
 
   await db.insert(cmsPagesTable).values([
     {

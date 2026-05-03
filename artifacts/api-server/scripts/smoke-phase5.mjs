@@ -44,8 +44,8 @@ async function login(email, password) {
   return r.data.token;
 }
 
-const ADMIN = ["admin@khidma.ae", "admin1234"];
-const CLIENT = ["noor@nooragency.ae", "client1234"];
+const ADMIN = ["admin@atmemly.com", "admin1234"];
+const CLIENT = ["noor@atmemly.com", "client1234"];
 
 (async () => {
   const adminTok = await login(...ADMIN);
