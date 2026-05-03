@@ -951,3 +951,32 @@ End-to-end the script:
   `corepack prepare pnpm@10.26.1` still has to be hand-bumped when
   `package.json#packageManager` changes. A pre-deploy CI check that
   greps both files for the same version would prevent silent drift.
+
+## Compose-file parity audit (Task #39, May 03, 2026)
+
+Confirmed `infra/aws/docker-compose.prod.yml` (HTTP-only fallback) and
+`infra/aws/docker-compose.tls.yml` (currently live) are in sync where they
+must be. Specifically the `api-server` service is byte-identical between
+the two files: same image/build, `env_file: /opt/atmemly/.env`,
+`NODE_ENV=production` + `PORT=8080`, the `/api/healthz` healthcheck, and
+crucially the `/opt/atmemly/uploads:/app/uploads` bind-mount. So if the
+TLS stack ever fails to come up and `deploy.sh` falls back to
+`docker-compose.prod.yml` (or someone runs it directly on the box to
+debug), the api-server will still have a writable uploads directory and
+won't crash-loop on `EACCES /app/uploads`.
+
+The remaining differences between the two files are deliberate and
+TLS-only:
+
+- `docker-compose.tls.yml` carries the explanatory header comment.
+- `nginx` in the TLS file `expose`s :80 on the internal docker network
+  instead of publishing `80:80` on the host, because Caddy fronts it.
+- The TLS file adds the `caddy` service (publishes :80+:443, terminates
+  TLS via Let's Encrypt for `$ATMEMLY_DOMAIN`) and its `caddy_data` /
+  `caddy_config` named volumes.
+
+`marketplace_static` / `admin_static` volumes, the `atmemly` bridge
+network and the `nginx` image/build/depends_on/healthcheck wiring all
+match. If you change anything on the api-server service, change it in
+both files together; the only legitimate per-file drift lives in the
+nginx port-publishing line and the caddy-specific blocks listed above.
