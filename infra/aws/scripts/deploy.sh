@@ -99,32 +99,63 @@ docker compose -f "${COMPOSE_FILE}" build --pull
 extract_static () {
   local artifact_path="$1"   # e.g. artifacts/marketplace
   local volume="$2"          # e.g. atmemly_marketplace_static
+  local base_path="$3"       # e.g. / or /admin/
 
   docker volume create "${volume}" >/dev/null
 
   local tmp
   tmp="$(mktemp -d)"
+  trap "rm -rf '${tmp}'" RETURN
+
   # Build the export stage straight onto the host filesystem so we don't
   # need to `docker create` a `FROM scratch` image (which has no command).
+  # BASE_PATH is passed explicitly (rather than relying on Dockerfile ARG
+  # defaults) so the operator can override per-deploy and so the contract
+  # between deploy.sh and the Dockerfile stays visible.
   docker buildx build \
     -f "${artifact_path}/Dockerfile" \
     --target export \
+    --build-arg "BASE_PATH=${base_path}" \
     --output "type=local,dest=${tmp}" \
     .
 
+  # Buildx local-output writes the export stage's filesystem verbatim, so
+  # the scratch image's /dist/ ends up at ${tmp}/dist/. Verify the bundle
+  # *before* we touch the live volume — better an aborted deploy than a
+  # silently-wiped volume serving a blank page (the May 2026 regression).
+  if [[ ! -f "${tmp}/dist/index.html" ]]; then
+    echo "FATAL: ${artifact_path} export stage missing index.html (got: $(ls -la "${tmp}" "${tmp}/dist" 2>&1 || true))" >&2
+    return 1
+  fi
+  if [[ ! -d "${tmp}/dist/assets" ]] || [[ -z "$(ls -A "${tmp}/dist/assets" 2>/dev/null)" ]]; then
+    echo "FATAL: ${artifact_path} export stage has empty or missing assets/ dir" >&2
+    return 1
+  fi
+
+  # `set -e` inside the alpine sh -c so a failed cp doesn't leave the
+  # volume wiped-but-empty. The 2>/dev/null on rm only swallows "no such
+  # file" from the .[!.]* glob — it's fine to keep.
   docker run --rm \
     -v "${volume}:/dst" \
     -v "${tmp}:/src:ro" \
-    alpine:3 sh -c "rm -rf /dst/* /dst/.[!.]* 2>/dev/null; cp -R /src/dist/. /dst/"
+    alpine:3 sh -c "set -e; rm -rf /dst/* /dst/.[!.]* 2>/dev/null || true; cp -R /src/dist/. /dst/"
 
-  rm -rf "${tmp}"
+  # Post-copy sanity check: confirm the volume actually has the bundle.
+  # Catches volume-mount weirdness, permission issues, or a regression in
+  # the cp invocation above.
+  if ! docker run --rm -v "${volume}:/dst:ro" alpine:3 sh -c \
+      "test -f /dst/index.html && test -d /dst/assets && test -n \"\$(ls -A /dst/assets)\""; then
+    echo "FATAL: volume ${volume} is missing index.html or assets/ after copy" >&2
+    docker run --rm -v "${volume}:/dst:ro" alpine:3 ls -laR /dst >&2 || true
+    return 1
+  fi
 }
 
 echo "==> Extracting marketplace static bundle"
-extract_static artifacts/marketplace atmemly_marketplace_static
+extract_static artifacts/marketplace atmemly_marketplace_static /
 
 echo "==> Extracting admin static bundle"
-extract_static artifacts/admin atmemly_admin_static
+extract_static artifacts/admin atmemly_admin_static /admin/
 
 # Shared pnpm content-addressable store on the host. Mounting this into
 # the one-off node containers below means successive deploys reuse the
