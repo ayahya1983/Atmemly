@@ -122,11 +122,14 @@ the SSM parameter was performed — that would have meant editing
 
 ## Hardening checklist (do before this is real production traffic)
 
-- [ ] Restrict `ssh_allowed_cidr` to a known operator `/32`, **or**
-      remove inbound :22 entirely and rely on AWS SSM Session Manager
-      (`aws ssm start-session --target <instance-id>`). The EC2 IAM
-      role already has `AmazonSSMManagedInstanceCore`, so SSM works
-      out of the box.
+- [x] **DONE (May 03, 2026):** Removed inbound :22 from
+      `aws_security_group.ec2`. Operator shell access is now
+      exclusively via AWS SSM Session Manager
+      (`aws ssm start-session --region eu-west-1 --target i-09d44904cddfaa638`).
+      The EC2 IAM role already has `AmazonSSMManagedInstanceCore`
+      attached, so this works without any other changes. The
+      `ssh_allowed_cidr` Terraform variable was deleted along with the
+      ingress rule. See "Shell access" below.
 - [ ] Replace `?sslmode=no-verify` on `DATABASE_URL` with proper RDS
       CA trust: bake the AWS RDS global CA bundle into the api-server
       image and use `?sslmode=verify-full`.
@@ -140,15 +143,68 @@ the SSM parameter was performed — that would have meant editing
 
 ## Security tradeoffs in this revision
 
-- `ssh_allowed_cidr=0.0.0.0/0` (no stable operator IP available from
-  the Replit executor). SSH is still key-only, but anyone on the
-  internet can probe port 22. Tighten this with
-  `terraform apply -var "ssh_allowed_cidr=<your-ip>/32"` once a stable
-  egress IP exists.
-- HTTP only on port 80; HTTPS / custom domain is task #25.
+- Inbound :22 is **closed** in `aws_security_group.ec2`. Operator
+  shell access goes through AWS SSM Session Manager — see
+  "Shell access" below. This removes the previous "SSH open to
+  `0.0.0.0/0` because the Replit executor has no stable egress IP"
+  soft-target and means port 22 no longer shows up in internet-wide
+  scans of the EIP.
+- The Terraform-managed SSH keypair (`aws_key_pair.main`) is still
+  installed in `~ubuntu/.ssh/authorized_keys` on the box as a
+  break-glass option. It is **only usable** if a future operator
+  temporarily re-opens :22 in the SG (e.g. from a known `/32`); until
+  then it is dormant.
+- HTTPS is live on `app.atmemli.com`; HTTP-only on the bare EIP
+  remains as a fallback.
 - Admin/marketplace bundles are baked in by `deploy.sh` from the
   current source on the box (no git pull, since this clone has no
   public git remote — see `SKIP_GIT=1` below).
+
+## Shell access (SSM Session Manager)
+
+There is **no inbound :22**. To get a shell on the EC2 box:
+
+```bash
+# Interactive shell as ssm-user (sudo to root/ubuntu as needed):
+aws ssm start-session \
+  --region eu-west-1 \
+  --target i-09d44904cddfaa638
+
+# One-shot command (returns stdout/stderr/exit code via SSM):
+aws ssm send-command \
+  --region eu-west-1 \
+  --instance-ids i-09d44904cddfaa638 \
+  --document-name AWS-RunShellScript \
+  --parameters 'commands=["sudo systemctl status docker"]'
+```
+
+Prereqs (one-time, on the operator's laptop):
+
+1. AWS CLI v2 with credentials that allow `ssm:StartSession` on the
+   instance (the `Replit` IAM user with `AdministratorAccess` already
+   has this; for least-priv, attach `AmazonSSMFullAccess` or a scoped
+   policy targeting `i-09d44904cddfaa638`).
+2. The Session Manager plugin:
+   <https://docs.aws.amazon.com/systems-manager/latest/userguide/session-manager-working-with-install-plugin.html>
+
+This works because the EC2 IAM role `atmemly-ec2-role` has
+`AmazonSSMManagedInstanceCore` attached and the SSM agent ships with
+the Ubuntu 22.04 AMI. No inbound network rules are needed — the
+agent dials out to the SSM service over the existing egress.
+
+For redeploys / scp-style file transfer, where the existing snippets
+in this doc still show `ssh -i $KEY ubuntu@$EIP …`, swap to one of:
+
+- `aws ssm start-session … --document-name AWS-StartPortForwardingSession`
+  to tunnel a local port for `scp`/`rsync`, **or**
+- stage the artifact in S3 (`s3://atmemly-uploads-f960865d/_deploy/`)
+  and pull it down via `aws ssm send-command` (this is the path that
+  the May 03 HTTPS rollout already used — see "HTTPS rollout" below).
+
+If SSM ever becomes unreachable (agent dead, IAM role detached, etc.),
+break-glass is: temporarily add an ingress rule for :22 from your
+`/32` to `aws_security_group.ec2` via the AWS console, SSH in with
+`atmemly-ec2.pem` to repair the agent, then remove the rule.
 
 ## SSH key handling
 
@@ -321,21 +377,38 @@ aws ssm get-command-invocation --region eu-west-1 \
 The deploy script lives at `/opt/atmemly/app/infra/aws/scripts/deploy.sh`
 on the EC2 host.
 
+Inbound :22 is closed in the security group, so we stage the source
+in S3 and drive the redeploy through SSM (the EC2 IAM role has both
+S3 RW on the uploads bucket and `AmazonSSMManagedInstanceCore`):
+
 ```bash
 # From your laptop, push fresh source then redeploy:
-EIP=63.34.129.118
-KEY=infra/aws/terraform/atmemly-ec2.pem
+INSTANCE_ID=i-09d44904cddfaa638
+BUCKET=atmemly-uploads-f960865d
 
 git archive --format=tar.gz -o /tmp/atmemly.tgz HEAD
-scp -i $KEY /tmp/atmemly.tgz ubuntu@$EIP:/tmp/
-ssh -i $KEY ubuntu@$EIP \
-  'cd /opt/atmemly/app && tar xzf /tmp/atmemly.tgz && \
-   sudo SKIP_GIT=1 /opt/atmemly/app/infra/aws/scripts/deploy.sh'
+aws s3 cp /tmp/atmemly.tgz "s3://${BUCKET}/_deploy/atmemly.tgz"
+
+aws ssm send-command --region eu-west-1 \
+  --instance-ids "$INSTANCE_ID" \
+  --document-name AWS-RunShellScript \
+  --parameters commands='[
+    "set -euo pipefail",
+    "aws s3 cp s3://'"$BUCKET"'/_deploy/atmemly.tgz /tmp/atmemly.tgz",
+    "cd /opt/atmemly/app && tar xzf /tmp/atmemly.tgz",
+    "sudo SKIP_GIT=1 /opt/atmemly/app/infra/aws/scripts/deploy.sh"
+  ]'
 
 # Same, but also re-seed the demo data (DESTRUCTIVE — wipes the DB):
-ssh -i $KEY ubuntu@$EIP \
-  'cd /opt/atmemly/app && tar xzf /tmp/atmemly.tgz && \
-   sudo SEED=1 SKIP_GIT=1 /opt/atmemly/app/infra/aws/scripts/deploy.sh'
+aws ssm send-command --region eu-west-1 \
+  --instance-ids "$INSTANCE_ID" \
+  --document-name AWS-RunShellScript \
+  --parameters commands='[
+    "set -euo pipefail",
+    "aws s3 cp s3://'"$BUCKET"'/_deploy/atmemly.tgz /tmp/atmemly.tgz",
+    "cd /opt/atmemly/app && tar xzf /tmp/atmemly.tgz",
+    "sudo SEED=1 SKIP_GIT=1 /opt/atmemly/app/infra/aws/scripts/deploy.sh"
+  ]'
 ```
 
 `SKIP_GIT=1` is required while there's no public git remote; the
@@ -348,9 +421,15 @@ Once a remote is wired up, drop `SKIP_GIT=1` and `deploy.sh` will
 ```bash
 aws ssm put-parameter --region eu-west-1 --type SecureString \
   --name /atmemly/STRIPE_SECRET_KEY --value 'sk_live_xxx'
-ssh -i $KEY ubuntu@$EIP 'sudo /usr/local/bin/atmemly-fetch-env && \
-  sudo docker compose -f /opt/atmemly/app/infra/aws/docker-compose.prod.yml \
-       up -d --force-recreate api-server'
+
+# Refresh /opt/atmemly/.env from SSM and bounce api-server, via SSM:
+aws ssm send-command --region eu-west-1 \
+  --instance-ids i-09d44904cddfaa638 \
+  --document-name AWS-RunShellScript \
+  --parameters commands='[
+    "sudo /usr/local/bin/atmemly-fetch-env",
+    "sudo docker compose -f /opt/atmemly/app/infra/aws/docker-compose.prod.yml up -d --force-recreate api-server"
+  ]'
 ```
 
 ## Teardown
@@ -495,9 +574,12 @@ aws ssm put-parameter --region eu-west-1 --type String --overwrite \
   --name /atmemly/ATMEMLY_ACME_EMAIL --value 'admin@atmemli.com'
 aws ssm put-parameter --region eu-west-1 --type String --overwrite \
   --name /atmemly/CORS_ORIGINS       --value 'https://app.atmemli.com'
-# 3. Wait for DNS to resolve to the EIP, then redeploy:
-ssh -i infra/aws/terraform/atmemly-ec2.pem ubuntu@<ec2_public_ip> \
-  "sudo /opt/atmemly/app/infra/aws/scripts/deploy.sh"
+# 3. Wait for DNS to resolve to the EIP, then redeploy via SSM
+#    (inbound :22 is closed):
+aws ssm send-command --region eu-west-1 \
+  --instance-ids i-09d44904cddfaa638 \
+  --document-name AWS-RunShellScript \
+  --parameters 'commands=["sudo /opt/atmemly/app/infra/aws/scripts/deploy.sh"]'
 # 4. Smoke:
 curl -fsSI https://app.atmemli.com/api/healthz
 curl -fsSI http://app.atmemli.com/      # expect 308 → HTTPS

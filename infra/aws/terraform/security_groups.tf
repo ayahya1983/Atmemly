@@ -1,15 +1,12 @@
 resource "aws_security_group" "ec2" {
   name        = "${var.project}-ec2-sg"
-  description = "ATMEMLY EC2 host: SSH from operator, HTTP/HTTPS from anywhere."
+  description = "ATMEMLY EC2 host: HTTP/HTTPS from anywhere. No inbound SSH; shell access via AWS SSM Session Manager."
   vpc_id      = aws_vpc.main.id
 
-  ingress {
-    description = "SSH"
-    from_port   = 22
-    to_port     = 22
-    protocol    = "tcp"
-    cidr_blocks = [var.ssh_allowed_cidr]
-  }
+  # NOTE: inbound :22 is intentionally absent. The EC2 IAM role has
+  # AmazonSSMManagedInstanceCore attached, so operators get a shell via
+  # `aws ssm start-session --target <instance-id>` without exposing SSH
+  # to the internet. See infra/aws/DEPLOY-NOTES.md ("Shell access").
 
   ingress {
     description = "HTTP"

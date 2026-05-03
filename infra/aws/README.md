@@ -43,22 +43,42 @@ terraform init
 
 # Choose ONE of:
 #   (a) Let Terraform generate an SSH key (private key written to
-#       ./atmemly-ec2.pem, mode 0600)
+#       ./atmemly-ec2.pem, mode 0600). Note: inbound :22 is closed in
+#       the security group, so this key is only useful as a break-glass
+#       option if you temporarily re-open :22. Day-to-day shell access
+#       is via SSM (see DEPLOY-NOTES.md).
 terraform apply -var "git_repo_url=https://github.com/your-org/atmemly.git"
 
-#   (b) Bring your own SSH public key
+#   (b) Bring your own SSH public key (same break-glass caveat applies)
 terraform apply \
   -var "git_repo_url=https://github.com/your-org/atmemly.git" \
-  -var "ssh_public_key=$(cat ~/.ssh/id_ed25519.pub)" \
-  -var "ssh_allowed_cidr=$(curl -s ifconfig.me)/32"
+  -var "ssh_public_key=$(cat ~/.ssh/id_ed25519.pub)"
 ```
+
+### Break-glass SSH (only if SSM is unreachable)
+
+Day-to-day shell access is via AWS SSM Session Manager (see
+`DEPLOY-NOTES.md` → "Shell access"). Inbound :22 is closed in
+`aws_security_group.ec2`. If the SSM agent is dead or the EC2 IAM
+role has been mis-edited so SSM no longer works:
+
+1. In the AWS console, temporarily add a security-group ingress rule
+   for TCP/22 from your `/32` only.
+2. SSH in with the Terraform-managed keypair:
+   `ssh -i infra/aws/terraform/atmemly-ec2.pem ubuntu@<eip>`
+3. Repair the SSM agent (`sudo systemctl status amazon-ssm-agent`,
+   re-attach the IAM role, etc.).
+4. **Remove the temporary :22 rule** before logging off.
+
+This procedure mirrors the one in `DEPLOY-NOTES.md` so on-call
+operators don't have to cross-reference both docs in an incident.
 
 Outputs:
 
 * `ec2_public_ip` — Elastic IP of the box.
 * `rds_endpoint` — RDS hostname (private; reachable only from EC2).
 * `s3_bucket` — uploads bucket.
-* `ssh_command` — ready-to-paste SSH command.
+* `shell_command` — ready-to-paste `aws ssm start-session …` command (inbound :22 is closed; SSM is the supported shell path).
 * `app_url` — `http://<eip>/`.
 * `ssm_parameter_prefix` — `/atmemly/`.
 
@@ -92,23 +112,36 @@ aws ssm put-parameter --region eu-west-1 --type String \
 
 ## 3. First deploy
 
-SSH in (or use `aws ssm start-session`) and run the deploy script.
-On the very first deploy, pass `SEED=1` so the demo data lands.
+Open a shell on the box via AWS SSM Session Manager (inbound :22 is
+closed in the security group — see "Shell access" in
+`DEPLOY-NOTES.md` for prereqs and the break-glass flow). On the very
+first deploy, pass `SEED=1` so the demo data lands.
 
 ```bash
-ssh -i infra/aws/terraform/atmemly-ec2.pem ubuntu@<ec2_public_ip>
+INSTANCE_ID=$(terraform -chdir=infra/aws/terraform output -raw ec2_public_ip >/dev/null; \
+              aws ec2 describe-instances --region eu-west-1 \
+                --filters Name=tag:Name,Values=atmemly-app \
+                --query 'Reservations[].Instances[].InstanceId' --output text)
 
+aws ssm start-session --region eu-west-1 --target "$INSTANCE_ID"
+
+# Inside the SSM session:
 # If you didn't pass git_repo_url to Terraform, clone manually:
 sudo mkdir -p /opt/atmemly && sudo chown ubuntu:ubuntu /opt/atmemly
-git clone https://github.com/your-org/atmemly.git /opt/atmemly/app
+sudo -u ubuntu git clone https://github.com/your-org/atmemly.git /opt/atmemly/app
 
-SEED=1 sudo /opt/atmemly/app/infra/aws/scripts/deploy.sh
+sudo SEED=1 /opt/atmemly/app/infra/aws/scripts/deploy.sh
 ```
 
-Subsequent deploys (no destructive seed):
+Subsequent deploys (no destructive seed) — you can either drop into
+an SSM session as above and run the script, or invoke it one-shot
+via `aws ssm send-command`:
 
 ```bash
-sudo /opt/atmemly/app/infra/aws/scripts/deploy.sh
+aws ssm send-command --region eu-west-1 \
+  --instance-ids "$INSTANCE_ID" \
+  --document-name AWS-RunShellScript \
+  --parameters 'commands=["sudo /opt/atmemly/app/infra/aws/scripts/deploy.sh"]'
 ```
 
 `deploy.sh` will:
@@ -173,9 +206,12 @@ aws ssm put-parameter --region eu-west-1 --type String --overwrite \
 dig +short app.atmemli.com    # should return the EIP
 
 # 4. Redeploy. deploy.sh sees ATMEMLY_DOMAIN in /opt/atmemly/.env and
-#    switches to docker-compose.tls.yml.
-ssh -i infra/aws/terraform/atmemly-ec2.pem ubuntu@<ec2_public_ip> \
-  "sudo /opt/atmemly/app/infra/aws/scripts/deploy.sh"
+#    switches to docker-compose.tls.yml. Inbound :22 is closed, so
+#    drive the redeploy through SSM:
+aws ssm send-command --region eu-west-1 \
+  --instance-ids "$INSTANCE_ID" \
+  --document-name AWS-RunShellScript \
+  --parameters 'commands=["sudo /opt/atmemly/app/infra/aws/scripts/deploy.sh"]'
 
 # 5. Smoke
 curl -fsSI https://app.atmemli.com/                # 200
@@ -239,16 +275,21 @@ When the single-box deploy outgrows itself:
 schema. To copy a development database into RDS later:
 
 ```bash
-# from a host with access to BOTH dev DB and the EC2 (SSM tunnel works):
+# from a host with access to the dev DB:
 pg_dump --no-owner --no-acl --format=custom \
   "postgres://USER:PASS@old-host:5432/atmemly" > atmemly.dump
 
-# upload + restore on EC2:
-scp -i atmemly-ec2.pem atmemly.dump ubuntu@<ec2_public_ip>:/tmp/
-ssh -i atmemly-ec2.pem ubuntu@<ec2_public_ip>
+# Inbound :22 is closed on the EC2 box, so stage the dump in S3 and
+# pull it down from inside an SSM session (ec2 role already has S3 RW):
+aws s3 cp atmemly.dump s3://atmemly-uploads-f960865d/_migrate/atmemly.dump
+
+aws ssm start-session --region eu-west-1 --target "$INSTANCE_ID"
+# Inside the SSM session:
+aws s3 cp s3://atmemly-uploads-f960865d/_migrate/atmemly.dump /tmp/atmemly.dump
 source /opt/atmemly/.env
 pg_restore --clean --if-exists --no-owner --no-acl \
   --dbname "$DATABASE_URL" /tmp/atmemly.dump
+aws s3 rm s3://atmemly-uploads-f960865d/_migrate/atmemly.dump  # cleanup
 ```
 
 ## 7. Cost estimate (eu-west-1, on-demand, May 2026)

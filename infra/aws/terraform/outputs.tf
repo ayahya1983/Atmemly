@@ -18,9 +18,9 @@ output "s3_bucket" {
   description = "S3 bucket for uploads / static assets."
 }
 
-output "ssh_command" {
-  value       = var.ssh_public_key == "" ? "ssh -i ${path.module}/atmemly-ec2.pem ubuntu@${aws_eip.app.public_ip}" : "ssh ubuntu@${aws_eip.app.public_ip}"
-  description = "Ready-to-paste SSH command."
+output "shell_command" {
+  value       = "aws ssm start-session --region ${var.region} --target ${aws_instance.app.id}"
+  description = "Ready-to-paste command for an interactive shell on the EC2 box via AWS SSM Session Manager. Inbound :22 is closed in the security group, so this is the supported way in."
 }
 
 output "app_url" {

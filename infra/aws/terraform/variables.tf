@@ -68,11 +68,14 @@ variable "ssh_public_key" {
   default     = ""
 }
 
-variable "ssh_allowed_cidr" {
-  description = "CIDR block allowed to SSH to the EC2 instance. Restrict this to your IP/32."
-  type        = string
-  default     = "0.0.0.0/0"
-}
+# NOTE: `ssh_allowed_cidr` was removed when inbound :22 was deleted from
+# the EC2 security group. Operator shell access is now via AWS SSM
+# Session Manager (`aws ssm start-session --target <instance-id>`); see
+# infra/aws/DEPLOY-NOTES.md ("Shell access"). The `ssh_public_key`
+# variable above is still honoured because it provisions an
+# `aws_key_pair` resource that Terraform attaches to the EC2 instance,
+# which is useful as a break-glass option if SSM ever fails AND someone
+# temporarily re-opens :22 on the SG.
 
 variable "git_repo_url" {
   description = "HTTPS git URL of the ATMEMLY monorepo. Used by cloud-init / deploy.sh to clone the source on the box."
