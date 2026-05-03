@@ -72,12 +72,14 @@ export function TopNav() {
       className="sticky top-0 z-50 w-full border-b border-border/40 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/85"
       data-testid="top-nav"
     >
-      <div className="container mx-auto px-4 h-16 flex items-center justify-between gap-4">
+      <div className="container mx-auto px-4 h-16 flex items-center justify-between gap-6 lg:gap-8">
         {/* Right side in RTL: logo. Left side in LTR: logo. */}
-        <Logo />
+        <div className="shrink-0">
+          <Logo />
+        </div>
 
         {/* Center: nav links (desktop) */}
-        <nav className="hidden lg:flex items-center gap-5 xl:gap-7 flex-1 justify-center">
+        <nav className="hidden lg:flex items-center gap-5 xl:gap-7 flex-1 justify-center min-w-0">
           {navLinks.map((link) => (
             <Link
               key={link.href}
