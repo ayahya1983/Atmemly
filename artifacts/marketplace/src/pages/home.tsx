@@ -52,6 +52,40 @@ import {
   DollarSign,
 } from "lucide-react";
 
+// Treat null, undefined, and empty/whitespace strings as "no image".
+function hasImage(url: string | null | undefined): url is string {
+  return typeof url === "string" && url.trim() !== "";
+}
+
+// Image that swaps to a fallback (or hides itself) on load failure, so the
+// user never sees a broken-image icon. Pass `fallback` to render an explicit
+// substitute (e.g. an initial-letter avatar); omit it to let the parent's
+// existing background placeholder show through.
+function SafeImg({
+  fallback,
+  onError,
+  ...props
+}: React.ImgHTMLAttributes<HTMLImageElement> & { fallback?: React.ReactNode }) {
+  const [failed, setFailed] = useState(false);
+  if (failed) return <>{fallback ?? null}</>;
+  return (
+    <img
+      {...props}
+      onError={(e) => {
+        setFailed(true);
+        onError?.(e);
+      }}
+    />
+  );
+}
+
+// Stable cover-image picker: same freelancer always gets the same cover,
+// regardless of position in the list.
+function coverForFreelancer(id: number): string {
+  const n = (Math.abs(id) % 6) + 1;
+  return `${import.meta.env.BASE_URL}assets/services/service-0${n}.svg`;
+}
+
 // Map category slug → icon component
 const CATEGORY_ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
   design: PenLine,
@@ -263,15 +297,15 @@ export default function Home() {
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
             {freelancersLoading
               ? Array(4).fill(0).map((_, i) => <Skeleton key={i} className="h-72 rounded-xl" />)
-              : freelancers?.slice(0, 4).map((f, idx) => (
+              : freelancers?.slice(0, 4).map((f) => (
                   <Link key={`svc-${f.id}`} href={`/freelancers/${f.id}`}>
                     <Card
                       className="hover-elevate cursor-pointer h-full overflow-hidden group"
                       data-testid={`service-card-${f.id}`}
                     >
                       <div className="aspect-[4/3] bg-gradient-to-br from-primary/20 to-primary/5 relative overflow-hidden">
-                        <img
-                          src={`${import.meta.env.BASE_URL}assets/services/service-0${(idx % 6) + 1}.svg`}
+                        <SafeImg
+                          src={coverForFreelancer(f.id)}
                           alt={f.headline}
                           width={600}
                           height={450}
@@ -284,13 +318,26 @@ export default function Home() {
                           {f.headline}
                         </h3>
                         <div className="flex items-center gap-2">
-                          {f.avatarUrl ? (
-                            <img src={f.avatarUrl} alt={f.fullName} loading="lazy" width={28} height={28} className="w-7 h-7 rounded-full object-cover" />
-                          ) : (
-                            <div className="w-7 h-7 rounded-full bg-primary/10 text-primary flex items-center justify-center text-xs font-bold">
-                              {f.fullName.charAt(0)}
-                            </div>
-                          )}
+                          {(() => {
+                            const initials = (
+                              <div className="w-7 h-7 rounded-full bg-primary/10 text-primary flex items-center justify-center text-xs font-bold">
+                                {f.fullName.charAt(0)}
+                              </div>
+                            );
+                            return hasImage(f.avatarUrl) ? (
+                              <SafeImg
+                                src={f.avatarUrl}
+                                alt={f.fullName}
+                                loading="lazy"
+                                width={28}
+                                height={28}
+                                className="w-7 h-7 rounded-full object-cover"
+                                fallback={initials}
+                              />
+                            ) : (
+                              initials
+                            );
+                          })()}
                           <span className="text-xs text-muted-foreground truncate">
                             {t("card.byFreelancer")} <span className="text-foreground font-medium">{f.fullName}</span>
                           </span>
@@ -338,13 +385,26 @@ export default function Home() {
                     >
                       <CardContent className="p-5 flex-1 flex flex-col">
                         <div className="flex items-start gap-3 mb-3">
-                          {f.avatarUrl ? (
-                            <img src={f.avatarUrl} alt={f.fullName} loading="lazy" width={56} height={56} className="w-14 h-14 rounded-full object-cover border-2 border-background shadow-sm" />
-                          ) : (
-                            <div className="w-14 h-14 rounded-full bg-primary/10 text-primary flex items-center justify-center text-lg font-bold">
-                              {f.fullName.charAt(0)}
-                            </div>
-                          )}
+                          {(() => {
+                            const initials = (
+                              <div className="w-14 h-14 rounded-full bg-primary/10 text-primary flex items-center justify-center text-lg font-bold">
+                                {f.fullName.charAt(0)}
+                              </div>
+                            );
+                            return hasImage(f.avatarUrl) ? (
+                              <SafeImg
+                                src={f.avatarUrl}
+                                alt={f.fullName}
+                                loading="lazy"
+                                width={56}
+                                height={56}
+                                className="w-14 h-14 rounded-full object-cover border-2 border-background shadow-sm"
+                                fallback={initials}
+                              />
+                            ) : (
+                              initials
+                            );
+                          })()}
                           <div className="flex-1 min-w-0">
                             <h3 className="font-bold text-base group-hover:text-primary transition-colors truncate">{f.fullName}</h3>
                             <p className="text-sm text-muted-foreground line-clamp-1">{f.headline}</p>
@@ -502,13 +562,26 @@ export default function Home() {
                       “{tst.body}”
                     </p>
                     <div className="flex items-center gap-3 pt-4 border-t">
-                      {tst.avatarUrl ? (
-                        <img src={tst.avatarUrl} alt={tst.authorName} loading="lazy" width={44} height={44} className="w-11 h-11 rounded-full object-cover" />
-                      ) : (
-                        <div className="w-11 h-11 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold">
-                          {tst.authorName.charAt(0)}
-                        </div>
-                      )}
+                      {(() => {
+                        const initials = (
+                          <div className="w-11 h-11 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold">
+                            {tst.authorName.charAt(0)}
+                          </div>
+                        );
+                        return hasImage(tst.avatarUrl) ? (
+                          <SafeImg
+                            src={tst.avatarUrl}
+                            alt={tst.authorName}
+                            loading="lazy"
+                            width={44}
+                            height={44}
+                            className="w-11 h-11 rounded-full object-cover"
+                            fallback={initials}
+                          />
+                        ) : (
+                          initials
+                        );
+                      })()}
                       <div className="flex-1 min-w-0">
                         <div className="font-semibold text-sm truncate">{tst.authorName}</div>
                         {tst.authorTitle && (
@@ -552,8 +625,8 @@ export default function Home() {
                   data-testid={`blog-card-${p.id}`}
                 >
                   <div className="aspect-[16/10] bg-primary/10 relative overflow-hidden">
-                    <img
-                      src={p.coverUrl || `${import.meta.env.BASE_URL}assets/blog/blog-0${((p.id - 1) % 3) + 1}.svg`}
+                    <SafeImg
+                      src={hasImage(p.coverUrl) ? p.coverUrl : `${import.meta.env.BASE_URL}assets/blog/blog-0${((p.id - 1) % 3) + 1}.svg`}
                       alt={p.title}
                       width={800}
                       height={500}
