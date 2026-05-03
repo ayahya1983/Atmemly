@@ -11,7 +11,82 @@ domain.
 | https://app.atmemli.com/admin/            | 200 (admin SPA login screen) |
 | https://app.atmemli.com/api/healthz       | 200 `{"status":"ok"}` |
 | http://app.atmemli.com/                   | 308 → https://app.atmemli.com/ |
-| http://63.34.129.118/                     | 200 (direct EIP, plain HTTP — kept open in SG for legacy clients) |
+| http://63.34.129.118/                     | 308 → https://app.atmemli.com/ (no longer serves the SPA in clear text — task #40) |
+
+## Stop serving the marketplace over plain HTTP on the EC2 IP (task #40, May 03, 2026)
+
+**Problem.** Even though `https://app.atmemli.com` was the canonical
+entry point with a valid Let's Encrypt cert, `http://63.34.129.118/`
+(and any HTTP request to the EIP with an arbitrary `Host:` header) was
+still returning **200** with the marketplace SPA in clear text. Root
+cause: the Caddyfile defined a single site for `{$ATMEMLY_DOMAIN}`,
+and Caddy's automatic HTTP→HTTPS redirect on :80 only fires for the
+hostnames Caddy is managing certs for; for any other Host header on
+:80 the request was matching the canonical site's reverse-proxy
+handler instead of being refused, so nginx happily served the
+marketplace bundle.
+
+**Fix that landed in `infra/aws/caddy/Caddyfile.tpl`.**
+
+* Set `auto_https disable_redirects` in the global block so Caddy
+  stops auto-creating its own (host-scoped) HTTP→HTTPS redirect
+  listener on :80. `disable_redirects` does **not** disable the ACME
+  HTTP-01 challenge solver — Caddy's TLS app still intercepts
+  `/.well-known/acme-challenge/*` on :80 before any user-defined
+  routes run, so Let's Encrypt renewals continue to succeed.
+* Added an explicit `:80 { redir https://{$ATMEMLY_DOMAIN}{uri} 308 }`
+  catch-all at the bottom of the Caddyfile. Every plain-HTTP request
+  — canonical host, bare EIP, scanner probes with bogus Hosts, stale
+  CNAMEs — now gets a uniform 308 to the canonical HTTPS URL with the
+  path preserved. The marketplace SPA can no longer be served in
+  clear text, regardless of Host header.
+
+The TLS site block for `{$ATMEMLY_DOMAIN}` is unchanged; HTTPS
+behaviour is identical to before. nginx is `expose`d only on the
+internal docker network in TLS mode (no host port binding), so it is
+not directly reachable from the public internet — Caddy is the only
+thing on :80 / :443 — and tightening the Caddy layer is sufficient.
+
+**Local validation (in this workspace, before deploy):**
+
+```bash
+caddy validate --adapter caddyfile --config infra/aws/caddy/Caddyfile.tpl
+#  → Valid configuration
+#  → automatic HTTP->HTTPS redirects are disabled
+#  → srv0 listens on :443 (TLS, canonical host)
+#  → srv1 listens on :80 (catch-all redirect)
+
+# Functional smoke against an isolated copy of the same routing logic
+# on :8580 (no TLS, so the canonical block answers 200 for the test):
+#   Host: 63.34.129.118        → 308 https://app.atmemli.com/foo  ✓ (was 200 SPA)
+#   Host: app.atmemli.com      → matches canonical site            ✓
+#   Host: random.example       → 308 https://app.atmemli.com/baz  ✓
+#   /.well-known/acme-challenge/* on bare IP → 308 (no managed cert for the IP, expected)
+```
+
+**Expected external probe matrix after the next GH Actions deploy
+picks this up** (ran from a laptop outside AWS, resolving
+`app.atmemli.com → 63.34.129.118`):
+
+```
+curl -sI http://63.34.129.118/                  → HTTP/1.1 308, Location: https://app.atmemli.com/
+curl -sI -H 'Host: scanner.example' http://63.34.129.118/wp-login.php
+                                                → HTTP/1.1 308, Location: https://app.atmemli.com/wp-login.php
+curl -sI http://app.atmemli.com/                → HTTP/1.1 308, Location: https://app.atmemli.com/  (preserved)
+curl -sI https://app.atmemli.com/               → HTTP/2 200 (marketplace SPA, preserved)
+curl -sI https://app.atmemli.com/api/healthz    → HTTP/2 200 {"status":"ok"} (preserved)
+# ACME renewal smoke (Caddy logs after next renewal cycle):
+docker compose -f /opt/atmemly/app/infra/aws/docker-compose.tls.yml logs caddy | grep -i 'certificate obtained\|renewed'
+```
+
+The probe table at the top of this file has been updated to reflect
+the new behaviour for `http://63.34.129.118/`.
+
+The EC2 security group still keeps :80 open (so the ACME HTTP-01
+challenge keeps working and the canonical-host HTTP redirect keeps
+serving non-HTTPS clients); the only thing that changed is what
+Caddy *does* with port-80 traffic. Closing :80 in the SG entirely is
+out of scope for this task because it would break ACME renewal.
 
 ## Outage + recovery on May 03, 2026 (task #38)
 
