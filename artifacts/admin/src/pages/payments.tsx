@@ -91,6 +91,7 @@ export default function AdminPayments() {
         onCsvExport={() => {
           const params = new URLSearchParams();
           if (statusFilter && statusFilter !== "all") params.set("status", statusFilter);
+          if (search.trim()) params.set("q", search.trim());
           const qs = params.toString();
           return downloadCsv(`/admin/payments.csv${qs ? `?${qs}` : ""}`, "payments.csv");
         }}

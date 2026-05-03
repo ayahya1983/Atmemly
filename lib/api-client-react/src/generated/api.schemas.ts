@@ -1069,6 +1069,31 @@ export type ListReviewsParams = {
   userId?: number;
 };
 
+export type AdminExportUsersCsvParams = {
+  q?: string;
+  role?: AdminExportUsersCsvRole;
+  status?: string;
+  dateFrom?: string;
+  dateTo?: string;
+};
+
+export type AdminExportUsersCsvRole =
+  (typeof AdminExportUsersCsvRole)[keyof typeof AdminExportUsersCsvRole];
+
+export const AdminExportUsersCsvRole = {
+  client: "client",
+  freelancer: "freelancer",
+  admin: "admin",
+} as const;
+
+export type AdminExportPaymentsCsvParams = {
+  q?: string;
+  status?: string;
+  currency?: string;
+  dateFrom?: string;
+  dateTo?: string;
+};
+
 export type AdminListVerificationsParams = {
   status?: string;
 };

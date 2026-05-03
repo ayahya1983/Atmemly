@@ -717,6 +717,38 @@ export const AdminListUsersResponseItem = zod.object({
 });
 export const AdminListUsersResponse = zod.array(AdminListUsersResponseItem);
 
+/**
+ * Server-side CSV export. Honors the same filters as the admin UI
+(`q`, `role`, `status`, `dateFrom`, `dateTo`) and streams the rows
+directly from Postgres so big tenants can export thousands of users
+without freezing the browser or the API process.
+
+ * @summary Stream the full filtered users list as CSV.
+ */
+export const AdminExportUsersCsvQueryParams = zod.object({
+  q: zod.coerce.string().optional(),
+  role: zod.enum(["client", "freelancer", "admin"]).optional(),
+  status: zod.coerce.string().optional(),
+  dateFrom: zod.date().optional(),
+  dateTo: zod.date().optional(),
+});
+
+/**
+ * Server-side CSV export. Honors the same filters as the admin UI
+(`q`, `status`, `currency`, `dateFrom`, `dateTo`) and streams rows
+directly from Postgres so exports of large payment histories don't
+time out or exhaust memory.
+
+ * @summary Stream the full filtered payments list as CSV.
+ */
+export const AdminExportPaymentsCsvQueryParams = zod.object({
+  q: zod.coerce.string().optional(),
+  status: zod.coerce.string().optional(),
+  currency: zod.coerce.string().optional(),
+  dateFrom: zod.date().optional(),
+  dateTo: zod.date().optional(),
+});
+
 export const AdminUpdateUserStatusParams = zod.object({
   id: zod.coerce.number(),
 });

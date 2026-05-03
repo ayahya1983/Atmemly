@@ -18,6 +18,8 @@ import type {
 
 import type {
   AdminAnalytics,
+  AdminExportPaymentsCsvParams,
+  AdminExportUsersCsvParams,
   AdminListAuditLogsParams,
   AdminListSsoAuditParams,
   AdminListVerificationsParams,
@@ -2774,6 +2776,216 @@ export function useAdminListUsers<
   request?: SecondParameter<typeof customFetch>;
 }): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
   const queryOptions = getAdminListUsersQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * Server-side CSV export. Honors the same filters as the admin UI
+(`q`, `role`, `status`, `dateFrom`, `dateTo`) and streams the rows
+directly from Postgres so big tenants can export thousands of users
+without freezing the browser or the API process.
+
+ * @summary Stream the full filtered users list as CSV.
+ */
+export const getAdminExportUsersCsvUrl = (
+  params?: AdminExportUsersCsvParams,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/admin/users.csv?${stringifiedParams}`
+    : `/api/admin/users.csv`;
+};
+
+export const adminExportUsersCsv = async (
+  params?: AdminExportUsersCsvParams,
+  options?: RequestInit,
+): Promise<Blob> => {
+  return customFetch<Blob>(getAdminExportUsersCsvUrl(params), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getAdminExportUsersCsvQueryKey = (
+  params?: AdminExportUsersCsvParams,
+) => {
+  return [`/api/admin/users.csv`, ...(params ? [params] : [])] as const;
+};
+
+export const getAdminExportUsersCsvQueryOptions = <
+  TData = Awaited<ReturnType<typeof adminExportUsersCsv>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: AdminExportUsersCsvParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof adminExportUsersCsv>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getAdminExportUsersCsvQueryKey(params);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof adminExportUsersCsv>>
+  > = ({ signal }) =>
+    adminExportUsersCsv(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof adminExportUsersCsv>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type AdminExportUsersCsvQueryResult = NonNullable<
+  Awaited<ReturnType<typeof adminExportUsersCsv>>
+>;
+export type AdminExportUsersCsvQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Stream the full filtered users list as CSV.
+ */
+
+export function useAdminExportUsersCsv<
+  TData = Awaited<ReturnType<typeof adminExportUsersCsv>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: AdminExportUsersCsvParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof adminExportUsersCsv>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getAdminExportUsersCsvQueryOptions(params, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+/**
+ * Server-side CSV export. Honors the same filters as the admin UI
+(`q`, `status`, `currency`, `dateFrom`, `dateTo`) and streams rows
+directly from Postgres so exports of large payment histories don't
+time out or exhaust memory.
+
+ * @summary Stream the full filtered payments list as CSV.
+ */
+export const getAdminExportPaymentsCsvUrl = (
+  params?: AdminExportPaymentsCsvParams,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/admin/payments.csv?${stringifiedParams}`
+    : `/api/admin/payments.csv`;
+};
+
+export const adminExportPaymentsCsv = async (
+  params?: AdminExportPaymentsCsvParams,
+  options?: RequestInit,
+): Promise<Blob> => {
+  return customFetch<Blob>(getAdminExportPaymentsCsvUrl(params), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getAdminExportPaymentsCsvQueryKey = (
+  params?: AdminExportPaymentsCsvParams,
+) => {
+  return [`/api/admin/payments.csv`, ...(params ? [params] : [])] as const;
+};
+
+export const getAdminExportPaymentsCsvQueryOptions = <
+  TData = Awaited<ReturnType<typeof adminExportPaymentsCsv>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: AdminExportPaymentsCsvParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof adminExportPaymentsCsv>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getAdminExportPaymentsCsvQueryKey(params);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof adminExportPaymentsCsv>>
+  > = ({ signal }) =>
+    adminExportPaymentsCsv(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof adminExportPaymentsCsv>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type AdminExportPaymentsCsvQueryResult = NonNullable<
+  Awaited<ReturnType<typeof adminExportPaymentsCsv>>
+>;
+export type AdminExportPaymentsCsvQueryError = ErrorType<unknown>;
+
+/**
+ * @summary Stream the full filtered payments list as CSV.
+ */
+
+export function useAdminExportPaymentsCsv<
+  TData = Awaited<ReturnType<typeof adminExportPaymentsCsv>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: AdminExportPaymentsCsvParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof adminExportPaymentsCsv>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getAdminExportPaymentsCsvQueryOptions(params, options);
 
   const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
     queryKey: QueryKey;

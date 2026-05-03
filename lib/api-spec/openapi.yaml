@@ -589,6 +589,74 @@ paths:
                 type: array
                 items:
                   $ref: "#/components/schemas/AdminUser"
+  /admin/users.csv:
+    get:
+      operationId: adminExportUsersCsv
+      tags: [admin]
+      summary: Stream the full filtered users list as CSV.
+      description: |
+        Server-side CSV export. Honors the same filters as the admin UI
+        (`q`, `role`, `status`, `dateFrom`, `dateTo`) and streams the rows
+        directly from Postgres so big tenants can export thousands of users
+        without freezing the browser or the API process.
+      parameters:
+        - in: query
+          name: q
+          schema: { type: string }
+        - in: query
+          name: role
+          schema: { type: string, enum: [client, freelancer, admin] }
+        - in: query
+          name: status
+          schema: { type: string }
+        - in: query
+          name: dateFrom
+          schema: { type: string, format: date-time }
+        - in: query
+          name: dateTo
+          schema: { type: string, format: date-time }
+      responses:
+        "200":
+          description: CSV stream of users.
+          content:
+            text/csv:
+              schema:
+                type: string
+                format: binary
+  /admin/payments.csv:
+    get:
+      operationId: adminExportPaymentsCsv
+      tags: [admin]
+      summary: Stream the full filtered payments list as CSV.
+      description: |
+        Server-side CSV export. Honors the same filters as the admin UI
+        (`q`, `status`, `currency`, `dateFrom`, `dateTo`) and streams rows
+        directly from Postgres so exports of large payment histories don't
+        time out or exhaust memory.
+      parameters:
+        - in: query
+          name: q
+          schema: { type: string }
+        - in: query
+          name: status
+          schema: { type: string }
+        - in: query
+          name: currency
+          schema: { type: string }
+        - in: query
+          name: dateFrom
+          schema: { type: string, format: date-time }
+        - in: query
+          name: dateTo
+          schema: { type: string, format: date-time }
+      responses:
+        "200":
+          description: CSV stream of payments.
+          content:
+            text/csv:
+              schema:
+                type: string
+                format: binary
   /admin/users/{id}/status:
     patch:
       operationId: adminUpdateUserStatus

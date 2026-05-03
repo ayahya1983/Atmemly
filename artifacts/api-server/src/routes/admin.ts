@@ -1,5 +1,6 @@
 import { Router, type IRouter } from "express";
-import { eq, sql, desc, and, gte, lte } from "drizzle-orm";
+import { eq, sql, desc, and, or, ilike, gte, lte, lt, inArray } from "drizzle-orm";
+import type { Response } from "express";
 import {
   db,
   usersTable,
@@ -581,14 +582,21 @@ router.post("/complaints", requireAuth, async (req, res): Promise<void> => {
 
 // ---------------------------------------------------------------------------
 // Server-side CSV export endpoints. These stream the full filtered dataset
-// without loading every row into the browser, which was previously the only
-// way the admin UI could export users / payments. The endpoints are
-// admin-only and emit RFC 4180 CSV with a header row.
+// directly from Postgres in keyset-paginated batches so we never materialize
+// every row in memory and stay responsive for tables with thousands of rows.
+// All filters/search are pushed to SQL so the export matches what the admin
+// sees on screen. The endpoints are admin-only and emit RFC 4180 CSV with a
+// header row, neutralizing leading characters that spreadsheet apps would
+// otherwise interpret as formulas.
 // ---------------------------------------------------------------------------
+
+const CSV_BATCH_SIZE = 1000;
 
 function csvEscape(val: unknown): string {
   if (val === null || val === undefined) return "";
-  const s = String(val);
+  let s = typeof val === "string" ? val : String(val);
+  // Spreadsheet formula injection guard (Excel/Sheets/LibreOffice).
+  if (/^[=+\-@\t\r]/.test(s)) s = "'" + s;
   if (/[",\n\r]/.test(s)) return `"${s.replace(/"/g, '""')}"`;
   return s;
 }
@@ -597,45 +605,124 @@ function csvRow(values: unknown[]): string {
   return values.map(csvEscape).join(",");
 }
 
+/**
+ * Write a chunk to the response, awaiting the drain event when the socket
+ * buffer is full. Without this, large exports balloon Node's memory because
+ * `res.write` returns false but we keep pushing.
+ */
+function writeWithBackpressure(res: Response, chunk: string): Promise<void> {
+  if (res.write(chunk)) return Promise.resolve();
+  return new Promise<void>((resolve) => {
+    res.once("drain", () => resolve());
+  });
+}
+
+function startCsvDownload(res: Response, filename: string, headerRow: string[]): Promise<void> {
+  res.setHeader("Content-Type", "text/csv; charset=utf-8");
+  res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+  res.setHeader("Cache-Control", "no-store");
+  // Prefix UTF-8 BOM so Excel detects the encoding correctly for non-ASCII
+  // names (Arabic/Spanish/etc).
+  return writeWithBackpressure(res, "\uFEFF" + csvRow(headerRow) + "\n");
+}
+
 router.get(
   "/admin/users.csv",
   requireAuth,
   requireRole("admin"),
   async (req, res): Promise<void> => {
-    const role = typeof req.query.role === "string" ? req.query.role : undefined;
-    const q = typeof req.query.q === "string" ? req.query.q.trim().toLowerCase() : "";
+    const roleRaw = typeof req.query["role"] === "string" ? req.query["role"] : undefined;
+    const statusRaw = typeof req.query["status"] === "string" ? req.query["status"] : undefined;
+    const q = typeof req.query["q"] === "string" ? req.query["q"].trim() : "";
+    const dateFrom = typeof req.query["dateFrom"] === "string" ? req.query["dateFrom"] : undefined;
+    const dateTo = typeof req.query["dateTo"] === "string" ? req.query["dateTo"] : undefined;
+
     const conds = [];
-    if (role && role !== "all") conds.push(eq(usersTable.role, role as "admin" | "client" | "freelancer"));
-    const baseQuery = db.select().from(usersTable);
-    const rows = await (conds.length
-      ? baseQuery.where(and(...conds))
-      : baseQuery
-    ).orderBy(desc(usersTable.createdAt));
-    const filtered = q
-      ? rows.filter(
-          (u) =>
-            u.fullName.toLowerCase().includes(q) ||
-            u.email.toLowerCase().includes(q),
-        )
-      : rows;
-    res.setHeader("Content-Type", "text/csv; charset=utf-8");
-    res.setHeader("Content-Disposition", `attachment; filename="users.csv"`);
-    res.write(
-      csvRow(["id", "email", "fullName", "role", "status", "country", "city", "createdAt"]) + "\n",
-    );
-    for (const u of filtered) {
-      res.write(
-        csvRow([
-          u.id,
-          u.email,
-          u.fullName,
-          u.role,
-          u.status,
-          u.country,
-          u.city,
-          u.createdAt instanceof Date ? u.createdAt.toISOString() : u.createdAt,
-        ]) + "\n",
+    if (roleRaw && roleRaw !== "all") {
+      conds.push(eq(usersTable.role, roleRaw as "admin" | "client" | "freelancer"));
+    }
+    if (statusRaw && statusRaw !== "all") {
+      conds.push(
+        eq(
+          usersTable.status,
+          statusRaw as "active" | "suspended" | "banned" | "deleted" | "pending_email_verification",
+        ),
       );
+    }
+    if (dateFrom) {
+      const d = new Date(dateFrom);
+      if (!isNaN(d.getTime())) conds.push(gte(usersTable.createdAt, d));
+    }
+    if (dateTo) {
+      const d = new Date(dateTo);
+      if (!isNaN(d.getTime())) conds.push(lte(usersTable.createdAt, d));
+    }
+    if (q) {
+      const like = `%${q}%`;
+      conds.push(
+        or(
+          ilike(usersTable.email, like),
+          ilike(usersTable.fullName, like),
+          ilike(usersTable.phone, like),
+        )!,
+      );
+    }
+
+    await startCsvDownload(res, "users.csv", [
+      "id",
+      "email",
+      "fullName",
+      "role",
+      "status",
+      "phone",
+      "country",
+      "city",
+      "emailVerifiedAt",
+      "createdAt",
+    ]);
+
+    let lastId: number | null = null;
+    for (;;) {
+      const batchConds = [...conds];
+      if (lastId !== null) batchConds.push(lt(usersTable.id, lastId));
+      const rows = await db
+        .select({
+          id: usersTable.id,
+          email: usersTable.email,
+          fullName: usersTable.fullName,
+          role: usersTable.role,
+          status: usersTable.status,
+          phone: usersTable.phone,
+          country: usersTable.country,
+          city: usersTable.city,
+          emailVerifiedAt: usersTable.emailVerifiedAt,
+          createdAt: usersTable.createdAt,
+        })
+        .from(usersTable)
+        .where(batchConds.length ? and(...batchConds) : undefined)
+        .orderBy(desc(usersTable.id))
+        .limit(CSV_BATCH_SIZE);
+      if (rows.length === 0) break;
+      let buf = "";
+      for (const u of rows) {
+        buf +=
+          csvRow([
+            u.id,
+            u.email,
+            u.fullName,
+            u.role,
+            u.status,
+            u.phone,
+            u.country,
+            u.city,
+            u.emailVerifiedAt instanceof Date ? u.emailVerifiedAt.toISOString() : u.emailVerifiedAt,
+            u.createdAt instanceof Date ? u.createdAt.toISOString() : u.createdAt,
+          ]) + "\n";
+      }
+      await writeWithBackpressure(res, buf);
+      if (rows.length < CSV_BATCH_SIZE) break;
+      lastId = rows[rows.length - 1]!.id;
+      if (res.destroyed || res.writableEnded) return;
     }
     res.end();
   },
@@ -646,41 +733,148 @@ router.get(
   requireAuth,
   requireRole("admin"),
   async (req, res): Promise<void> => {
-    const status = typeof req.query.status === "string" ? req.query.status : undefined;
+    const statusRaw = typeof req.query["status"] === "string" ? req.query["status"] : undefined;
+    const q = typeof req.query["q"] === "string" ? req.query["q"].trim() : "";
+    const currency = typeof req.query["currency"] === "string" ? req.query["currency"] : undefined;
+    const dateFrom = typeof req.query["dateFrom"] === "string" ? req.query["dateFrom"] : undefined;
+    const dateTo = typeof req.query["dateTo"] === "string" ? req.query["dateTo"] : undefined;
+
     const conds = [];
-    if (status && status !== "all") conds.push(eq(paymentsTable.status, status as "paid" | "pending" | "refunded" | "failed"));
-    const baseQuery = db.select().from(paymentsTable);
-    const rows = await (conds.length
-      ? baseQuery.where(and(...conds))
-      : baseQuery
-    ).orderBy(desc(paymentsTable.createdAt));
-    res.setHeader("Content-Type", "text/csv; charset=utf-8");
-    res.setHeader("Content-Disposition", `attachment; filename="payments.csv"`);
-    res.write(
-      csvRow([
-        "id",
-        "jobId",
-        "payerId",
-        "payeeId",
-        "amount",
-        "currency",
-        "status",
-        "createdAt",
-      ]) + "\n",
-    );
-    for (const p of rows) {
-      res.write(
-        csvRow([
-          p.id,
-          p.jobId,
-          p.payerId,
-          p.payeeId,
-          p.amount,
-          p.currency,
-          p.status,
-          p.createdAt instanceof Date ? p.createdAt.toISOString() : p.createdAt,
-        ]) + "\n",
+    if (statusRaw && statusRaw !== "all") {
+      conds.push(
+        eq(paymentsTable.status, statusRaw as "paid" | "pending" | "refunded" | "failed"),
       );
+    }
+    if (currency) conds.push(eq(paymentsTable.currency, currency));
+    if (dateFrom) {
+      const d = new Date(dateFrom);
+      if (!isNaN(d.getTime())) conds.push(gte(paymentsTable.createdAt, d));
+    }
+    if (dateTo) {
+      const d = new Date(dateTo);
+      if (!isNaN(d.getTime())) conds.push(lte(paymentsTable.createdAt, d));
+    }
+    if (q) {
+      const like = `%${q}%`;
+      // Resolve the search to candidate user/job ids in single round-trips so
+      // the streaming loop stays simple and uses indexes on payments.
+      const [matchingUsers, matchingJobs] = await Promise.all([
+        db
+          .select({ id: usersTable.id })
+          .from(usersTable)
+          .where(or(ilike(usersTable.fullName, like), ilike(usersTable.email, like))!),
+        db
+          .select({ id: jobsTable.id })
+          .from(jobsTable)
+          .where(ilike(jobsTable.title, like)),
+      ]);
+      const userIds = matchingUsers.map((r) => r.id);
+      const jobIds = matchingJobs.map((r) => r.id);
+      const orParts = [] as ReturnType<typeof eq>[];
+      if (userIds.length) {
+        orParts.push(inArray(paymentsTable.payerId, userIds));
+        orParts.push(inArray(paymentsTable.payeeId, userIds));
+      }
+      if (jobIds.length) orParts.push(inArray(paymentsTable.jobId, jobIds));
+      if (orParts.length === 0) {
+        // No users or jobs matched the search — short-circuit to header only.
+        await startCsvDownload(res, "payments.csv", [
+          "id",
+          "jobId",
+          "jobTitle",
+          "payerId",
+          "payerName",
+          "payeeId",
+          "payeeName",
+          "amount",
+          "currency",
+          "status",
+          "invoiceNumber",
+          "createdAt",
+        ]);
+        res.end();
+        return;
+      }
+      conds.push(or(...orParts)!);
+    }
+
+    await startCsvDownload(res, "payments.csv", [
+      "id",
+      "jobId",
+      "jobTitle",
+      "payerId",
+      "payerName",
+      "payeeId",
+      "payeeName",
+      "amount",
+      "currency",
+      "status",
+      "invoiceNumber",
+      "createdAt",
+    ]);
+
+    let lastId: number | null = null;
+    for (;;) {
+      const batchConds = [...conds];
+      if (lastId !== null) batchConds.push(lt(paymentsTable.id, lastId));
+      // Drizzle doesn't easily support double-aliasing the same table for
+      // payer/payee, so we fetch the payments page first then resolve display
+      // names in a second batched lookup. This keeps the working set bounded
+      // by CSV_BATCH_SIZE and avoids the N+1 the old endpoint had.
+      const rows = await db
+        .select()
+        .from(paymentsTable)
+        .where(batchConds.length ? and(...batchConds) : undefined)
+        .orderBy(desc(paymentsTable.id))
+        .limit(CSV_BATCH_SIZE);
+      if (rows.length === 0) break;
+
+      const userIdSet = new Set<number>();
+      const jobIdSet = new Set<number>();
+      for (const p of rows) {
+        userIdSet.add(p.payerId);
+        userIdSet.add(p.payeeId);
+        jobIdSet.add(p.jobId);
+      }
+      const [users, jobs] = await Promise.all([
+        userIdSet.size
+          ? db
+              .select({ id: usersTable.id, fullName: usersTable.fullName })
+              .from(usersTable)
+              .where(inArray(usersTable.id, Array.from(userIdSet)))
+          : Promise.resolve([] as Array<{ id: number; fullName: string }>),
+        jobIdSet.size
+          ? db
+              .select({ id: jobsTable.id, title: jobsTable.title })
+              .from(jobsTable)
+              .where(inArray(jobsTable.id, Array.from(jobIdSet)))
+          : Promise.resolve([] as Array<{ id: number; title: string }>),
+      ]);
+      const userById = new Map(users.map((u) => [u.id, u.fullName]));
+      const jobById = new Map(jobs.map((j) => [j.id, j.title]));
+
+      let buf = "";
+      for (const p of rows) {
+        buf +=
+          csvRow([
+            p.id,
+            p.jobId,
+            jobById.get(p.jobId) ?? "",
+            p.payerId,
+            userById.get(p.payerId) ?? "",
+            p.payeeId,
+            userById.get(p.payeeId) ?? "",
+            p.amount,
+            p.currency,
+            p.status,
+            p.invoiceNumber,
+            p.createdAt instanceof Date ? p.createdAt.toISOString() : p.createdAt,
+          ]) + "\n";
+      }
+      await writeWithBackpressure(res, buf);
+      if (rows.length < CSV_BATCH_SIZE) break;
+      lastId = rows[rows.length - 1]!.id;
+      if (res.destroyed || res.writableEnded) return;
     }
     res.end();
   },

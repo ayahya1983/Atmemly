@@ -135,7 +135,7 @@ export default function AdminUsers() {
         bulkActions={bulkActions}
         onCsvExport={() => {
           const params = new URLSearchParams();
-          if (search) params.set("q", search);
+          if (search.trim()) params.set("q", search.trim());
           if (roleFilter && roleFilter !== "all") params.set("role", roleFilter);
           const qs = params.toString();
           return downloadCsv(`/admin/users.csv${qs ? `?${qs}` : ""}`, "users.csv");
