@@ -60,7 +60,7 @@ jobs:
             --document-name "AWS-RunShellScript" \
             --comment "${COMMENT}" \
             --cloud-watch-output-config "CloudWatchOutputEnabled=true" \
-            --parameters "commands=[\"set -euo pipefail\",\"export SEED=${SEED}\",\"sudo -E ${DEPLOY_SCRIPT}\"]" \
+            --parameters "commands=[\"sudo -E SEED=${SEED} ${DEPLOY_SCRIPT}\"]" \
             --query "Command.CommandId" \
             --output text)
           echo "command_id=${CMD_ID}" >> "${GITHUB_OUTPUT}"

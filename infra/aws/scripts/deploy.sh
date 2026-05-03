@@ -111,21 +111,31 @@ echo "==> Extracting admin static bundle"
 extract_static artifacts/admin atmemly_admin_static
 
 echo "==> Pushing database schema (drizzle-kit push)"
+# NOTE: --env NODE_ENV=development must come AFTER --env-file so it
+# overrides the production value baked into /opt/atmemly/.env. With
+# NODE_ENV=production, pnpm skips devDependencies and drizzle-kit
+# (a devDep of @workspace/db) is never installed.
 docker run --rm \
   --env-file "${ENV_FILE}" \
+  --env NODE_ENV=development \
+  --env npm_config_frozen_lockfile=false \
+  --env npm_config_confirm_modules_purge=false \
   -v "${APP_DIR}":/repo \
   -w /repo \
   node:20-bookworm-slim \
-  bash -lc "corepack enable && corepack prepare pnpm@9 --activate && pnpm install --filter @workspace/db... && pnpm --filter @workspace/db run push"
+  bash -lc "corepack enable && corepack prepare pnpm@9 --activate && pnpm install --prod=false --filter @workspace/db... && pnpm --filter @workspace/db run push"
 
 if [[ "${SEED}" == "1" ]]; then
   echo "==> Seeding database (DESTRUCTIVE — wipes data)"
   docker run --rm \
     --env-file "${ENV_FILE}" \
+    --env NODE_ENV=development \
+    --env npm_config_frozen_lockfile=false \
+    --env npm_config_confirm_modules_purge=false \
     -v "${APP_DIR}":/repo \
     -w /repo \
     node:20-bookworm-slim \
-    bash -lc "corepack enable && corepack prepare pnpm@9 --activate && pnpm install --filter @workspace/api-server... && pnpm --filter @workspace/api-server run seed"
+    bash -lc "corepack enable && corepack prepare pnpm@9 --activate && pnpm install --prod=false --filter @workspace/api-server... && pnpm --filter @workspace/api-server run seed"
 fi
 
 echo "==> Restarting containers"

@@ -27,6 +27,24 @@ locals {
   github_oidc_enabled = var.github_owner != "" && var.github_repo != ""
 }
 
+# Look up the app instance by Name tag instead of referencing aws_instance.app
+# directly. This keeps the OIDC stack self-contained so it can be planned/applied
+# (or imported) without requiring the rest of the infra resources to be in this
+# Terraform state. The Name tag is set by the aws_instance.app resource above.
+data "aws_instance" "app_for_oidc" {
+  count = local.github_oidc_enabled ? 1 : 0
+
+  filter {
+    name   = "tag:Name"
+    values = ["${var.project}-app"]
+  }
+
+  filter {
+    name   = "instance-state-name"
+    values = ["pending", "running", "stopping", "stopped"]
+  }
+}
+
 # One OIDC provider per AWS account is enough; Terraform-manages it here.
 resource "aws_iam_openid_connect_provider" "github" {
   count           = local.github_oidc_enabled ? 1 : 0
@@ -82,7 +100,7 @@ data "aws_iam_policy_document" "github_deploy" {
     effect  = "Allow"
     actions = ["ssm:SendCommand"]
     resources = [
-      "arn:aws:ec2:${var.region}:*:instance/${aws_instance.app.id}",
+      "arn:aws:ec2:${var.region}:*:instance/${data.aws_instance.app_for_oidc[0].id}",
       "arn:aws:ssm:${var.region}::document/AWS-RunShellScript",
     ]
   }
@@ -114,6 +132,6 @@ output "github_deploy_role_arn" {
 }
 
 output "github_deploy_instance_id" {
-  value       = aws_instance.app.id
+  value       = local.github_oidc_enabled ? data.aws_instance.app_for_oidc[0].id : ""
   description = "Set this as the EC2_INSTANCE_ID GitHub Actions variable."
 }

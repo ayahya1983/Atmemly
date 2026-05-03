@@ -100,6 +100,144 @@ then SSH in with the OLD key one last time, append the NEW pubkey to
 `~/.ssh/authorized_keys` on the EC2 host, and remove the old line —
 AWS does not push key changes to running instances.
 
+## First GitHub Actions deploy (May 03, 2026)
+
+CI/CD via OIDC is live. Pushes to `main` on
+`https://github.com/ayahya1983/Atmemly` automatically deploy.
+
+| Item                       | Value                                                              |
+| -------------------------- | ------------------------------------------------------------------ |
+| Workflow                   | `.github/workflows/deploy-prod.yml`                                |
+| First green run            | https://github.com/ayahya1983/Atmemly/actions/runs/25272656676     |
+| Commit SHA deployed        | `575a8bda2f147dbc610c4ee95c7ebbb2dbebe26c`                         |
+| OIDC role ARN              | `arn:aws:iam::670687146435:role/atmemly-github-deploy`             |
+| EC2 instance ID            | `i-09d44904cddfaa638`                                              |
+| SSM CommandId (run 8)      | `7d1b99d3-13d0-4bda-abda-549e2f39ddfb`                             |
+| Final SSM status           | `Success`                                                          |
+
+GitHub Actions repository **Variables** (Settings → Secrets and variables → Actions → Variables):
+
+- `AWS_DEPLOY_ROLE_ARN` = `arn:aws:iam::670687146435:role/atmemly-github-deploy`
+- `EC2_INSTANCE_ID` = `i-09d44904cddfaa638`
+- `AWS_REGION` = `eu-west-1`
+
+The OIDC trust policy only accepts:
+
+- `repo:ayahya1983/Atmemly:ref:refs/heads/main` (push to `main`)
+- `repo:ayahya1983/Atmemly:environment:prod` (manual `workflow_dispatch`
+  if/when you wire up a `prod` GitHub Environment)
+
+The role's IAM policy allows only `ssm:SendCommand` against the single
+EC2 instance + `AWS-RunShellScript`, plus read-only `ssm:Get/List/Describe`
+calls used by the workflow to poll command status.
+
+**These resources are Terraform-managed.** They were originally
+provisioned via direct `aws iam` CLI calls (because the local
+Terraform state for the rest of the live stack — VPC, EC2, RDS, S3 —
+had been lost between task runs and there's no remote backend yet,
+so a blind `terraform apply` would have tried to recreate the live
+infrastructure). They have since been imported into `infra/aws/terraform`
+state and the OIDC stack is the only part of the stack currently
+under Terraform control. To reconcile or change them in the future:
+
+```bash
+cd infra/aws/terraform
+terraform init
+terraform plan  -var github_owner=ayahya1983 -var github_repo=Atmemly \
+  -target='aws_iam_openid_connect_provider.github[0]' \
+  -target='aws_iam_role.github_deploy[0]' \
+  -target='aws_iam_role_policy.github_deploy[0]'
+terraform apply -var github_owner=ayahya1983 -var github_repo=Atmemly \
+  -target='aws_iam_openid_connect_provider.github[0]' \
+  -target='aws_iam_role.github_deploy[0]' \
+  -target='aws_iam_role_policy.github_deploy[0]'
+terraform output github_deploy_role_arn
+terraform output github_deploy_instance_id
+```
+
+The two outputs above are the canonical source for the GitHub
+Actions repository Variables — paste them verbatim into
+`AWS_DEPLOY_ROLE_ARN` and `EC2_INSTANCE_ID`.
+
+`github_oidc.tf` looks the EC2 instance up via a `data "aws_instance"
+"app_for_oidc"` filter on `tag:Name = atmemly-app` so the OIDC stack
+can be planned/applied independently of `aws_instance.app` (which is
+not yet in this Terraform state). When the rest of the infra is
+eventually re-imported into Terraform under a remote backend, the
+data source can stay as-is or be swapped back to a direct
+`aws_instance.app.id` reference; both yield the same instance ID.
+
+If you ever need to re-bootstrap from a totally empty state, the
+import commands are:
+
+```bash
+terraform import \
+  -var github_owner=ayahya1983 -var github_repo=Atmemly \
+  'aws_iam_openid_connect_provider.github[0]' \
+  arn:aws:iam::670687146435:oidc-provider/token.actions.githubusercontent.com
+terraform import \
+  -var github_owner=ayahya1983 -var github_repo=Atmemly \
+  'aws_iam_role.github_deploy[0]' atmemly-github-deploy
+terraform import \
+  -var github_owner=ayahya1983 -var github_repo=Atmemly \
+  'aws_iam_role_policy.github_deploy[0]' \
+  atmemly-github-deploy:atmemly-github-deploy
+```
+
+A remote Terraform state (S3 + DynamoDB lock) and importing the rest
+of the live stack are tracked as a follow-up — without those, the
+local `terraform.tfstate` is gitignored and only lives on whichever
+machine last ran `terraform apply`.
+
+### Trigger a deploy
+
+```bash
+# Push-triggered (no seed):
+git push origin main
+
+# Manual run from the GitHub Actions UI ("Run workflow"):
+#   ↳ workflow: Deploy to production
+#   ↳ ref:      main
+#   ↳ seed:     false   (set true ONLY for the rare destructive reseed)
+```
+
+### Tail / debug a run
+
+```bash
+gh run list  --workflow=deploy-prod.yml --limit 5
+gh run view  <run-id> --log-failed
+# or, server-side:
+aws ssm get-command-invocation --region eu-west-1 \
+  --instance-id i-09d44904cddfaa638 \
+  --command-id <command-id> --query 'StandardOutputContent' --output text
+```
+
+### Fixes applied to make the first run green
+
+1. `.github/workflows/deploy-prod.yml` — SSM `AWS-RunShellScript`
+   executes each `commands[]` entry under `/bin/sh` (dash). The
+   original wrapper passed `set -euo pipefail` as a separate command
+   which dash rejects with `Illegal option -o pipefail`. Now passes a
+   single `sudo -E SEED=… deploy.sh` line and trusts the script's own
+   `#!/usr/bin/env bash` + `set -euo pipefail`.
+2. `infra/aws/scripts/deploy.sh` — schema-push (and seed) container
+   now sets `--env NODE_ENV=development`,
+   `--env npm_config_frozen_lockfile=false`, and
+   `--env npm_config_confirm_modules_purge=false` on the `docker run`.
+   - `NODE_ENV=development` so pnpm installs devDependencies (otherwise
+     `drizzle-kit`, a devDep of `@workspace/db`, is missing and
+     `pnpm run push` exits with `spawn ENOENT`).
+   - `npm_config_frozen_lockfile=false` because the workspace lockfile
+     has overrides drift; pnpm 9 otherwise refuses with
+     `ERR_PNPM_LOCKFILE_CONFIG_MISMATCH`.
+   - `npm_config_confirm_modules_purge=false` to skip the interactive
+     "remove and reinstall? Y/n" prompt that pnpm 9 raises when the
+     existing `node_modules` doesn't match the lockfile layout.
+3. `/opt/atmemly/app` on the EC2 host was re-created from a fresh
+   `git clone https://github.com/ayahya1983/Atmemly.git` so subsequent
+   in-script `git fetch`/`git reset --hard origin/main` works (the
+   directory previously had no `.git`, which forced `SKIP_GIT=1`).
+
 ## Redeploy
 
 The deploy script lives at `/opt/atmemly/app/infra/aws/scripts/deploy.sh`
