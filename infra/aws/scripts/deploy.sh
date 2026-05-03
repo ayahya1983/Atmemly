@@ -58,8 +58,24 @@ if ! sudo grep -qE '^DATABASE_URL=.+' "${ENV_FILE}"; then
   exit 1
 fi
 
-# Re-evaluate TLS mode after sourcing the SSM env so the operator can drive
+# Re-evaluate TLS mode after refreshing the SSM env so the operator can drive
 # it entirely from Parameter Store (/atmemly/ATMEMLY_DOMAIN, /atmemly/ATMEMLY_ACME_EMAIL).
+# The env file is NOT `source`d (values may contain shell-significant chars),
+# so we parse the two TLS knobs out of it with grep and export them into this
+# shell. Without this, the GH Actions deploy path (which doesn't pass
+# ATMEMLY_DOMAIN via `sudo -E`) silently falls back to the HTTP-only stack
+# and tears down Caddy — exactly the regression that took the live site
+# offline on May 03, 2026.
+if [[ -z "${ATMEMLY_DOMAIN:-}" ]]; then
+  ATMEMLY_DOMAIN=$(sudo grep -E '^ATMEMLY_DOMAIN=' "${ENV_FILE}" | head -n1 | cut -d= -f2- || true)
+fi
+if [[ -z "${ATMEMLY_ACME_EMAIL:-}" ]]; then
+  ATMEMLY_ACME_EMAIL=$(sudo grep -E '^ATMEMLY_ACME_EMAIL=' "${ENV_FILE}" | head -n1 | cut -d= -f2- || true)
+fi
+# Strip any surrounding quotes (defensive — atmemly-fetch-env writes unquoted).
+ATMEMLY_DOMAIN="${ATMEMLY_DOMAIN%\"}"; ATMEMLY_DOMAIN="${ATMEMLY_DOMAIN#\"}"
+ATMEMLY_ACME_EMAIL="${ATMEMLY_ACME_EMAIL%\"}"; ATMEMLY_ACME_EMAIL="${ATMEMLY_ACME_EMAIL#\"}"
+
 if [[ -n "${ATMEMLY_DOMAIN:-}" && "${COMPOSE_FILE}" != *"docker-compose.tls.yml" ]]; then
   COMPOSE_FILE="${APP_DIR}/infra/aws/docker-compose.tls.yml"
   echo "==> TLS mode enabled (from SSM) for domain: ${ATMEMLY_DOMAIN}"

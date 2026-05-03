@@ -2,13 +2,91 @@
 
 ## Status: LIVE (May 03, 2026)
 
-The full single-box stack is up and serving traffic.
+The full single-box stack is up and serving HTTPS traffic on the customer
+domain.
 
 | URL                                       | Status |
 | ----------------------------------------- | ------ |
-| http://63.34.129.118/                     | 200 (marketplace SPA) |
-| http://63.34.129.118/admin/               | 200 (admin SPA, login screen) |
-| http://63.34.129.118/api/healthz          | 200 `{"status":"ok"}` |
+| https://app.atmemli.com/                  | 200 (marketplace SPA, HTTP/2, Caddy + nginx) |
+| https://app.atmemli.com/admin/            | 200 (admin SPA login screen) |
+| https://app.atmemli.com/api/healthz       | 200 `{"status":"ok"}` |
+| http://app.atmemli.com/                   | 308 → https://app.atmemli.com/ |
+| http://63.34.129.118/                     | 200 (direct EIP, plain HTTP — kept open in SG for legacy clients) |
+
+## Outage + recovery on May 03, 2026 (task #38)
+
+**Symptom.** `https://app.atmemli.com/` showed `ERR_QUIC_PROTOCOL_ERROR`
+in Chrome. Externally: TCP 443 was *connection refused*; TCP 80 was up
+and serving the marketplace SPA directly from the (no-Caddy) nginx
+container.
+
+**Root cause.** Two distinct bugs combined:
+
+1. `infra/aws/scripts/deploy.sh` claimed to "re-evaluate TLS mode after
+   sourcing the SSM env", but a few lines above explicitly *does not*
+   `source` `/opt/atmemly/.env` (values may contain shell-significant
+   chars and are consumed via `docker --env-file`). So
+   `${ATMEMLY_DOMAIN:-}` was never populated in the script's bash
+   environment when invoked by GitHub Actions (`sudo -E SEED=… deploy.sh`
+   does not pass `ATMEMLY_DOMAIN`). The script therefore fell back to
+   `docker-compose.prod.yml` (HTTP-only), tearing down the `caddy`
+   container and unbinding TCP 443.
+2. The previous TLS deploy had advertised `Alt-Svc: h3=":443"` to
+   browsers, but the EC2 security group only opens **TCP** 80/443 — UDP
+   443 is closed end-to-end. As soon as TCP 443 stopped responding,
+   Chrome reused the cached Alt-Svc, attempted QUIC over the closed
+   UDP/443, and surfaced `ERR_QUIC_PROTOCOL_ERROR` instead of falling
+   back cleanly.
+
+**Fixes that landed in this repo (so the next GH Actions deploy doesn't
+regress):**
+
+* `infra/aws/scripts/deploy.sh` — after `atmemly-fetch-env` writes
+  `/opt/atmemly/.env`, the script now `grep`s `ATMEMLY_DOMAIN` and
+  `ATMEMLY_ACME_EMAIL` out of the env file (without `source`-ing it)
+  and exports them. Both the TLS-vs-HTTP compose-file selector and the
+  caddy container then see them, regardless of how the script was
+  invoked. This is what the original SSM-driven TLS path was *supposed*
+  to do.
+* `infra/aws/caddy/Caddyfile.tpl` — added a top-level
+  `servers { protocols h1 h2 }` block so Caddy no longer advertises
+  HTTP/3 / sets `Alt-Svc`. Browsers now stick to HTTPS-over-TCP, which
+  matches what the SG actually allows. Verified externally: response
+  no longer carries an `alt-svc` header.
+
+**Recovery steps performed (May 03, 2026, ~07:26 UTC):**
+
+```bash
+# from this workspace, with AWS creds in env:
+tar czf /tmp/atmemly-infra.tgz -C <repo> infra/aws
+aws s3 cp /tmp/atmemly-infra.tgz s3://atmemly-uploads-f960865d/_deploy/
+
+aws ssm send-command --region eu-west-1 \
+  --instance-ids i-09d44904cddfaa638 \
+  --document-name AWS-RunShellScript \
+  --parameters 'commands=["aws s3 cp s3://atmemly-uploads-f960865d/_deploy/atmemly-infra.tgz /tmp/atmemly-infra.tgz --region eu-west-1 && sudo tar -xzf /tmp/atmemly-infra.tgz -C /opt/atmemly/app && sudo SKIP_GIT_PULL=1 /opt/atmemly/app/infra/aws/scripts/deploy.sh"]'
+# SSM CommandId: 3c4036f3-b5af-4162-8424-6752b3791170 — Status: Success
+```
+
+Post-fix smoke (resolves `app.atmemli.com → 63.34.129.118`):
+
+```
+https://app.atmemli.com/api/healthz   → 200 {"status":"ok"}
+https://app.atmemli.com/              → HTTP/2 200, server: Caddy + nginx/1.27.5
+https://app.atmemli.com/admin/        → HTTP/2 200
+http://app.atmemli.com/               → 308 → https://app.atmemli.com/
+Alt-Svc header                         → not present (HTTP/3 disabled)
+TLS cert                               → CN=app.atmemli.com, issuer Let's Encrypt E8,
+                                         valid May  3 05:42 2026 → Aug  1 05:42 2026
+```
+
+**Domain spelling note.** The customer-facing host is `app.atmemli.com`
+(spelled "atmemli", no `y`). The internal env var / SSM parameter is
+`ATMEMLY_DOMAIN` (spelled "atmemly", with `y`). The *value* of
+`ATMEMLY_DOMAIN` is `app.atmemli.com`, so DNS, the Let's Encrypt cert
+and the Caddy site block are all on the correct hostname. No rename of
+the SSM parameter was performed — that would have meant editing
+`atmemly-fetch-env`, the IAM policy and every other reference.
 
 ## Live values
 
