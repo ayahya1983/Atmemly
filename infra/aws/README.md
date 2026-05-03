@@ -131,36 +131,107 @@ curl -fsS http://<ec2_public_ip>/              # → marketplace HTML
 curl -fsS http://<ec2_public_ip>/admin/        # → admin HTML
 ```
 
-## 5. Attaching a custom domain (deferred — documented only)
+## 5. Attaching a custom domain over HTTPS
 
-Today the box is reachable on the Elastic IP only. When you're ready to
-point a domain at it, the path of least resistance is **Caddy on the box**
-for automatic HTTPS:
+The plain-HTTP-on-EIP stack (`docker-compose.prod.yml`) is the default.
+A second compose file, `docker-compose.tls.yml`, swaps in a **Caddy**
+container in front of the existing nginx:
+
+* Caddy publishes `:80` and `:443` on the host.
+* Caddy auto-issues + auto-renews a Let's Encrypt cert for whatever
+  hostname you set in `ATMEMLY_DOMAIN`.
+* nginx is moved from `ports: 80:80` to `expose: 80` (internal only).
+* HTTP→HTTPS is redirected automatically by Caddy.
+
+Port 443 is already open in `security_groups.tf`, so no SG change needed.
+
+### 5a. Worked example — `app.atmemli.com` on the customer's existing registrar
+
+This is the configuration the project is currently sized for (DNS for
+`atmemli.com` lives at the customer's registrar; we add **one** new
+record for the app subdomain and don't touch anything else):
 
 ```bash
-sudo apt-get install -y caddy
-# /etc/caddy/Caddyfile
-your-domain.com {
-    reverse_proxy localhost:80
-}
-sudo systemctl reload caddy
-# Caddy will fetch + renew a Let's Encrypt cert automatically.
+# 1. At the registrar (the existing host for atmemli.com), add:
+#      Type: A
+#      Name: app
+#      Value: <terraform output ec2_public_ip>
+#      TTL:   300
+#    Nothing else at the registrar needs to change. The apex
+#    atmemli.com and any other subdomains keep their current targets.
+
+# 2. Push the TLS settings into SSM so deploy.sh picks them up
+#    automatically on every redeploy.
+aws ssm put-parameter --region eu-west-1 --type String --overwrite \
+  --name /atmemly/ATMEMLY_DOMAIN     --value 'app.atmemli.com'
+aws ssm put-parameter --region eu-west-1 --type String --overwrite \
+  --name /atmemly/ATMEMLY_ACME_EMAIL --value 'admin@atmemli.com'
+aws ssm put-parameter --region eu-west-1 --type String --overwrite \
+  --name /atmemly/CORS_ORIGINS       --value 'https://app.atmemli.com'
+
+# 3. Wait for DNS to propagate (usually <5 min, occasionally up to TTL):
+dig +short app.atmemli.com    # should return the EIP
+
+# 4. Redeploy. deploy.sh sees ATMEMLY_DOMAIN in /opt/atmemly/.env and
+#    switches to docker-compose.tls.yml.
+ssh -i infra/aws/terraform/atmemly-ec2.pem ubuntu@<ec2_public_ip> \
+  "sudo /opt/atmemly/app/infra/aws/scripts/deploy.sh"
+
+# 5. Smoke
+curl -fsSI https://app.atmemli.com/                # 200
+curl -fsSI https://app.atmemli.com/api/healthz     # 200
+curl -fsSI http://app.atmemli.com/                 # 308 → https://...
 ```
 
-You'll also need:
+**Don't do this until DNS resolves to the EIP.** Caddy's HTTP-01 ACME
+challenge needs `app.atmemli.com → EIP` so Let's Encrypt can reach
+`http://app.atmemli.com/.well-known/acme-challenge/...`. If you bring
+the TLS stack up first, Caddy will retry every few minutes; just wait
+for DNS and watch `docker compose logs caddy`.
 
-* A Route53 hosted zone for `your-domain.com` (or your registrar's DNS).
-* An `A` record `your-domain.com → <ec2_public_ip>`.
-* Open port 443 on the EC2 SG (already open in `security_groups.tf`).
-* Set `CORS_ORIGINS=https://your-domain.com` in SSM and re-deploy.
+### 5b. Letting Terraform manage DNS in Route53 instead
 
-For an upgrade path with multi-instance load balancing:
+If you want Terraform to own DNS too — either by creating a brand-new
+hosted zone for `atmemli.com` (you'd then point the registrar's NS
+records at the values in the `route53_name_servers` output) or by
+re-using an existing hosted zone — set the relevant variables:
 
-1. Drop Caddy.
+```bash
+# Re-use an existing hosted zone (recommended if atmemli.com is already
+# in Route53):
+terraform apply \
+  -var "domain_name=app.atmemli.com" \
+  -var "route53_zone_id=Z123EXAMPLE" \
+  -var "create_www_record=false"
+
+# Or have Terraform create a new public hosted zone and use its NS
+# records at your registrar (this DOES move DNS authority — only do
+# this if you want to consolidate DNS in Route53):
+terraform apply \
+  -var "domain_name=atmemli.com" \
+  -var "create_route53_zone=true" \
+  -var "create_www_record=true"
+terraform output route53_name_servers   # paste these at the registrar
+
+# (The Let's Encrypt contact email is set at runtime via the
+#  /atmemly/ATMEMLY_ACME_EMAIL SSM parameter — see §5a step 2.)
+```
+
+The `dns.tf` Route53 resources are gated on `var.domain_name != ""`, so
+leaving `domain_name` empty (the default) keeps Terraform from touching
+DNS at all.
+
+### 5c. Future upgrade path — ALB + ACM (multi-instance)
+
+When the single-box deploy outgrows itself:
+
+1. Drop the Caddy container (revert to `docker-compose.prod.yml`).
 2. Provision an ALB in the public subnets, target group → EC2:80.
-3. Issue an ACM cert in `eu-west-1` for `your-domain.com`.
-4. ALB listener 443 → forward to target group with the ACM cert.
-5. Route53 ALIAS `your-domain.com → <alb-dns>`.
+3. Issue an ACM cert in `eu-west-1` for `app.atmemli.com`.
+4. ALB listener 443 → forward to target group with the ACM cert; HTTP
+   listener 80 → redirect to HTTPS.
+5. Replace the `app.atmemli.com` A record with a Route53 ALIAS to the
+   ALB DNS name.
 
 ## 6. Migrating an existing dev database into RDS
 
@@ -221,7 +292,8 @@ doubles the DB cost.
 * ECS/Fargate, EKS, ALB, multi-AZ RDS, autoscaling, CloudFront.
 * CI/CD (GitHub Actions). `deploy.sh` is intentionally
   re-runnable so wiring it into CI later is a one-liner.
-* Custom domain wiring (deferred per task brief; documented above).
+* Custom domain wiring is implemented (Caddy + Let's Encrypt via
+  `docker-compose.tls.yml`, optional Route53 in `dns.tf`); see §5.
 * Mobile app distribution.
 
 ---

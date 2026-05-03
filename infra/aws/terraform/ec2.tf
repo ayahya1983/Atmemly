@@ -27,10 +27,10 @@ resource "aws_key_pair" "main" {
 
 locals {
   cloud_init = templatefile("${path.module}/cloud-init.yaml.tpl", {
-    project     = var.project
-    region      = var.region
-    git_repo    = var.git_repo_url
-    git_branch  = var.git_branch
+    project    = var.project
+    region     = var.region
+    git_repo   = var.git_repo_url
+    git_branch = var.git_branch
   })
 }
 

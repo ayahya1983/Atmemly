@@ -205,3 +205,148 @@ end-to-end against a fresh AWS account:
     would try to interpret shell-significant characters in secret
     values. The script now just `grep`s for `DATABASE_URL` to sanity
     check that the SSM fetch worked.
+
+## Tooling install commands (for reproducibility)
+
+The `.local/bin/` tools do not survive across task agent runs and
+were re-installed for this attempt with the same commands as #28:
+
+```bash
+mkdir -p /home/runner/workspace/.local/bin
+# AWS CLI v2
+cd /tmp && curl -fsS https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip -o awscliv2.zip
+unzip -q awscliv2.zip
+./aws/install -i /home/runner/workspace/.local/aws-cli -b /home/runner/workspace/.local/bin
+
+# Terraform
+curl -fsS -o /tmp/tf.zip https://releases.hashicorp.com/terraform/1.9.8/terraform_1.9.8_linux_amd64.zip
+(cd /tmp && unzip -o tf.zip)
+mv /tmp/terraform /home/runner/workspace/.local/bin/
+```
+
+## HTTPS + custom domain (task #25 — code ready, awaiting AWS unblock)
+
+The TLS path is wired up in code so it can be enabled the moment the
+EC2/RDS stack actually exists. Nothing was applied (no AWS resources to
+apply against), but everything below is on disk:
+
+* `infra/aws/docker-compose.tls.yml` — same services as
+  `docker-compose.prod.yml` plus a Caddy container that publishes
+  `:80`/`:443`, terminates TLS via Let's Encrypt, and reverse-proxies
+  to the (now port-internal) nginx container.
+* `infra/aws/caddy/Caddyfile.tpl` — single-host Caddyfile templated on
+  `$ATMEMLY_DOMAIN` and `$ATMEMLY_ACME_EMAIL`. Caddy handles HTTP→HTTPS
+  redirect by default.
+* `infra/aws/scripts/deploy.sh` — auto-switches to the TLS compose file
+  whenever `ATMEMLY_DOMAIN` is present (in env or sourced from SSM),
+  fails fast if `ATMEMLY_ACME_EMAIL` is missing, and warns if
+  `CORS_ORIGINS` doesn't include `https://$ATMEMLY_DOMAIN`.
+* `infra/aws/terraform/dns.tf` + new variables in `variables.tf`
+  (`domain_name`, `route53_zone_id`, `create_route53_zone`,
+  `create_www_record`) — Route53 wiring gated on `domain_name != ""`.
+  Default behaviour (empty `domain_name`) keeps Terraform out of DNS
+  entirely, since `atmemli.com` lives at the customer's existing
+  registrar. The Let's Encrypt contact email is NOT a Terraform
+  variable — it is set at runtime via the `/atmemly/ATMEMLY_ACME_EMAIL`
+  SSM parameter, consumed by `deploy.sh` and the caddy container.
+* `infra/aws/terraform/outputs.tf` — `app_url` flips to
+  `https://<domain>/` when a domain is set, plus new `domain_name`,
+  `route53_zone_id`, `route53_name_servers` outputs.
+* `infra/aws/README.md` §5 rewritten with a concrete runbook for the
+  chosen target `app.atmemli.com`.
+
+### Target chosen by the customer
+
+* Hostname: `app.atmemli.com` (subdomain — keeps the existing
+  `atmemli.com` apex / other records at the registrar untouched)
+* Let's Encrypt contact: `admin@atmemli.com`
+* DNS path: customer's existing registrar (no Route53 take-over)
+* Required registrar change: a single `A` record
+  `app  →  <terraform output ec2_public_ip>` (TTL 300)
+
+### To flip TLS on once IAM is unblocked and `terraform apply` succeeds
+
+```bash
+# 1. Add the A record at the atmemli.com registrar:
+#      app  A  <ec2_public_ip>  TTL 300
+# 2. Seed SSM with the TLS settings:
+aws ssm put-parameter --region eu-west-1 --type String --overwrite \
+  --name /atmemly/ATMEMLY_DOMAIN     --value 'app.atmemli.com'
+aws ssm put-parameter --region eu-west-1 --type String --overwrite \
+  --name /atmemly/ATMEMLY_ACME_EMAIL --value 'admin@atmemli.com'
+aws ssm put-parameter --region eu-west-1 --type String --overwrite \
+  --name /atmemly/CORS_ORIGINS       --value 'https://app.atmemli.com'
+# 3. Wait for DNS to resolve to the EIP, then redeploy:
+ssh -i infra/aws/terraform/atmemly-ec2.pem ubuntu@<ec2_public_ip> \
+  "sudo /opt/atmemly/app/infra/aws/scripts/deploy.sh"
+# 4. Smoke:
+curl -fsSI https://app.atmemli.com/api/healthz
+curl -fsSI http://app.atmemli.com/      # expect 308 → HTTPS
+```
+
+Registrar credentials for `atmemli.com` are NOT stored in this repo
+or in SSM. The operator who adds the `app` A record should obtain them
+out-of-band from the project owner and rotate them immediately after.
+
+## HTTPS rollout — DONE on May 03, 2026
+
+`https://app.atmemli.com` is live and serving on the existing EC2 box
+`i-09d44904cddfaa638` (EIP `63.34.129.118`, region eu-west-1).
+
+What was done:
+
+1. DNS: customer added `app.atmemli.com  A  63.34.129.118  TTL 300` at
+   the HostiGuard cPanel registrar; Google DNS confirmed propagation.
+2. SSM seeded with `/atmemly/ATMEMLY_DOMAIN=app.atmemli.com`,
+   `/atmemly/ATMEMLY_ACME_EMAIL=admin@atmemli.com`,
+   `/atmemly/CORS_ORIGINS=https://app.atmemli.com`.
+3. Updated `infra/aws/` tree (incl. `docker-compose.tls.yml`,
+   `caddy/Caddyfile.tpl`, patched `scripts/deploy.sh`) was packaged
+   locally, uploaded to `s3://atmemly-uploads-f960865d/_deploy/`, and
+   pulled onto the EC2 box via an SSM RunShellScript invocation
+   (no SSH key was available locally — `atmemly-ec2.pem` is missing).
+4. `docker compose -f docker-compose.tls.yml up -d --remove-orphans`
+   recreated the stack: api-server (healthy), nginx (internal),
+   caddy (publishes :80 + :443).
+5. Caddy obtained a Let's Encrypt cert via the `tls-alpn-01`
+   challenge in <5s; cert valid `May  3 05:42 2026 UTC` →
+   `Aug  1 05:42 2026 UTC`, issuer `C=US, O=Let's Encrypt, CN=E8`.
+
+Post-deploy smoke (from outside AWS, resolving to the EIP):
+
+```
+http://app.atmemli.com/        → 308 → https://app.atmemli.com/
+https://app.atmemli.com/api/healthz → 200  {"status":"ok"}
+https://app.atmemli.com/admin/      → HTTP/2 200
+TLS verify_result = 0 (OK)
+```
+
+### Patches that landed during rollout
+
+* `infra/aws/scripts/deploy.sh` now supports `SKIP_GIT_PULL=1` and
+  no-ops the git step if `${APP_DIR}/.git` is absent. Needed because
+  the EC2 box was hydrated from a tarball, not a git checkout.
+* `infra/aws/docker-compose.tls.yml` adds the
+  `/opt/atmemly/uploads:/app/uploads` bind mount on the api-server
+  service. Without it the container crash-looped with `EACCES` on
+  `/app/uploads` (uid 10001 cannot write the image's `/app`). The
+  HTTP-only `docker-compose.prod.yml` in this repo is missing that
+  same mount — the file currently running on the EC2 box has it,
+  so they have drifted; recommend backporting the bind mount in a
+  follow-up.
+
+### Operational notes for the next deploy
+
+* The EC2 box has **no `.git` at `/opt/atmemly/app`**. Either:
+  (a) `git clone` the repo into `/opt/atmemly/app` so the standard
+  `git fetch && git reset --hard` path in `deploy.sh` works, or
+  (b) keep using the S3-overlay path used here:
+  `tar czf - -C <repo> infra/aws | aws s3 cp - s3://atmemly-uploads-f960865d/_deploy/atmemly-infra.tgz`,
+  then SSM-run `aws s3 cp ... | tar -xzf - -C /opt/atmemly/app` and
+  invoke `SKIP_GIT_PULL=1 deploy.sh`.
+* SSH key (`atmemly-ec2.pem`) is not present in this workspace; all
+  remote ops were done via `aws ssm send-command`. The IAM user
+  `Replit` has `AdministratorAccess`, which covers SSM.
+* Caddy persists ACME state in the docker volumes `atmemly_caddy_data`
+  and `atmemly_caddy_config`; do not destroy these or you will hit
+  Let's Encrypt's per-week issuance limit.

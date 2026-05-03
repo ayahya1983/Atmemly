@@ -1,0 +1,90 @@
+name: atmemly
+
+# TLS variant of docker-compose.prod.yml.
+#
+# Differences vs. the HTTP-only file:
+#   * nginx no longer publishes :80 on the host. It only `expose`s :80 on
+#     the internal docker network so Caddy can reach it.
+#   * A `caddy` service publishes :80 + :443, terminates TLS using a
+#     Let's Encrypt cert auto-issued for $ATMEMLY_DOMAIN, and reverse-
+#     proxies everything to the nginx container.
+#   * HTTP→HTTPS redirect is handled by Caddy out of the box.
+#
+# Deploy with:
+#   ATMEMLY_DOMAIN=atmemly.com ATMEMLY_ACME_EMAIL=ops@atmemly.com \
+#     sudo /opt/atmemly/app/infra/aws/scripts/deploy.sh
+#
+# (deploy.sh detects ATMEMLY_DOMAIN and switches to this compose file.)
+
+services:
+  api-server:
+    image: atmemly/api-server:latest
+    build:
+      context: ../..
+      dockerfile: artifacts/api-server/Dockerfile
+    restart: unless-stopped
+    env_file:
+      - /opt/atmemly/.env
+    environment:
+      NODE_ENV: production
+      PORT: "8080"
+    expose:
+      - "8080"
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8080/api/healthz"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    volumes:
+      - /opt/atmemly/uploads:/app/uploads
+    networks:
+      - atmemly
+
+  nginx:
+    image: atmemly/nginx:latest
+    build:
+      context: ./nginx
+    restart: unless-stopped
+    depends_on:
+      api-server:
+        condition: service_healthy
+    expose:
+      - "80"
+    volumes:
+      - marketplace_static:/srv/marketplace:ro
+      - admin_static:/srv/admin:ro
+    networks:
+      - atmemly
+
+  caddy:
+    image: caddy:2.8-alpine
+    restart: unless-stopped
+    depends_on:
+      - nginx
+    environment:
+      ATMEMLY_DOMAIN: ${ATMEMLY_DOMAIN:?ATMEMLY_DOMAIN must be set for the TLS stack}
+      ATMEMLY_ACME_EMAIL: ${ATMEMLY_ACME_EMAIL:?ATMEMLY_ACME_EMAIL must be set for the TLS stack}
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./caddy/Caddyfile.tpl:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    networks:
+      - atmemly
+
+networks:
+  atmemly:
+    driver: bridge
+
+volumes:
+  marketplace_static:
+    external: false
+  admin_static:
+    external: false
+  caddy_data:
+    external: false
+  caddy_config:
+    external: false
