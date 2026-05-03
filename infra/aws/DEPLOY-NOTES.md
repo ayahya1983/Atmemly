@@ -823,3 +823,109 @@ TLS verify_result = 0 (OK)
 * Caddy persists ACME state in the docker volumes `atmemly_caddy_data`
   and `atmemly_caddy_config`; do not destroy these or you will hit
   Let's Encrypt's per-week issuance limit.
+
+## Bootstrap readiness report (Task #51, May 03, 2026)
+
+End-to-end audit + verification of `i-09d44904cddfaa638` (eu-west-1)
+against `infra/aws/terraform/cloud-init.yaml.tpl`. Goal: a fresh
+`sudo deploy.sh` from a cold boot succeeds without any manual
+`apt install` / `mkdir` / `chown` first, and a `terraform apply` from a
+clean state would produce the same working host.
+
+### Gaps found vs. cloud-init (and how each was closed)
+
+| Gap | Fix landed in this repo | Applied to live host |
+| --- | --- | --- |
+| `corepack prepare pnpm@9 --activate` drifted from `package.json#packageManager` (`pnpm@10.26.1`) — deploy containers re-pinned every run; bare-host pnpm was 9.x. Root cause of Task #50. | `cloud-init.yaml.tpl` now pins `pnpm@10.26.1` to match `package.json#packageManager`. Bump in lockstep. | `sudo corepack prepare pnpm@10.26.1 --activate` ran via SSM; `pnpm -v` → `10.26.1`. |
+| `atmemly-fetch-env.service` had no `[Install]` section, so `systemctl enable` errored ("not meant to be enabled"). Service still ran because cloud-init `start`s it; but it was not wired to `multi-user.target`. | Added `[Install] WantedBy=multi-user.target` to the unit in `cloud-init.yaml.tpl`; runcmd now both `enable`s and `start`s it. | Live unit file rewritten via SSM (base64 heredoc), `systemctl daemon-reload && systemctl enable` → symlinked into `multi-user.target.wants/`. |
+| `amazon-ssm-agent` was present (snap, online) but cloud-init never asserted it. A future base-image swap could drop it and lock us out of the deploy pipeline entirely. | `cloud-init.yaml.tpl` now `snap install amazon-ssm-agent --classic` (idempotent) and `systemctl enable --now snap.amazon-ssm-agent.amazon-ssm-agent.service`. | Live host already had `amazon-ssm-agent` snap `3.3.4121.0` active+enabled — no change required, just codified. |
+| Several runcmd steps re-downloaded artifacts on every boot (Docker GPG key, AWS CLI v2, NodeSource setup). Harmless but slow on re-run. | Each install step now guarded with `command -v` / `test -s` so re-running cloud-init on an existing host is a no-op. | n/a — only matters on next reboot / `terraform taint` cycle. |
+| `git clone` would noisily fail on every re-run when `/opt/atmemly/app` already exists. | Guarded with `test -d /opt/atmemly/app/.git`. | n/a. |
+
+Everything else from `cloud-init.yaml.tpl` (Docker CE + compose plugin,
+AWS CLI v2, `/opt/atmemly` tree, `/opt/atmemly/.pnpm-store` root-owned,
+`/opt/atmemly/uploads` owned by uid 10001:10001 mode 0755,
+`/etc/atmemly/site.env`, `/usr/local/bin/atmemly-fetch-env`,
+`/opt/atmemly/.env` mode 0600, `ubuntu` in the `docker` group) was
+already present and matches.
+
+### Live host snapshot — post-bootstrap
+
+```
+docker            29.4.2 (build 055a478)
+docker compose    v5.1.3
+node              v20.20.2
+pnpm              10.26.1                  (matches package.json#packageManager)
+aws-cli           2.34.41
+psql              14.22
+jq                1.6
+git               2.34.1
+amazon-ssm-agent  3.3.4121.0 (snap, classic, active)
+
+systemctl is-enabled docker                                              → enabled
+systemctl is-enabled atmemly-fetch-env.service                           → enabled
+systemctl is-enabled snap.amazon-ssm-agent.amazon-ssm-agent.service     → enabled
+
+/etc/atmemly                  drwxr-xr-x root:root
+/etc/atmemly/site.env         -rw-r--r-- root:root
+/opt/atmemly                  drwxr-xr-x ubuntu:ubuntu
+/opt/atmemly/app              drwxr-xr-x root:root      (deploy.sh `git reset --hard`s this)
+/opt/atmemly/.env             -rw------- root:root      (written by atmemly-fetch-env from SSM)
+/opt/atmemly/.pnpm-store      drwxr-xr-x root:root      (shared cache for one-off pnpm containers)
+/opt/atmemly/uploads          drwxr-xr-x 10001:10001    (api-server runs as uid 10001)
+
+id ubuntu → groups=… ,999(docker)
+```
+
+### Verification deploy
+
+`deploy.sh` was triggered via SSM Run Command (mirrors the GitHub
+Actions path) against the now-bootstrapped host:
+
+```
+aws ssm send-command --region eu-west-1 \
+  --instance-ids i-09d44904cddfaa638 \
+  --document-name AWS-RunShellScript \
+  --parameters 'commands=["sudo -E SKIP_GIT_PULL=1 /opt/atmemly/app/infra/aws/scripts/deploy.sh"]'
+
+SSM CommandId : 882a94d9-5da5-4a1b-acbb-6b708da67b64
+Status        : Success
+```
+
+`SKIP_GIT_PULL=1` was used because this clone has no public git remote
+on the box (see "Security tradeoffs" above); the source on disk is
+exactly what would have been pulled. The full GH Actions `sudo -E SEED=…
+deploy.sh` path is otherwise identical and is what runs on every push to
+`main`.
+
+End-to-end the script:
+1. Re-ran `atmemly-fetch-env` → `/opt/atmemly/.env` (530 bytes, 0600, root).
+2. Auto-detected TLS mode from the SSM-derived `ATMEMLY_DOMAIN`.
+3. Built `api-server`, `marketplace`, `admin`, `nginx` images (all CACHED — no source change).
+4. Extracted SPA bundles into `atmemly_marketplace_static` / `atmemly_admin_static` volumes, with the post-copy `index.html`/`assets/` sanity check passing.
+5. `drizzle-kit push` ran in a `node:20-bookworm-slim` one-off container with `pnpm@10.26.1` (now matching the bare host) — schema unchanged.
+6. `docker compose up -d` recreated `api-server` + `nginx`, kept `caddy` running.
+7. Healthcheck inside the api-server container passed first try; external probes both green.
+
+### Smoke matrix (post-deploy)
+
+| Probe | Result |
+| --- | --- |
+| `https://app.atmemli.com/`           | 200 HTTP/2 |
+| `https://app.atmemli.com/admin/`     | 200 HTTP/2 |
+| `https://app.atmemli.com/api/healthz`| 200 HTTP/2 |
+| `Alt-Svc` header on https://app.atmemli.com/ | not present (HTTP/3 still disabled per Task #38 fix) |
+| `docker ps`                          | `atmemly-api-server-1` healthy, `atmemly-nginx-1` Up, `atmemly-caddy-1` Up |
+
+### Carry-forward (won't be done in this task)
+
+- `infra/aws/iam.tf` attaches `CloudWatchAgentServerPolicy` to the EC2
+  role for the alarm in `monitoring.tf`, but the CloudWatch Agent itself
+  isn't installed by cloud-init. Today the `atmemly-ec2-disk-used-high`
+  alarm has no data source. Worth installing+configuring the agent in a
+  follow-up; out of scope here because no incident has yet been traced to
+  the missing metrics.
+- The bare-host pnpm version is now pinned, but cloud-init's
+  `corepack prepare pnpm@10.26.1` still has to be hand-bumped when
+  `package.json#packageManager` changes. A pre-deploy CI check that
+  greps both files for the same version would prevent silent drift.

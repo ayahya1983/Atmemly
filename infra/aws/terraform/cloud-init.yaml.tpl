@@ -56,29 +56,41 @@ write_files:
       [Service]
       Type=oneshot
       ExecStart=/usr/local/bin/atmemly-fetch-env
+      [Install]
+      WantedBy=multi-user.target
 
 runcmd:
-  # Install Docker CE + compose plugin
+  # Ensure the SSM agent is installed and running. The Ubuntu 22.04 cloud
+  # image ships it as a snap (snap.amazon-ssm-agent.amazon-ssm-agent.service);
+  # if a future base image drops it, this puts it back. Without the agent
+  # the deploy pipeline (SSM Run Command from GitHub Actions) cannot reach
+  # the host at all.
+  - bash -c 'snap list amazon-ssm-agent >/dev/null 2>&1 || snap install amazon-ssm-agent --classic'
+  - systemctl enable --now snap.amazon-ssm-agent.amazon-ssm-agent.service || systemctl enable --now amazon-ssm-agent || true
+
+  # Install Docker CE + compose plugin (idempotent; apt-get install is a no-op
+  # when the requested versions are already present).
   - install -m 0755 -d /etc/apt/keyrings
-  - curl -fsSL https://download.docker.com/linux/ubuntu/gpg | gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+  - bash -c 'test -s /etc/apt/keyrings/docker.gpg || curl -fsSL https://download.docker.com/linux/ubuntu/gpg | gpg --dearmor -o /etc/apt/keyrings/docker.gpg'
   - chmod a+r /etc/apt/keyrings/docker.gpg
-  - echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" > /etc/apt/sources.list.d/docker.list
+  - bash -c 'echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" > /etc/apt/sources.list.d/docker.list'
   - apt-get update -y
   - apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
   - usermod -aG docker ubuntu
   - systemctl enable --now docker
 
-  # Install AWS CLI v2
-  - curl -fsSL "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o /tmp/awscliv2.zip
-  - unzip -q /tmp/awscliv2.zip -d /tmp
-  - /tmp/aws/install
-  - rm -rf /tmp/aws /tmp/awscliv2.zip
+  # Install AWS CLI v2 (skip if already present so re-runs are cheap)
+  - bash -c 'command -v aws >/dev/null 2>&1 || (curl -fsSL "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o /tmp/awscliv2.zip && unzip -q /tmp/awscliv2.zip -d /tmp && /tmp/aws/install && rm -rf /tmp/aws /tmp/awscliv2.zip)'
 
-  # Install pnpm + Node 20 via corepack so deploy.sh can run pnpm install if needed
-  - curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
-  - apt-get install -y nodejs
+  # Install pnpm + Node 20 via corepack so deploy.sh can run pnpm install if
+  # needed. Pin pnpm to the exact version in the repo's root package.json
+  # `packageManager` field. Pinning to a generic major (`pnpm@9`) silently
+  # drifted from what the lockfile expected and broke a prod deploy
+  # (Task #50: "wrong package manager version on EC2"). Bump this in
+  # lockstep with package.json#packageManager.
+  - bash -c 'command -v node >/dev/null 2>&1 || (curl -fsSL https://deb.nodesource.com/setup_20.x | bash - && apt-get install -y nodejs)'
   - corepack enable
-  - corepack prepare pnpm@9 --activate
+  - corepack prepare pnpm@10.26.1 --activate
 
   # Bootstrap project directory
   - mkdir -p /opt/atmemly
@@ -101,12 +113,18 @@ runcmd:
   - chown -R 10001:10001 /opt/atmemly/uploads
   - chmod 0755 /opt/atmemly/uploads
 
-  # Initial fetch of SSM env (deploy.sh will refresh on every deploy)
+  # Wire up the fetch-env oneshot. `enable` makes systemctl aware of it for
+  # ad-hoc `systemctl start atmemly-fetch-env.service` from deploy.sh; the
+  # immediate `start` populates /opt/atmemly/.env on first boot before any
+  # deploy has run.
   - systemctl daemon-reload
+  - systemctl enable atmemly-fetch-env.service || true
   - systemctl start atmemly-fetch-env.service || true
 
   # Optional: clone repo if a URL was provided
   - |
     if [ -n "${git_repo}" ]; then
-      sudo -u ubuntu git clone --branch "${git_branch}" "${git_repo}" /opt/atmemly/app || true
+      if [ ! -d /opt/atmemly/app/.git ]; then
+        sudo -u ubuntu git clone --branch "${git_branch}" "${git_repo}" /opt/atmemly/app || true
+      fi
     fi
