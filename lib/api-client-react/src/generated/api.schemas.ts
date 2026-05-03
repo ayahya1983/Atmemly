@@ -864,6 +864,18 @@ export interface SsoProviderPublic {
   isDefault: boolean;
 }
 
+/**
+ * @nullable
+ */
+export type SsoProviderAdminSecretSource =
+  | (typeof SsoProviderAdminSecretSource)[keyof typeof SsoProviderAdminSecretSource]
+  | null;
+
+export const SsoProviderAdminSecretSource = {
+  env: "env",
+  db: "db",
+} as const;
+
 export type SsoProviderAdminRoleMappingJson = { [key: string]: unknown };
 
 export type SsoProviderAdminMetadata = { [key: string]: unknown };
@@ -882,6 +894,8 @@ export interface SsoProviderAdmin {
   /** @nullable */
   clientId?: string | null;
   secretConfigured: boolean;
+  /** @nullable */
+  secretSource?: SsoProviderAdminSecretSource;
   scopes: string;
   autoProvision: boolean;
   defaultRole: string;
@@ -921,6 +935,8 @@ export interface SsoProviderUpsertBody {
   clientId?: string | null;
   /** @nullable */
   clientSecretRef?: string | null;
+  /** @nullable */
+  clientSecretValue?: string | null;
   /** @nullable */
   scopes?: string | null;
   autoProvision?: boolean;

@@ -95,6 +95,7 @@ export * from "./ssoLinkBody";
 export * from "./ssoProviderAdmin";
 export * from "./ssoProviderAdminMetadata";
 export * from "./ssoProviderAdminRoleMappingJson";
+export * from "./ssoProviderAdminSecretSource";
 export * from "./ssoProviderPublic";
 export * from "./ssoProviderUpsertBody";
 export * from "./ssoProviderUpsertBodyMetadata";

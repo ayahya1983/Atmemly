@@ -24,6 +24,8 @@ export interface SsoProviderUpsertBody {
   /** @nullable */
   clientSecretRef?: string | null;
   /** @nullable */
+  clientSecretValue?: string | null;
+  /** @nullable */
   scopes?: string | null;
   autoProvision?: boolean;
   /** @nullable */

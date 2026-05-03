@@ -1960,6 +1960,9 @@ export const AdminListSsoProvidersResponseItem = zod.object({
   issuerUrl: zod.string().nullish(),
   clientId: zod.string().nullish(),
   secretConfigured: zod.boolean(),
+  secretSource: zod
+    .union([zod.literal("env"), zod.literal("db"), zod.literal(null)])
+    .nullish(),
   scopes: zod.string(),
   autoProvision: zod.boolean(),
   defaultRole: zod.string(),
@@ -1983,6 +1986,7 @@ export const AdminCreateSsoProviderBody = zod.object({
   issuerUrl: zod.string().nullish(),
   clientId: zod.string().nullish(),
   clientSecretRef: zod.string().nullish(),
+  clientSecretValue: zod.string().nullish(),
   scopes: zod.string().nullish(),
   autoProvision: zod.boolean().optional(),
   defaultRole: zod.string().nullish(),
@@ -2002,6 +2006,9 @@ export const AdminCreateSsoProviderResponse = zod.object({
   issuerUrl: zod.string().nullish(),
   clientId: zod.string().nullish(),
   secretConfigured: zod.boolean(),
+  secretSource: zod
+    .union([zod.literal("env"), zod.literal("db"), zod.literal(null)])
+    .nullish(),
   scopes: zod.string(),
   autoProvision: zod.boolean(),
   defaultRole: zod.string(),
@@ -2026,6 +2033,7 @@ export const AdminUpdateSsoProviderBody = zod.object({
   issuerUrl: zod.string().nullish(),
   clientId: zod.string().nullish(),
   clientSecretRef: zod.string().nullish(),
+  clientSecretValue: zod.string().nullish(),
   scopes: zod.string().nullish(),
   autoProvision: zod.boolean().optional(),
   defaultRole: zod.string().nullish(),
@@ -2045,6 +2053,9 @@ export const AdminUpdateSsoProviderResponse = zod.object({
   issuerUrl: zod.string().nullish(),
   clientId: zod.string().nullish(),
   secretConfigured: zod.boolean(),
+  secretSource: zod
+    .union([zod.literal("env"), zod.literal("db"), zod.literal(null)])
+    .nullish(),
   scopes: zod.string(),
   autoProvision: zod.boolean(),
   defaultRole: zod.string(),
@@ -2079,6 +2090,9 @@ export const AdminEnableSsoProviderResponse = zod.object({
   issuerUrl: zod.string().nullish(),
   clientId: zod.string().nullish(),
   secretConfigured: zod.boolean(),
+  secretSource: zod
+    .union([zod.literal("env"), zod.literal("db"), zod.literal(null)])
+    .nullish(),
   scopes: zod.string(),
   autoProvision: zod.boolean(),
   defaultRole: zod.string(),
@@ -2104,6 +2118,9 @@ export const AdminDisableSsoProviderResponse = zod.object({
   issuerUrl: zod.string().nullish(),
   clientId: zod.string().nullish(),
   secretConfigured: zod.boolean(),
+  secretSource: zod
+    .union([zod.literal("env"), zod.literal("db"), zod.literal(null)])
+    .nullish(),
   scopes: zod.string(),
   autoProvision: zod.boolean(),
   defaultRole: zod.string(),

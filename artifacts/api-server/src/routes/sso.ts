@@ -157,7 +157,7 @@ router.get("/auth/sso/:provider/start", startLimiter, async (req, res): Promise<
     res.status(500).json({ error: "ATMEMLY SSO provider is not fully configured" });
     return;
   }
-  const clientSecret = resolveClientSecret(provider.clientSecretRef);
+  const clientSecret = resolveClientSecret(provider);
   if (!clientSecret) {
     res.status(500).json({ error: "ATMEMLY SSO provider secret is not configured" });
     return;
@@ -328,7 +328,7 @@ router.get("/auth/sso/:provider/callback", callbackLimiter, async (req, res): Pr
     res.status(500).json({ outcome: "error", message: "Provider misconfigured" });
     return;
   }
-  const clientSecret = resolveClientSecret(provider.clientSecretRef);
+  const clientSecret = resolveClientSecret(provider);
   if (!clientSecret) {
     res.status(500).json({ outcome: "error", message: "Provider secret not configured" });
     return;

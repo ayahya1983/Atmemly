@@ -38,6 +38,11 @@ export const identityProvidersTable = pgTable(
     clientId: text("client_id"),
     // Pointer (e.g. "env:GOOGLE_CLIENT_SECRET") — never the raw secret.
     clientSecretRef: text("client_secret_ref"),
+    // App-level AEAD ciphertext when the admin pasted a raw secret in the
+    // UI (AES-256-GCM, key derived from SSO_SECRET_ENC_KEY/SESSION_SECRET).
+    // Format: "v1:<base64(iv|tag|ciphertext)>". Never returned in API
+    // responses; resolved transparently by lib/sso/secrets.ts.
+    clientSecretEnc: text("client_secret_enc"),
     scopes: text("scopes").notNull().default("openid email profile"),
 
     // Provisioning policy

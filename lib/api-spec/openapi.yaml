@@ -2409,8 +2409,14 @@ components:
         isDefault: { type: boolean }
         issuerUrl: { type: ["string", "null"] }
         clientId: { type: ["string", "null"] }
-        # clientSecretRef is write-only on upsert; never returned in admin reads.
+        # clientSecretRef and clientSecretValue are write-only on upsert; never returned in admin reads.
         secretConfigured: { type: boolean }
+        # Where the resolved secret currently lives: "env" (env-var ref),
+        # "db" (encrypted in identity_providers.client_secret_enc), or null
+        # when no secret is set.
+        secretSource:
+          type: ["string", "null"]
+          enum: [env, db, null]
         scopes: { type: string }
         autoProvision: { type: boolean }
         defaultRole: { type: string }
@@ -2440,7 +2446,15 @@ components:
         isDefault: { type: boolean }
         issuerUrl: { type: ["string", "null"] }
         clientId: { type: ["string", "null"] }
+        # Env-var pointer (e.g. "env:GOOGLE_CLIENT_SECRET"). Use this OR
+        # clientSecretValue. Supplying clientSecretValue takes precedence
+        # and clears any prior env ref. Both fields are write-only.
         clientSecretRef: { type: ["string", "null"] }
+        # Raw secret pasted by an admin. Server-side it is encrypted with
+        # AES-256-GCM and stored in identity_providers.client_secret_enc.
+        # Never returned in API responses. Omitting this field on update
+        # leaves any existing stored secret untouched.
+        clientSecretValue: { type: ["string", "null"] }
         scopes: { type: ["string", "null"] }
         autoProvision: { type: boolean }
         defaultRole: { type: ["string", "null"] }

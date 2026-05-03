@@ -7,6 +7,7 @@
  */
 import type { SsoProviderAdminMetadata } from "./ssoProviderAdminMetadata";
 import type { SsoProviderAdminRoleMappingJson } from "./ssoProviderAdminRoleMappingJson";
+import type { SsoProviderAdminSecretSource } from "./ssoProviderAdminSecretSource";
 
 export interface SsoProviderAdmin {
   id: number;
@@ -22,6 +23,8 @@ export interface SsoProviderAdmin {
   /** @nullable */
   clientId?: string | null;
   secretConfigured: boolean;
+  /** @nullable */
+  secretSource?: SsoProviderAdminSecretSource;
   scopes: string;
   autoProvision: boolean;
   defaultRole: string;

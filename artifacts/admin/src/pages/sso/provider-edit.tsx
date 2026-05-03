@@ -46,10 +46,16 @@ interface FormState {
   isDefault: boolean;
   issuerUrl: string;
   clientId: string;
-  /** Write-only: only sent on save when non-empty. Never returned by the API. */
+  /** "env" = store an env-var pointer; "raw" = paste the secret value. */
+  secretMode: "env" | "raw";
+  /** Write-only env-var pointer. Only sent when secretMode === "env" and non-empty. */
   clientSecretRef: string;
+  /** Write-only raw secret. Only sent when secretMode === "raw" and non-empty. */
+  clientSecretValue: string;
   /** True when the existing record already has a secret configured. */
   hasSecret: boolean;
+  /** Where the existing secret currently lives, if any. */
+  existingSecretSource: "env" | "db" | null;
   scopes: string;
   autoProvision: boolean;
   defaultRole: string;
@@ -66,8 +72,11 @@ const empty: FormState = {
   isDefault: false,
   issuerUrl: "",
   clientId: "",
+  secretMode: "raw",
   clientSecretRef: "",
+  clientSecretValue: "",
   hasSecret: false,
+  existingSecretSource: null,
   scopes: "openid email profile",
   autoProvision: false,
   defaultRole: "client",
@@ -93,6 +102,7 @@ export default function AdminSsoProviderEdit() {
     if (isNew || !list) return;
     const p = list.find((x) => x.id === id);
     if (!p) return;
+    const src = (p.secretSource ?? null) as "env" | "db" | null;
     setForm({
       slug: p.slug,
       type: p.type as ProviderType,
@@ -102,8 +112,14 @@ export default function AdminSsoProviderEdit() {
       isDefault: p.isDefault,
       issuerUrl: p.issuerUrl ?? "",
       clientId: p.clientId ?? "",
+      // Default the editor to whichever mode the existing secret uses, so
+      // a "leave blank to keep" placeholder makes sense. Fall back to "raw"
+      // when there is no secret yet — that's the new self-service default.
+      secretMode: src === "env" ? "env" : "raw",
       clientSecretRef: "",
+      clientSecretValue: "",
       hasSecret: p.secretConfigured,
+      existingSecretSource: src,
       scopes: p.scopes,
       autoProvision: p.autoProvision,
       defaultRole: p.defaultRole,
@@ -133,9 +149,14 @@ export default function AdminSsoProviderEdit() {
       isDefault: form.isDefault,
       issuerUrl: form.issuerUrl.trim() || null,
       clientId: form.clientId.trim() || null,
-      // Only include the secret reference when the admin entered a new value.
-      // Omitting the field leaves the existing reference untouched on update.
-      ...(form.clientSecretRef.trim()
+      // Only include the secret fields when the admin entered a new value.
+      // Omitting both leaves the existing secret untouched on update. The
+      // server treats clientSecretValue (raw paste, encrypted at rest) and
+      // clientSecretRef (env-var pointer) as mutually exclusive sources.
+      ...(form.secretMode === "raw" && form.clientSecretValue.trim()
+        ? { clientSecretValue: form.clientSecretValue }
+        : {}),
+      ...(form.secretMode === "env" && form.clientSecretRef.trim()
         ? { clientSecretRef: form.clientSecretRef.trim() }
         : {}),
       scopes: form.scopes.trim() || "openid email profile",
@@ -229,9 +250,9 @@ export default function AdminSsoProviderEdit() {
         <CardHeader>
           <CardTitle>OIDC connection</CardTitle>
           <CardDescription>
-            Issuer URL must serve <code>/.well-known/openid-configuration</code>. The client secret
-            value is read from an environment variable on the {BRAND.name} API server — only the
-            reference is stored.
+            Issuer URL must serve <code>/.well-known/openid-configuration</code>. You can either
+            paste the client secret directly (encrypted at rest in the {BRAND.name} database) or
+            point to an environment variable on the API server.
           </CardDescription>
         </CardHeader>
         <CardContent className="grid gap-4">
@@ -251,15 +272,18 @@ export default function AdminSsoProviderEdit() {
                 onChange={(e) => update("clientId", e.target.value)}
               />
             </div>
-            <div className="space-y-2">
+            <div className="space-y-3">
               <Label className="flex items-center gap-2">
-                Client secret reference
+                Client secret
                 {form.hasSecret ? (
                   <span
                     className="text-[10px] uppercase tracking-wide rounded px-1.5 py-0.5 bg-green-100 text-green-800"
                     data-testid="badge-secret-configured"
                   >
                     Configured
+                    {form.existingSecretSource
+                      ? ` · ${form.existingSecretSource === "db" ? "stored" : "env"}`
+                      : ""}
                   </span>
                 ) : (
                   <span
@@ -270,22 +294,58 @@ export default function AdminSsoProviderEdit() {
                   </span>
                 )}
               </Label>
-              <Input
-                type="password"
-                autoComplete="new-password"
-                placeholder={
-                  form.hasSecret
-                    ? "•••••••• (leave blank to keep)"
-                    : "env:GOOGLE_CLIENT_SECRET"
-                }
-                value={form.clientSecretRef}
-                onChange={(e) => update("clientSecretRef", e.target.value)}
-              />
-              <p className="text-xs text-muted-foreground">
-                Write-only. Enter a new env-var reference (e.g.{" "}
-                <code>env:GOOGLE_CLIENT_SECRET</code>) to rotate. The current value is never
-                shown.
-              </p>
+              <Select
+                value={form.secretMode}
+                onValueChange={(v) => update("secretMode", v as "env" | "raw")}
+              >
+                <SelectTrigger data-testid="select-secret-mode">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="raw">Paste secret (stored encrypted)</SelectItem>
+                  <SelectItem value="env">Environment variable reference</SelectItem>
+                </SelectContent>
+              </Select>
+              {form.secretMode === "raw" ? (
+                <>
+                  <Input
+                    type="password"
+                    autoComplete="new-password"
+                    data-testid="input-client-secret-value"
+                    placeholder={
+                      form.hasSecret
+                        ? "•••••••• (leave blank to keep)"
+                        : "Paste the OIDC client secret"
+                    }
+                    value={form.clientSecretValue}
+                    onChange={(e) => update("clientSecretValue", e.target.value)}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Write-only. {BRAND.name} encrypts this with AES-256-GCM before storing it
+                    and never returns it on read. Leave blank to keep the existing secret.
+                  </p>
+                </>
+              ) : (
+                <>
+                  <Input
+                    type="password"
+                    autoComplete="new-password"
+                    data-testid="input-client-secret-ref"
+                    placeholder={
+                      form.hasSecret
+                        ? "•••••••• (leave blank to keep)"
+                        : "env:GOOGLE_CLIENT_SECRET"
+                    }
+                    value={form.clientSecretRef}
+                    onChange={(e) => update("clientSecretRef", e.target.value)}
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    Reference an env var set on the {BRAND.name} API server (e.g.{" "}
+                    <code>env:GOOGLE_CLIENT_SECRET</code>). Saving here clears any previously
+                    pasted secret.
+                  </p>
+                </>
+              )}
             </div>
           </div>
           <div className="space-y-2">

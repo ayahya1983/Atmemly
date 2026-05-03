@@ -16,7 +16,7 @@ import {
 } from "@workspace/api-zod";
 import { discover } from "../lib/sso/oidc";
 import { loadSsoSettings, SSO_DEFAULT_SETTINGS, SSO_SETTINGS_KEY } from "../lib/sso/settings";
-import { isSecretConfigured, resolveClientSecret } from "../lib/sso/secrets";
+import { encryptSecret, isSecretConfigured, secretSource } from "../lib/sso/secrets";
 import { ssoAudit } from "../lib/sso/audit";
 
 const router: IRouter = Router();
@@ -51,8 +51,10 @@ function adminProvider(p: IdentityProvider) {
     isDefault: p.isDefault,
     issuerUrl: p.issuerUrl,
     clientId: p.clientId,
-    // clientSecretRef is write-only; admins see only whether a secret is set.
-    secretConfigured: isSecretConfigured(p.clientSecretRef),
+    // The raw secret (and its DB ciphertext) are write-only; admins only
+    // see whether a secret is set and where it currently lives.
+    secretConfigured: isSecretConfigured(p),
+    secretSource: secretSource(p),
     scopes: p.scopes,
     autoProvision: p.autoProvision,
     defaultRole: p.defaultRole,
@@ -88,6 +90,24 @@ router.post("/admin/sso/providers", async (req, res): Promise<void> => {
       .set({ isDefault: false })
       .where(eq(identityProvidersTable.isDefault, true));
   }
+  // Admins may either supply an env-var pointer (`clientSecretRef`) or
+  // paste the raw secret (`clientSecretValue`). The raw value is encrypted
+  // at rest with AES-256-GCM and stored in `clientSecretEnc`. The two
+  // sources are mutually exclusive: pasting a value clears any env ref.
+  const rawSecret = v.clientSecretValue?.trim();
+  let secretRefValue: string | null = v.clientSecretRef ?? null;
+  let secretEncValue: string | null = null;
+  if (rawSecret) {
+    try {
+      secretEncValue = encryptSecret(rawSecret);
+      secretRefValue = null;
+    } catch (err) {
+      res.status(500).json({
+        error: err instanceof Error ? err.message : "Secret encryption failed",
+      });
+      return;
+    }
+  }
   const [created] = await db
     .insert(identityProvidersTable)
     .values({
@@ -99,7 +119,8 @@ router.post("/admin/sso/providers", async (req, res): Promise<void> => {
       isDefault: v.isDefault ?? false,
       issuerUrl: v.issuerUrl ?? null,
       clientId: v.clientId ?? null,
-      clientSecretRef: v.clientSecretRef ?? null,
+      clientSecretRef: secretRefValue,
+      clientSecretEnc: secretEncValue,
       scopes: v.scopes ?? "openid email profile",
       autoProvision: v.autoProvision ?? false,
       defaultRole: v.defaultRole ?? "client",
@@ -155,7 +176,25 @@ router.patch("/admin/sso/providers/:id", async (req, res): Promise<void> => {
   }
   if (v.issuerUrl !== undefined) update.issuerUrl = v.issuerUrl ?? null;
   if (v.clientId !== undefined) update.clientId = v.clientId ?? null;
-  if (v.clientSecretRef !== undefined) update.clientSecretRef = v.clientSecretRef ?? null;
+  // Secret rotation. Mutually exclusive — pasting a raw value wins over
+  // (and clears) any env-var ref, and supplying a fresh ref clears any
+  // previously-stored ciphertext. Omitting both fields leaves the existing
+  // secret untouched.
+  const rawSecret = v.clientSecretValue?.trim();
+  if (rawSecret) {
+    try {
+      update.clientSecretEnc = encryptSecret(rawSecret);
+      update.clientSecretRef = null;
+    } catch (err) {
+      res.status(500).json({
+        error: err instanceof Error ? err.message : "Secret encryption failed",
+      });
+      return;
+    }
+  } else if (v.clientSecretRef !== undefined) {
+    update.clientSecretRef = v.clientSecretRef ?? null;
+    update.clientSecretEnc = null;
+  }
   if (v.scopes !== undefined) update.scopes = v.scopes ?? "openid email profile";
   if (v.autoProvision !== undefined) update.autoProvision = v.autoProvision;
   if (v.defaultRole !== undefined) update.defaultRole = v.defaultRole ?? "client";
