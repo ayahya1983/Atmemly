@@ -74,7 +74,7 @@ export function TopNav() {
     >
       <div className="container mx-auto px-4 h-16 flex items-center justify-between gap-6 lg:gap-8">
         {/* Right side in RTL: logo. Left side in LTR: logo. */}
-        <div className="shrink-0">
+        <div className="shrink-0 flex items-center h-full">
           <Logo />
         </div>
 
@@ -228,7 +228,9 @@ export function TopNav() {
               </Button>
             </SheetTrigger>
             <SheetContent side={isRtl ? "right" : "left"} className="flex flex-col gap-6 pt-12">
-              <Logo />
+              <div className="flex items-center">
+                <Logo />
+              </div>
               <div className="flex flex-col gap-1 mt-4">
                 {navLinks.map((link) => (
                   <Link

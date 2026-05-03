@@ -120,7 +120,12 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
         collapsed ? "w-[72px]" : "w-[260px]",
       )}
     >
-      <div className="h-16 px-4 flex items-center justify-between border-b border-sidebar-border shrink-0">
+      <div
+        className={cn(
+          "h-16 flex items-center border-b border-sidebar-border shrink-0",
+          collapsed ? "justify-center px-2" : "justify-start px-4",
+        )}
+      >
         <Logo collapsed={collapsed} />
       </div>
 

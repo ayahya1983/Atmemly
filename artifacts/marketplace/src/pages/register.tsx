@@ -78,7 +78,7 @@ export default function Register() {
 
   return (
     <div className="min-h-[100dvh] flex flex-col items-center justify-center bg-muted/30 p-4 py-12">
-      <div className="mb-8">
+      <div className="mb-8 flex items-center justify-center">
         <Logo />
       </div>
       <Card className="w-full max-w-lg shadow-xl border-border/50">
