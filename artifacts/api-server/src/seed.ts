@@ -32,7 +32,22 @@ async function hash(p: string) {
   return bcrypt.hash(p, 10);
 }
 
+function assertNotProduction() {
+  const nodeEnv = process.env["NODE_ENV"];
+  const allow = process.env["ALLOW_PROD_SEED"];
+  if (nodeEnv === "production" && allow !== "1") {
+    throw new Error(
+      "Refusing to run seed against NODE_ENV=production. " +
+        "The seed script creates demo accounts (admin@atmemly.com / admin1234, etc.) " +
+        "with publicly documented passwords — see the 'Default seeded logins' and " +
+        "'Deployment notes' sections of README.md. " +
+        "If you really intend to seed a production database, re-run with ALLOW_PROD_SEED=1.",
+    );
+  }
+}
+
 async function main() {
+  assertNotProduction();
   console.log("Seeding…");
   await db.execute(sql`TRUNCATE TABLE
     consents, dispute_messages, disputes, attachments, legal_documents, platform_settings,

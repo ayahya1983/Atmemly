@@ -88,6 +88,18 @@ delete these in any non-development environment.**
 | Client      | e.g. `layla@atmemly.com` | `client1234`   |
 | Freelancer  | e.g. `noor@atmemly.com`  | `freelancer1234` |
 
+The seed script refuses to run when `NODE_ENV=production` so these
+publicly documented passwords cannot be shipped live by accident. If you
+deliberately need to seed a production database (e.g. a staging clone
+that happens to be tagged production), re-run with an explicit
+`ALLOW_PROD_SEED=1` env var:
+
+```bash
+ALLOW_PROD_SEED=1 pnpm --filter @workspace/api-server run seed
+```
+
+Always rotate or delete the demo accounts immediately afterwards.
+
 ## Payments
 
 Stripe, PayTabs, Telr, and a manual bank-transfer adapter are all
@@ -127,7 +139,9 @@ responses; never expose SSO secrets in the marketplace bundle.
   in `lib/db/drizzle/`) against the production database before the
   first boot.
 * Do **not** run the seed script against production — it inserts demo
-  users with publicly known passwords.
+  users with publicly known passwords. The seed script enforces this at
+  runtime: it throws when `NODE_ENV=production` unless you explicitly
+  set `ALLOW_PROD_SEED=1` (see "Default seeded logins" above).
 * `artifacts/api-server/uploads/` is the local file store. For
   production, swap the `LocalFileStore` in `src/lib/storage.ts` for an
   S3 / GCS / Replit Object Storage implementation of the same `FileStore`
