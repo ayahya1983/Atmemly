@@ -84,8 +84,8 @@ runcmd:
 
   # Install pnpm + Node 20 via corepack so deploy.sh can run pnpm install if
   # needed. Pin pnpm to the exact version in the repo's root package.json
-  # `packageManager` field. Pinning to a generic major (`pnpm@9`) silently
-  # drifted from what the lockfile expected and broke a prod deploy
+  # `packageManager` field. Pinning to a generic major (e.g. pnpm v9)
+  # silently drifted from what the lockfile expected and broke a prod deploy
   # (Task #50: "wrong package manager version on EC2"). Bump this in
   # lockstep with package.json#packageManager.
   - bash -c 'command -v node >/dev/null 2>&1 || (curl -fsSL https://deb.nodesource.com/setup_20.x | bash - && apt-get install -y nodejs)'
