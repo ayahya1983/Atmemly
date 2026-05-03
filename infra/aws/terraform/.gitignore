@@ -1,0 +1,27 @@
+# Terraform state — contains all resource attributes including secrets
+# (RDS master password, session/JWT secrets, full DATABASE_URL, etc.).
+# Never commit. Use a remote encrypted backend (S3 + DynamoDB) for shared state.
+terraform.tfstate
+terraform.tfstate.*
+*.tfstate
+*.tfstate.*
+
+# Plan artifacts — binary, contain resolved values that may include secrets
+tfplan
+*.tfplan
+*.tfplan.*
+
+# Terraform working directory (provider plugins, modules cache)
+.terraform/
+.terraform.lock.hcl.bak
+
+# Variable files that may hold secrets
+*.tfvars
+*.tfvars.json
+!example.tfvars
+!example.tfvars.json
+
+# Generated SSH key material — Terraform writes the EC2 keypair here
+# when ssh_public_key is left empty. Treat as a live credential.
+*.pem
+*.key
