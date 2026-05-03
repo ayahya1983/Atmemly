@@ -17,24 +17,31 @@ export default function PostJobScreen() {
   const create = useCreateJob();
   const [title, setTitle] = useState("");
   const [description, setDescription] = useState("");
-  const [budget, setBudget] = useState("");
+  const [budgetMin, setBudgetMin] = useState("");
+  const [budgetMax, setBudgetMax] = useState("");
   const [budgetType, setBudgetType] = useState<"fixed" | "hourly">("fixed");
   const [category, setCategory] = useState<string>("");
   const [error, setError] = useState<string | null>(null);
 
   const onSubmit = async () => {
     setError(null);
-    if (!title || !description) {
+    const min = Number(budgetMin);
+    const max = Number(budgetMax) || min;
+    if (!title || !description || !category || !min) {
       setError(t("required"));
       return;
     }
     try {
       await create.mutateAsync({
-        title,
-        description,
-        budgetType,
-        budget: Number(budget) || undefined,
-        category: category || undefined,
+        data: {
+          title,
+          description,
+          budgetType,
+          budgetMin: min,
+          budgetMax: max,
+          categorySlug: category,
+          skills: [],
+        },
       });
       router.back();
     } catch (e) {
@@ -112,13 +119,26 @@ export default function PostJobScreen() {
             })}
           </View>
         </View>
-        <Input
-          label={t("budget")}
-          icon="cash-outline"
-          value={budget}
-          onChangeText={setBudget}
-          keyboardType="numeric"
-        />
+        <View style={{ flexDirection: isRTL ? "row-reverse" : "row", gap: 10 }}>
+          <View style={{ flex: 1 }}>
+            <Input
+              label={t("budget") + " (min)"}
+              icon="cash-outline"
+              value={budgetMin}
+              onChangeText={setBudgetMin}
+              keyboardType="numeric"
+            />
+          </View>
+          <View style={{ flex: 1 }}>
+            <Input
+              label={t("budget") + " (max)"}
+              icon="cash-outline"
+              value={budgetMax}
+              onChangeText={setBudgetMax}
+              keyboardType="numeric"
+            />
+          </View>
+        </View>
         {cats.data && cats.data.length > 0 ? (
           <View>
             <Text

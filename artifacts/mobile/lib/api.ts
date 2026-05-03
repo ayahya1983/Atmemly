@@ -1,7 +1,11 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { setAuthTokenGetter, setBaseUrl } from "@workspace/api-client-react";
 
-const DOMAIN = process.env.EXPO_PUBLIC_DOMAIN;
-export const BASE_URL = DOMAIN ? `https://${DOMAIN}` : "";
+// Default to the production HTTPS domain so a fresh checkout "just works".
+// Dev/Replit overrides set EXPO_PUBLIC_DOMAIN via the workflow.
+const PRODUCTION_DOMAIN = "app.atmemli.com";
+const DOMAIN = process.env.EXPO_PUBLIC_DOMAIN || PRODUCTION_DOMAIN;
+export const BASE_URL = `https://${DOMAIN}`;
 
 const TOKEN_KEY = "atmemly.token";
 const USER_KEY = "atmemly.user";
@@ -147,4 +151,77 @@ export async function api<T = unknown>(
   }
 
   return data as T;
+}
+
+// Wire the generated `@workspace/api-client-react` client to the same base URL
+// and bearer token as the hand-rolled api() helper. Safe to import at module
+// load time — these are simple setters with no side effects beyond a closure.
+setBaseUrl(BASE_URL);
+setAuthTokenGetter(async () => {
+  try {
+    return await loadToken();
+  } catch {
+    return null;
+  }
+});
+
+/**
+ * Upload a local file to the API using multipart/form-data, mirroring the
+ * web behaviour against `POST /api/uploads`. The API server stores the bytes
+ * in S3 (or local disk in dev) via its FileStore abstraction and returns the
+ * canonical URL the caller should submit with the parent resource.
+ */
+export type UploadedAttachment = {
+  id: number;
+  url: string;
+  kind: string;
+  originalName: string;
+  mimeType: string;
+  sizeBytes: number;
+  sha256: string;
+  createdAt: string;
+};
+
+export async function uploadFile(input: {
+  uri: string;
+  name?: string;
+  mimeType?: string;
+  kind?: string;
+}): Promise<UploadedAttachment> {
+  const token = await loadToken();
+  const form = new FormData();
+  const filename = input.name || input.uri.split("/").pop() || "upload";
+  // React Native FormData accepts the { uri, name, type } shape.
+  form.append("file", {
+    uri: input.uri,
+    name: filename,
+    type: input.mimeType || "application/octet-stream",
+  } as unknown as Blob);
+  if (input.kind) form.append("kind", input.kind);
+
+  const headers: Record<string, string> = { Accept: "application/json" };
+  if (token) headers["Authorization"] = `Bearer ${token}`;
+
+  const res = await fetch(`${BASE_URL}/api/uploads`, {
+    method: "POST",
+    headers,
+    body: form as unknown as BodyInit,
+  });
+  const text = await res.text();
+  let data: unknown = null;
+  if (text) {
+    try {
+      data = JSON.parse(text);
+    } catch {
+      data = text;
+    }
+  }
+  if (!res.ok) {
+    const msg =
+      (data && typeof data === "object" && "error" in data
+        ? String((data as { error: unknown }).error)
+        : null) ?? res.statusText ?? "Upload failed";
+    throw new ApiError(res.status, msg, data);
+  }
+  return data as UploadedAttachment;
 }

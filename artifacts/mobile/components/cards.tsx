@@ -10,7 +10,7 @@ import type {
   FreelancerCard as FCard,
   JobCard as JCard,
   Notification,
-  Proposal,
+  ProposalDetail,
 } from "@/lib/queries";
 
 import { Avatar, Badge, Card } from "./ui";
@@ -27,12 +27,10 @@ export function JobCard({ job, onPress }: { job: JCard; onPress?: () => void }) 
   const c = useColors();
   const { lang, isRTL, t } = useI18n();
   const budget =
-    job.budget != null
-      ? formatCurrency(job.budget, lang)
-      : job.budgetMax != null
-      ? `${formatCurrency(job.budgetMin ?? 0, lang)} – ${formatCurrency(job.budgetMax, lang)}`
-      : "—";
-  const clientName = job.client?.fullName ?? job.client?.name ?? "";
+    job.budgetMin === job.budgetMax
+      ? formatCurrency(job.budgetMin, lang)
+      : `${formatCurrency(job.budgetMin, lang)} – ${formatCurrency(job.budgetMax, lang)}`;
+  const clientName = job.clientName ?? "";
   return (
     <Card onPress={onPress} style={{ gap: 10 }}>
       <View style={rowStyle(isRTL)}>
@@ -67,7 +65,7 @@ export function JobCard({ job, onPress }: { job: JCard; onPress?: () => void }) 
           tone="primary"
         />
       </View>
-      {job.description ? (
+      {job.descriptionShort ? (
         <Text
           numberOfLines={2}
           style={{
@@ -77,7 +75,7 @@ export function JobCard({ job, onPress }: { job: JCard; onPress?: () => void }) 
             textAlign: isRTL ? "right" : "left",
           }}
         >
-          {job.description}
+          {job.descriptionShort}
         </Text>
       ) : null}
       <View style={[rowStyle(isRTL), { justifyContent: "space-between" }]}>
@@ -116,7 +114,7 @@ export function FreelancerCard({
 }) {
   const c = useColors();
   const { lang, isRTL, t } = useI18n();
-  const name = freelancer.fullName ?? freelancer.name ?? "—";
+  const name = freelancer.fullName ?? "—";
   return (
     <Card onPress={onPress} style={{ gap: 10 }}>
       <View style={rowStyle(isRTL)}>
@@ -133,7 +131,7 @@ export function FreelancerCard({
           >
             {name}
           </Text>
-          {freelancer.title ? (
+          {freelancer.headline ? (
             <Text
               numberOfLines={1}
               style={{
@@ -143,7 +141,7 @@ export function FreelancerCard({
                 textAlign: isRTL ? "right" : "left",
               }}
             >
-              {freelancer.title}
+              {freelancer.headline}
             </Text>
           ) : null}
         </View>
@@ -158,9 +156,9 @@ export function FreelancerCard({
               fontSize: 12,
             }}
           >
-            {(freelancer.rating ?? 0).toFixed(1)}
+            {(freelancer.ratingAvg ?? 0).toFixed(1)}
           </Text>
-          {freelancer.reviewsCount != null ? (
+          {freelancer.ratingCount != null ? (
             <Text
               style={{
                 color: c.mutedForeground,
@@ -168,7 +166,7 @@ export function FreelancerCard({
                 fontFamily: "Inter_400Regular",
               }}
             >
-              ({freelancer.reviewsCount})
+              ({freelancer.ratingCount})
             </Text>
           ) : null}
         </View>
@@ -197,7 +195,7 @@ export function ConversationCard({
 }) {
   const c = useColors();
   const { lang, isRTL } = useI18n();
-  const name = conv.otherUser?.fullName ?? conv.otherUser?.name ?? "—";
+  const name = conv.otherUserName ?? "—";
   return (
     <Card onPress={onPress}>
       <View style={rowStyle(isRTL)}>
@@ -216,7 +214,7 @@ export function ConversationCard({
             >
               {name}
             </Text>
-            {conv.lastMessage ? (
+            {conv.lastMessageAt ? (
               <Text
                 style={{
                   color: c.mutedForeground,
@@ -224,7 +222,7 @@ export function ConversationCard({
                   fontFamily: "Inter_400Regular",
                 }}
               >
-                {timeAgo(conv.lastMessage.createdAt, lang)}
+                {timeAgo(conv.lastMessageAt, lang)}
               </Text>
             ) : null}
           </View>
@@ -239,7 +237,7 @@ export function ConversationCard({
                 textAlign: isRTL ? "right" : "left",
               }}
             >
-              {conv.lastMessage.body}
+              {conv.lastMessage}
             </Text>
           ) : null}
         </View>
@@ -274,7 +272,7 @@ export function ConversationCard({
 export function NotificationItem({ n }: { n: Notification }) {
   const c = useColors();
   const { lang, isRTL } = useI18n();
-  const body = n.body ?? n.message ?? "";
+  const body = n.body ?? "";
   return (
     <Card style={{ opacity: n.read ? 0.7 : 1 }}>
       <View style={rowStyle(isRTL)}>
@@ -329,7 +327,7 @@ export function NotificationItem({ n }: { n: Notification }) {
   );
 }
 
-export function ProposalCard({ p }: { p: Proposal }) {
+export function ProposalCard({ p }: { p: ProposalDetail }) {
   const c = useColors();
   const { lang, isRTL, t } = useI18n();
   const tone =
@@ -363,7 +361,7 @@ export function ProposalCard({ p }: { p: Proposal }) {
             fontSize: 14,
           }}
         >
-          {formatCurrency(p.bidAmount, lang)}
+          {formatCurrency(p.expectedRate, lang)}
         </Text>
         <Text
           style={{

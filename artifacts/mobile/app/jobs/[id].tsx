@@ -35,21 +35,26 @@ export default function JobDetailScreen() {
   const [open, setOpen] = useState(false);
   const [bid, setBid] = useState("");
   const [cover, setCover] = useState("");
+  const [days, setDays] = useState("7");
   const [error, setError] = useState<string | null>(null);
   const createProposal = useCreateProposal();
 
   const onSubmit = async () => {
     setError(null);
     const amount = Number(bid);
-    if (!amount || !cover) {
+    const deliveryDays = Number(days);
+    if (!amount || !cover || !deliveryDays) {
       setError(t("required"));
       return;
     }
     try {
       await createProposal.mutateAsync({
-        jobId: Number(id),
-        bidAmount: amount,
-        coverLetter: cover,
+        data: {
+          jobId: Number(id),
+          expectedRate: amount,
+          deliveryDays,
+          coverLetter: cover,
+        },
       });
       setOpen(false);
       setBid("");
@@ -65,11 +70,11 @@ export default function JobDetailScreen() {
       router.push("/(auth)/login");
       return;
     }
-    if (!job.data?.client?.id) return;
+    if (!job.data?.clientId) return;
     try {
       const conv = await api<{ id: number }>("/conversations", {
         method: "POST",
-        body: { recipientId: job.data.client.id, jobId: Number(id) },
+        body: { otherUserId: job.data.clientId, jobId: Number(id) },
       });
       router.push(`/conversations/${conv.id}`);
     } catch {
@@ -94,11 +99,9 @@ export default function JobDetailScreen() {
 
   const j = job.data;
   const budgetText =
-    j.budget != null
-      ? formatCurrency(j.budget, lang)
-      : j.budgetMax != null
-      ? `${formatCurrency(j.budgetMin ?? 0, lang)} – ${formatCurrency(j.budgetMax, lang)}`
-      : "—";
+    j.budgetMin === j.budgetMax
+      ? formatCurrency(j.budgetMin, lang)
+      : `${formatCurrency(j.budgetMin, lang)} – ${formatCurrency(j.budgetMax, lang)}`;
 
   return (
     <>
@@ -132,17 +135,17 @@ export default function JobDetailScreen() {
           >
             <Badge label={j.budgetType === "hourly" ? t("hourly") : t("fixed")} tone="primary" />
             {j.status ? <Badge label={t((j.status as never)) ?? j.status} /> : null}
-            {j.category ? <Badge label={j.category} /> : null}
+            {j.categoryNameEn ? <Badge label={j.categoryNameEn} /> : null}
           </View>
         </View>
 
         <Card style={{ gap: 8 }}>
           <Row icon="cash-outline" label={t("budget")} value={budgetText} />
-          {j.proposalsCount != null ? (
+          {j.proposalCount != null ? (
             <Row
               icon="document-text-outline"
               label={t("proposals")}
-              value={String(j.proposalsCount)}
+              value={String(j.proposalCount)}
             />
           ) : null}
           {j.createdAt ? (
@@ -176,7 +179,7 @@ export default function JobDetailScreen() {
                 textAlign: isRTL ? "right" : "left",
               }}
             >
-              {j.fullDescription ?? j.description}
+              {j.description}
             </Text>
           </Card>
         ) : null}
@@ -302,6 +305,13 @@ export default function JobDetailScreen() {
               icon="cash-outline"
               value={bid}
               onChangeText={setBid}
+              keyboardType="numeric"
+            />
+            <Input
+              label={t("days") ?? "Delivery days"}
+              icon="time-outline"
+              value={days}
+              onChangeText={setDays}
               keyboardType="numeric"
             />
             <Input

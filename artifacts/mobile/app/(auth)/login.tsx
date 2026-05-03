@@ -9,6 +9,7 @@ import { useColors } from "@/hooks/useColors";
 import { ApiError } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { useI18n } from "@/lib/i18n";
+import { SsoButtons } from "@/lib/sso";
 
 export default function LoginScreen() {
   const c = useColors();
@@ -131,6 +132,7 @@ export default function LoginScreen() {
         <View style={{ marginTop: 16 }}>
           <Button label={t("login")} onPress={onSubmit} loading={loading} />
         </View>
+        <SsoButtons />
         <View
           style={{
             flexDirection: isRTL ? "row-reverse" : "row",

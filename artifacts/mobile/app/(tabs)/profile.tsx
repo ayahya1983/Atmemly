@@ -1,11 +1,17 @@
 import { Ionicons } from "@expo/vector-icons";
+import * as ImagePicker from "expo-image-picker";
 import { router } from "expo-router";
-import React from "react";
-import { Pressable, ScrollView, Text, View } from "react-native";
+import {
+  updateClientProfile,
+  updateFreelancerProfile,
+} from "@workspace/api-client-react";
+import React, { useState } from "react";
+import { ActivityIndicator, Alert, Pressable, ScrollView, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { Avatar, Button, Card } from "@/components/ui";
 import { useColors } from "@/hooks/useColors";
+import { uploadFile } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { useI18n } from "@/lib/i18n";
 
@@ -20,7 +26,44 @@ export default function ProfileScreen() {
   const c = useColors();
   const insets = useSafeAreaInsets();
   const { t, isRTL } = useI18n();
-  const { user, logout } = useAuth();
+  const { user, logout, refresh } = useAuth();
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
+
+  const onChangeAvatar = async () => {
+    if (!user) return;
+    const perm = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (!perm.granted) {
+      Alert.alert(t("settings"), "Permission required to access photos.");
+      return;
+    }
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.8,
+    });
+    if (result.canceled || !result.assets[0]) return;
+    const asset = result.assets[0];
+    setUploadingAvatar(true);
+    try {
+      const uploaded = await uploadFile({
+        uri: asset.uri,
+        name: asset.fileName ?? `avatar-${Date.now()}.jpg`,
+        mimeType: asset.mimeType ?? "image/jpeg",
+        kind: "avatar",
+      });
+      if (user.role === "freelancer") {
+        await updateFreelancerProfile({ avatarUrl: uploaded.url });
+      } else if (user.role === "client") {
+        await updateClientProfile({ avatarUrl: uploaded.url });
+      }
+      await refresh();
+    } catch (e) {
+      Alert.alert(t("error") ?? "Error", (e as Error).message);
+    } finally {
+      setUploadingAvatar(false);
+    }
+  };
 
   if (!user) {
     return (
@@ -141,7 +184,32 @@ export default function ProfileScreen() {
             gap: 14,
           }}
         >
-          <Avatar name={user.fullName ?? user.name} size={56} />
+          <Pressable onPress={onChangeAvatar} disabled={uploadingAvatar}>
+            <View>
+              <Avatar name={user.fullName ?? user.name} size={56} />
+              <View
+                style={{
+                  position: "absolute",
+                  right: -2,
+                  bottom: -2,
+                  width: 22,
+                  height: 22,
+                  borderRadius: 11,
+                  backgroundColor: c.primary,
+                  alignItems: "center",
+                  justifyContent: "center",
+                  borderWidth: 2,
+                  borderColor: c.background,
+                }}
+              >
+                {uploadingAvatar ? (
+                  <ActivityIndicator size="small" color={c.primaryForeground} />
+                ) : (
+                  <Ionicons name="camera" size={12} color={c.primaryForeground} />
+                )}
+              </View>
+            </View>
+          </Pressable>
           <View style={{ flex: 1 }}>
             <Text
               numberOfLines={1}

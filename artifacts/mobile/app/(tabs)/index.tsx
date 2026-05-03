@@ -236,17 +236,17 @@ export default function HomeScreen() {
       >
         <StatTile
           icon="briefcase"
-          value={stats.data?.jobsPosted ?? 0}
+          value={stats.data?.activeJobs ?? 0}
           label={t("jobs")}
         />
         <StatTile
           icon="people"
-          value={stats.data?.freelancersCount ?? 0}
+          value={stats.data?.totalFreelancers ?? 0}
           label={t("freelancers")}
         />
         <StatTile
           icon="business"
-          value={stats.data?.clientsCount ?? 0}
+          value={stats.data?.totalClients ?? 0}
           label={t("client") + "s"}
         />
       </View>

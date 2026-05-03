@@ -9,6 +9,7 @@ import { useColors } from "@/hooks/useColors";
 import { ApiError } from "@/lib/api";
 import { useAuth, type Role } from "@/lib/auth";
 import { useI18n } from "@/lib/i18n";
+import { SsoButtons } from "@/lib/sso";
 
 export default function RegisterScreen() {
   const c = useColors();
@@ -183,6 +184,7 @@ export default function RegisterScreen() {
         <View style={{ marginTop: 16 }}>
           <Button label={t("register")} onPress={onSubmit} loading={loading} />
         </View>
+        <SsoButtons />
         <View
           style={{
             flexDirection: isRTL ? "row-reverse" : "row",

@@ -35,7 +35,7 @@ export default function FreelancerDetailScreen() {
     try {
       const conv = await api<{ id: number }>("/conversations", {
         method: "POST",
-        body: { recipientId: Number(id) },
+        body: { otherUserId: Number(id) },
       });
       router.push(`/conversations/${conv.id}`);
     } catch {
@@ -49,7 +49,7 @@ export default function FreelancerDetailScreen() {
   }
 
   const f = fl.data;
-  const name = f.fullName ?? f.name ?? "—";
+  const name = f.fullName ?? "—";
   return (
     <>
       <Stack.Screen options={{ title: t("details") }} />
@@ -72,7 +72,7 @@ export default function FreelancerDetailScreen() {
           >
             {name}
           </Text>
-          {f.title ? (
+          {f.headline ? (
             <Text
               style={{
                 color: c.mutedForeground,
@@ -80,7 +80,7 @@ export default function FreelancerDetailScreen() {
                 fontSize: 14,
               }}
             >
-              {f.title}
+              {f.headline}
             </Text>
           ) : null}
           <View
@@ -92,7 +92,7 @@ export default function FreelancerDetailScreen() {
           >
             <Stat
               icon="star"
-              value={(f.rating ?? 0).toFixed(1)}
+              value={(f.ratingAvg ?? 0).toFixed(1)}
               label={t("rating")}
             />
             {f.hourlyRate != null ? (
@@ -104,7 +104,7 @@ export default function FreelancerDetailScreen() {
             ) : null}
             <Stat
               icon="chatbubble-outline"
-              value={String(f.reviewsCount ?? 0)}
+              value={String(f.ratingCount ?? 0)}
               label={t("reviews")}
             />
           </View>
