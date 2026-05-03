@@ -3,6 +3,8 @@ import { useAdminGet, useAdminMutation, adminApi } from "@/lib/api-admin";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { formatCurrency, useTranslation } from "@/lib/i18n";
+import { useAuth } from "@/contexts/AuthContext";
+import { hasPermission } from "@/lib/permissions";
 import { format } from "date-fns";
 import { DataTable, type Column, StatusBadge, PageHeader, FilterBar, ConfirmActionDialog } from "@/components/admin";
 
@@ -21,6 +23,8 @@ const ACTIONS = [
 
 export default function AdminContracts() {
   const { lang } = useTranslation();
+  const { user } = useAuth();
+  const canWrite = hasPermission(user, "contracts", "write");
   const { toast } = useToast();
   const [search, setSearch] = useState("");
   const [status, setStatus] = useState("all");
@@ -65,7 +69,7 @@ export default function AdminContracts() {
       key: "actions",
       header: lang === "ar" ? "إجراءات" : "Actions",
       align: "end",
-      cell: (c) => (
+      cell: (c) => !canWrite ? null : (
         <div className="flex gap-1 justify-end">
           {ACTIONS.map((a) => (
             <ConfirmActionDialog

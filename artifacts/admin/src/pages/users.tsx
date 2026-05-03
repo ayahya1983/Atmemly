@@ -5,6 +5,8 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
 import { formatDistanceToNow } from "date-fns";
 import { useTranslation } from "@/lib/i18n";
+import { useAuth } from "@/contexts/AuthContext";
+import { hasPermission } from "@/lib/permissions";
 import {
   DataTable, type Column, type BulkAction, StatusBadge, PageHeader, FilterBar, ConfirmActionDialog,
 } from "@/components/admin";
@@ -13,6 +15,8 @@ type UserRow = AdminUser;
 
 export default function AdminUsers() {
   const { lang } = useTranslation();
+  const { user: currentUser } = useAuth();
+  const canWrite = hasPermission(currentUser, "users", "write");
   const { data: users, isLoading } = useAdminListUsers();
   const updateStatus = useAdminUpdateUserStatus();
   const queryClient = useQueryClient();
@@ -69,7 +73,7 @@ export default function AdminUsers() {
       key: "actions",
       header: lang === "ar" ? "إجراء" : "Action",
       align: "end",
-      cell: (u) => u.role === "admin" ? null : (
+      cell: (u) => (u.role === "admin" || !canWrite) ? null : (
         <ConfirmActionDialog
           trigger={
             <Button variant="outline" size="sm" data-testid={`button-toggle-${u.id}`}>
@@ -90,10 +94,10 @@ export default function AdminUsers() {
     },
   ];
 
-  const bulkActions: BulkAction<UserRow>[] = [
+  const bulkActions: BulkAction<UserRow>[] = canWrite ? [
     { label: lang === "ar" ? "تفعيل" : "Activate", onRun: (rows) => setStatusBulk(rows, "active") },
     { label: lang === "ar" ? "إيقاف" : "Suspend", destructive: true, onRun: (rows) => setStatusBulk(rows, "suspended") },
-  ];
+  ] : [];
 
   return (
     <div className="space-y-4">
@@ -125,7 +129,7 @@ export default function AdminUsers() {
         rowKey={(u) => u.id}
         isLoading={isLoading}
         search={search}
-        enableSelection
+        enableSelection={canWrite}
         bulkActions={bulkActions}
         csvFilename="users.csv"
       />

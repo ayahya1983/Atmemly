@@ -5,6 +5,8 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { formatCurrency, useTranslation } from "@/lib/i18n";
+import { useAuth } from "@/contexts/AuthContext";
+import { hasPermission } from "@/lib/permissions";
 import { format } from "date-fns";
 import { Download } from "lucide-react";
 import { DataTable, type Column, StatusBadge, PageHeader, FilterBar, ConfirmActionDialog } from "@/components/admin";
@@ -22,6 +24,9 @@ interface ListResp { data: BatchRow[]; pagination: { total: number; page: number
 
 export default function AdminPayouts() {
   const { lang } = useTranslation();
+  const { user } = useAuth();
+  const canWrite = hasPermission(user, "payouts", "write");
+  const canApprove = hasPermission(user, "payouts", "approve");
   const { toast } = useToast();
   const [minAmount, setMinAmount] = useState("");
   const [currency, setCurrency] = useState("AED");
@@ -80,7 +85,7 @@ export default function AdminPayouts() {
           <Button size="sm" variant="outline" onClick={() => downloadCsv(`/admin/payout-batches/${b.id}/export.csv`, `batch-${b.id}.csv`)}>
             <Download className="w-3 h-3 ltr:mr-1 rtl:ml-1" />CSV
           </Button>
-          {b.status === "draft" && (
+          {b.status === "draft" && canApprove && (
             <ConfirmActionDialog
               trigger={<Button size="sm" disabled={processMutation.isPending}>{lang === "ar" ? "معالجة" : "Process"}</Button>}
               title={lang === "ar" ? "تأكيد المعالجة" : "Confirm processing"}
@@ -98,6 +103,7 @@ export default function AdminPayouts() {
     <div className="space-y-6">
       <PageHeader title={lang === "ar" ? "دفعات الصرف" : "Payout Batches"} />
 
+      {canWrite && (
       <Card>
         <CardHeader><CardTitle className="text-base">{lang === "ar" ? "إنشاء دفعة جديدة" : "Create new batch"}</CardTitle></CardHeader>
         <CardContent>
@@ -120,6 +126,7 @@ export default function AdminPayouts() {
           </div>
         </CardContent>
       </Card>
+      )}
 
       <FilterBar
         search={search}

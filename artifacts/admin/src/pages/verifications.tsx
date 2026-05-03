@@ -5,6 +5,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { useTranslation } from "@/lib/i18n";
+import { useAuth } from "@/contexts/AuthContext";
+import { hasPermission } from "@/lib/permissions";
 import { formatDistanceToNow } from "date-fns";
 import { DataTable, type Column, StatusBadge, PageHeader, FilterBar, ConfirmActionDialog } from "@/components/admin";
 
@@ -26,6 +28,8 @@ interface VerificationRow {
 
 export default function AdminVerifications() {
   const { lang } = useTranslation();
+  const { user } = useAuth();
+  const canApprove = hasPermission(user, "verifications", "approve");
   const { toast } = useToast();
   const [filter, setFilter] = useState("pending");
   const [search, setSearch] = useState("");
@@ -71,7 +75,7 @@ export default function AdminVerifications() {
       key: "actions",
       header: lang === "ar" ? "إجراءات" : "Actions",
       align: "end",
-      cell: (v) => v.status !== "pending" ? <span className="text-xs text-muted-foreground">{lang === "ar" ? "مغلق" : "Closed"}</span> : (
+      cell: (v) => v.status !== "pending" ? <span className="text-xs text-muted-foreground">{lang === "ar" ? "مغلق" : "Closed"}</span> : !canApprove ? null : (
         <VerificationDecideDialog v={v} pending={decisionMutation.isPending} onDecide={async (decision, reason) => {
           await decisionMutation.mutateAsync({ id: v.id, decision, reason });
           toast({ title: lang === "ar" ? "تم الحفظ" : `Verification ${decision}d` });

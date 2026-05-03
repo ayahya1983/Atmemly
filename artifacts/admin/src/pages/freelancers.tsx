@@ -1,8 +1,9 @@
 import { useState } from "react";
 import { useAdminGet, useAdminMutation, adminApi } from "@/lib/api-admin";
 import { Button } from "@/components/ui/button";
-import { useToast } from "@/hooks/use-toast";
 import { useTranslation } from "@/lib/i18n";
+import { useAuth } from "@/contexts/AuthContext";
+import { hasPermission } from "@/lib/permissions";
 import { DataTable, type Column, StatusBadge, PageHeader, FilterBar, ConfirmActionDialog } from "@/components/admin";
 
 interface FreelancerRow {
@@ -19,7 +20,8 @@ interface ListResp { total: number; items: FreelancerRow[]; }
 
 export default function AdminFreelancers() {
   const { lang } = useTranslation();
-  const { toast } = useToast();
+  const { user } = useAuth();
+  const canWrite = hasPermission(user, "freelancers", "write");
   const [search, setSearch] = useState("");
   const [verification, setVerification] = useState("all");
   const [status, setStatus] = useState("all");
@@ -40,13 +42,6 @@ export default function AdminFreelancers() {
     ({ userId, hidden }) => adminApi.patch(`/admin/freelancers/${userId}/visibility`, { hidden }),
     [key],
   );
-
-  const adjustTrust = (f: FreelancerRow, delta: number) => {
-    trustMutation.mutate({ userId: f.userId, delta }, {
-      onSuccess: () => toast({ title: `${lang === "ar" ? "تم تعديل الثقة" : "Trust"} ${delta > 0 ? "+" : ""}${delta}` }),
-      onError: (e) => toast({ variant: "destructive", title: "Error", description: e.message }),
-    });
-  };
 
   const columns: Column<FreelancerRow>[] = [
     {
@@ -92,10 +87,23 @@ export default function AdminFreelancers() {
       key: "actions",
       header: lang === "ar" ? "إجراءات" : "Actions",
       align: "end",
-      cell: (f) => (
+      cell: (f) => !canWrite ? null : (
         <div className="flex gap-1 justify-end">
-          <Button size="sm" variant="outline" disabled={trustMutation.isPending} onClick={() => adjustTrust(f, 5)}>+5</Button>
-          <Button size="sm" variant="outline" disabled={trustMutation.isPending} onClick={() => adjustTrust(f, -5)}>-5</Button>
+          <ConfirmActionDialog
+            trigger={<Button size="sm" variant="outline" disabled={trustMutation.isPending}>+5</Button>}
+            title={lang === "ar" ? "زيادة الثقة بمقدار 5؟" : "Increase trust by 5?"}
+            description={f.fullName}
+            successMessage={lang === "ar" ? "تم تعديل الثقة +5" : "Trust +5"}
+            onConfirm={() => trustMutation.mutateAsync({ userId: f.userId, delta: 5 })}
+          />
+          <ConfirmActionDialog
+            trigger={<Button size="sm" variant="outline" disabled={trustMutation.isPending}>-5</Button>}
+            title={lang === "ar" ? "خفض الثقة بمقدار 5؟" : "Decrease trust by 5?"}
+            description={f.fullName}
+            destructive
+            successMessage={lang === "ar" ? "تم تعديل الثقة -5" : "Trust -5"}
+            onConfirm={() => trustMutation.mutateAsync({ userId: f.userId, delta: -5 })}
+          />
           <ConfirmActionDialog
             trigger={
               <Button size="sm" variant={f.status === "active" ? "destructive" : "default"} disabled={visibilityMutation.isPending}>

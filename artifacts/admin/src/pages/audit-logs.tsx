@@ -1,17 +1,16 @@
 import { useState } from "react";
-import { PageHeader } from "@/components/admin";
 import { useAdminGet, downloadCsv } from "@/lib/api-admin";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Skeleton } from "@/components/ui/skeleton";
+import { Badge } from "@/components/ui/badge";
 import { useTranslation } from "@/lib/i18n";
 import { format } from "date-fns";
-import { Download, Eye } from "lucide-react";
+import { Eye } from "lucide-react";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  DataTable, type Column, PageHeader, FilterBar,
+} from "@/components/admin";
 
 interface AuditRow {
   id: number;
@@ -28,65 +27,110 @@ interface AuditRow {
 
 export default function AdminAuditLogs() {
   const { lang } = useTranslation();
-  const [action, setAction] = useState("");
-  const [entityType, setEntityType] = useState("");
-  const [search, setSearch] = useState({ action: "", entityType: "" });
+  const [actionInput, setActionInput] = useState("");
+  const [entityInput, setEntityInput] = useState("");
+  const [applied, setApplied] = useState({ action: "", entityType: "" });
+  const [search, setSearch] = useState("");
 
   const params = new URLSearchParams();
-  if (search.action) params.set("action", search.action);
-  if (search.entityType) params.set("entityType", search.entityType);
+  if (applied.action) params.set("action", applied.action);
+  if (applied.entityType) params.set("entityType", applied.entityType);
   params.set("limit", "200");
   const path = `/admin/audit-logs?${params}`;
   const csvPath = `/admin/audit-logs.csv?${params}`;
 
-  const { data, isLoading } = useAdminGet<AuditRow[]>(["admin-audit-logs", search.action, search.entityType], path);
-
+  const { data, isLoading } = useAdminGet<AuditRow[]>(
+    ["admin-audit-logs", applied.action, applied.entityType], path,
+  );
   const [viewing, setViewing] = useState<AuditRow | null>(null);
 
-  return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between gap-4 flex-wrap">
-        <PageHeader title={lang === "ar" ? "سجل التدقيق" : "Audit Logs"} />
-        <Button variant="outline" onClick={() => downloadCsv(csvPath, "audit-logs.csv")}>
-          <Download className="w-4 h-4 mr-2" />{lang === "ar" ? "تصدير CSV" : "Export CSV"}
+  const columns: Column<AuditRow>[] = [
+    {
+      key: "createdAt",
+      header: lang === "ar" ? "الوقت" : "Time",
+      cell: (r) => <span className="text-xs text-muted-foreground whitespace-nowrap">{format(new Date(r.createdAt), "yyyy-MM-dd HH:mm:ss")}</span>,
+      sortValue: (r) => new Date(r.createdAt).getTime(),
+    },
+    {
+      key: "userName",
+      header: lang === "ar" ? "المستخدم" : "User",
+      cell: (r) => <span className="text-sm">{r.userName ?? (r.userId ? `user#${r.userId}` : "—")}</span>,
+      sortValue: (r) => r.userName ?? (r.userId ? `user#${r.userId}` : ""),
+      searchValue: (r) => `${r.userName ?? ""} ${r.userId ?? ""}`,
+    },
+    {
+      key: "action",
+      header: lang === "ar" ? "الإجراء" : "Action",
+      cell: (r) => <Badge variant="outline" className="font-mono text-xs">{r.action}</Badge>,
+      sortValue: (r) => r.action,
+      searchValue: (r) => r.action,
+    },
+    {
+      key: "entity",
+      header: lang === "ar" ? "الكيان" : "Entity",
+      cell: (r) => <span className="text-sm">{r.entityType ? `${r.entityType}#${r.entityId ?? "?"}` : "—"}</span>,
+      sortValue: (r) => `${r.entityType ?? ""}${r.entityId ?? ""}`,
+      searchValue: (r) => `${r.entityType ?? ""} ${r.entityId ?? ""}`,
+    },
+    {
+      key: "ip",
+      header: "IP",
+      cell: (r) => <span className="text-xs text-muted-foreground">{r.ip ?? "—"}</span>,
+      sortValue: (r) => r.ip ?? "",
+      searchValue: (r) => r.ip ?? "",
+    },
+    {
+      key: "view",
+      header: "",
+      align: "end",
+      cell: (r) => (
+        <Button size="sm" variant="ghost" onClick={() => setViewing(r)} data-testid={`button-view-${r.id}`}>
+          <Eye className="w-3 h-3" />
         </Button>
-      </div>
+      ),
+    },
+  ];
 
-      <div className="flex flex-wrap gap-2">
-        <Input placeholder={lang === "ar" ? "نوع الإجراء (مثل user.update)" : "Action (e.g. user.update)"} value={action} onChange={(e) => setAction(e.target.value)} className="max-w-xs" />
-        <Input placeholder={lang === "ar" ? "نوع الكيان" : "Entity type"} value={entityType} onChange={(e) => setEntityType(e.target.value)} className="max-w-xs" />
-        <Button variant="outline" onClick={() => setSearch({ action, entityType })}>{lang === "ar" ? "تصفية" : "Filter"}</Button>
-        <Button variant="ghost" onClick={() => { setAction(""); setEntityType(""); setSearch({ action: "", entityType: "" }); }}>{lang === "ar" ? "مسح" : "Clear"}</Button>
-      </div>
-
-      <div className="rounded-md border">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>{lang === "ar" ? "الوقت" : "Time"}</TableHead>
-              <TableHead>{lang === "ar" ? "المستخدم" : "User"}</TableHead>
-              <TableHead>{lang === "ar" ? "الإجراء" : "Action"}</TableHead>
-              <TableHead>{lang === "ar" ? "الكيان" : "Entity"}</TableHead>
-              <TableHead>IP</TableHead>
-              <TableHead></TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {isLoading ? <TableRow><TableCell colSpan={6}><Skeleton className="h-8" /></TableCell></TableRow>
-              : !data?.length ? <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground py-8">{lang === "ar" ? "لا سجلات" : "No audit logs"}</TableCell></TableRow>
-              : data.map((row) => (
-                <TableRow key={row.id}>
-                  <TableCell className="text-xs text-muted-foreground whitespace-nowrap">{format(new Date(row.createdAt), "yyyy-MM-dd HH:mm:ss")}</TableCell>
-                  <TableCell className="text-sm">{row.userName ?? (row.userId ? `user#${row.userId}` : "—")}</TableCell>
-                  <TableCell><Badge variant="outline" className="font-mono text-xs">{row.action}</Badge></TableCell>
-                  <TableCell className="text-sm">{row.entityType ? `${row.entityType}#${row.entityId ?? "?"}` : "—"}</TableCell>
-                  <TableCell className="text-xs text-muted-foreground">{row.ip ?? "—"}</TableCell>
-                  <TableCell><Button size="sm" variant="ghost" onClick={() => setViewing(row)}><Eye className="w-3 h-3" /></Button></TableCell>
-                </TableRow>
-              ))}
-          </TableBody>
-        </Table>
-      </div>
+  return (
+    <div className="space-y-4">
+      <PageHeader title={lang === "ar" ? "سجل التدقيق" : "Audit Logs"} />
+      <FilterBar
+        search={search}
+        onSearchChange={setSearch}
+        searchPlaceholder={lang === "ar" ? "ابحث (مستخدم، إجراء، كيان، IP)" : "Search (user, action, entity, IP)"}
+        onReset={() => {
+          setSearch(""); setActionInput(""); setEntityInput("");
+          setApplied({ action: "", entityType: "" });
+        }}
+      >
+        <input
+          value={actionInput}
+          onChange={(e) => setActionInput(e.target.value)}
+          placeholder={lang === "ar" ? "نوع الإجراء" : "Action filter"}
+          className="h-9 rounded-md border border-input bg-background px-2 text-sm w-44"
+          data-testid="input-action-filter"
+        />
+        <input
+          value={entityInput}
+          onChange={(e) => setEntityInput(e.target.value)}
+          placeholder={lang === "ar" ? "نوع الكيان" : "Entity filter"}
+          className="h-9 rounded-md border border-input bg-background px-2 text-sm w-40"
+          data-testid="input-entity-filter"
+        />
+        <Button size="sm" variant="outline" onClick={() => setApplied({ action: actionInput, entityType: entityInput })} data-testid="button-apply-filter">
+          {lang === "ar" ? "تطبيق" : "Apply"}
+        </Button>
+      </FilterBar>
+      <DataTable
+        data={data}
+        columns={columns}
+        rowKey={(r) => r.id}
+        isLoading={isLoading}
+        search={search}
+        emptyTitle={lang === "ar" ? "لا سجلات" : "No audit logs"}
+        csvFilename="audit-logs.csv"
+        onCsvExport={() => downloadCsv(csvPath, "audit-logs.csv")}
+      />
 
       <Dialog open={!!viewing} onOpenChange={(o) => !o && setViewing(null)}>
         <DialogContent className="max-w-2xl">

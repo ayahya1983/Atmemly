@@ -3,6 +3,8 @@ import { useAdminGet, useAdminMutation, adminApi } from "@/lib/api-admin";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { formatCurrency, useTranslation } from "@/lib/i18n";
+import { useAuth } from "@/contexts/AuthContext";
+import { hasPermission } from "@/lib/permissions";
 import { DataTable, type Column, StatusBadge, PageHeader, FilterBar, ConfirmActionDialog } from "@/components/admin";
 
 interface ClientRow {
@@ -20,6 +22,8 @@ interface ListResp { total: number; items: ClientRow[]; }
 
 export default function AdminClients() {
   const { lang } = useTranslation();
+  const { user } = useAuth();
+  const canApprove = hasPermission(user, "clients", "approve");
   const { toast } = useToast();
   const [search, setSearch] = useState("");
   const [verification, setVerification] = useState("all");
@@ -81,7 +85,7 @@ export default function AdminClients() {
       key: "actions",
       header: lang === "ar" ? "إجراءات" : "Actions",
       align: "end",
-      cell: (c) => (
+      cell: (c) => !canApprove ? null : (
         <div className="flex gap-1 justify-end">
           <ConfirmActionDialog
             trigger={

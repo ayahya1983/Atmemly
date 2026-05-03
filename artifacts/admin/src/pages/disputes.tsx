@@ -5,6 +5,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
 import { useTranslation } from "@/lib/i18n";
+import { useAuth } from "@/contexts/AuthContext";
+import { hasPermission } from "@/lib/permissions";
 import { formatDistanceToNow } from "date-fns";
 import { DataTable, type Column, StatusBadge, PageHeader, FilterBar, ConfirmActionDialog } from "@/components/admin";
 
@@ -21,6 +23,8 @@ interface DisputeRow {
 
 export default function AdminDisputes() {
   const { lang } = useTranslation();
+  const { user } = useAuth();
+  const canWrite = hasPermission(user, "disputes", "write");
   const { toast } = useToast();
   const [filter, setFilter] = useState("all");
   const [search, setSearch] = useState("");
@@ -53,7 +57,7 @@ export default function AdminDisputes() {
       key: "actions",
       header: lang === "ar" ? "إجراءات" : "Actions",
       align: "end",
-      cell: (d) => <DisputeManageDialog dispute={d} pending={updateMutation.isPending} onSave={async (s, n) => {
+      cell: (d) => !canWrite ? null : <DisputeManageDialog dispute={d} pending={updateMutation.isPending} onSave={async (s, n) => {
         await updateMutation.mutateAsync({ id: d.id, status: s, resolutionNotes: n });
         toast({ title: lang === "ar" ? "تم التحديث" : "Updated" });
       }} />,

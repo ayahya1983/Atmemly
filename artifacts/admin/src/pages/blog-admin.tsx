@@ -1,24 +1,19 @@
 import { useState } from "react";
-import { PageHeader } from "@/components/admin";
 import { useAdminGet, useAdminMutation, adminApi } from "@/lib/api-admin";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import {
-  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
-  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
-import { useToast } from "@/hooks/use-toast";
+import { Badge } from "@/components/ui/badge";
 import { useTranslation } from "@/lib/i18n";
+import { useAuth } from "@/contexts/AuthContext";
+import { hasPermission } from "@/lib/permissions";
 import { Plus, Pencil, Trash2 } from "lucide-react";
+import {
+  DataTable, type Column, StatusBadge, PageHeader, FilterBar, ConfirmActionDialog, FormDialog,
+} from "@/components/admin";
 
 interface BlogRow {
   id: number; slug: string; locale: string; title: string;
@@ -37,10 +32,16 @@ const emptyForm: BlogForm = {
 
 export default function AdminBlog() {
   const { lang } = useTranslation();
-  const { toast } = useToast();
+  const { user } = useAuth();
+  const canWrite = hasPermission(user, "blog", "write");
+  const canDelete = hasPermission(user, "blog", "delete");
+
   const key = ["admin-blog"];
   const { data, isLoading } = useAdminGet<BlogRow[]>(key, "/admin/blog");
 
+  const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [localeFilter, setLocaleFilter] = useState("all");
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<BlogRow | null>(null);
   const [form, setForm] = useState<BlogForm>(emptyForm);
@@ -68,101 +69,144 @@ export default function AdminBlog() {
     });
     setOpen(true);
   };
-  const handleSave = () => {
-    const cb = {
-      onSuccess: () => { toast({ title: lang === "ar" ? "تم الحفظ" : "Saved" }); setOpen(false); },
-      onError: (e: any) => toast({ variant: "destructive", title: "Error", description: e.message }),
-    };
-    if (editing) updateMutation.mutate({ id: editing.id, data: form }, cb);
-    else createMutation.mutate(form, cb);
+  const save = async () => {
+    if (editing) await updateMutation.mutateAsync({ id: editing.id, data: form });
+    else await createMutation.mutateAsync(form);
   };
 
+  const filtered = (data ?? []).filter((p) =>
+    (statusFilter === "all" || (statusFilter === "published" ? p.isPublished : !p.isPublished)) &&
+    (localeFilter === "all" || p.locale === localeFilter),
+  );
+
+  const columns: Column<BlogRow>[] = [
+    {
+      key: "title",
+      header: lang === "ar" ? "العنوان" : "Title",
+      cell: (p) => <span className="font-medium block max-w-md truncate">{p.title}</span>,
+      sortValue: (p) => p.title,
+      searchValue: (p) => `${p.title} ${p.slug}`,
+    },
+    {
+      key: "category",
+      header: lang === "ar" ? "الفئة" : "Category",
+      cell: (p) => p.category ?? "—",
+      sortValue: (p) => p.category ?? "",
+      searchValue: (p) => p.category ?? "",
+    },
+    {
+      key: "locale",
+      header: lang === "ar" ? "اللغة" : "Locale",
+      cell: (p) => <Badge variant="outline" className="uppercase">{p.locale}</Badge>,
+      sortValue: (p) => p.locale,
+    },
+    {
+      key: "isPublished",
+      header: lang === "ar" ? "الحالة" : "Status",
+      cell: (p) => <StatusBadge status={p.isPublished ? "published" : "draft"} />,
+      sortValue: (p) => (p.isPublished ? 1 : 0),
+    },
+    {
+      key: "updatedAt",
+      header: lang === "ar" ? "محدّث" : "Updated",
+      cell: (p) => <span className="text-xs text-muted-foreground">{new Date(p.updatedAt).toISOString().slice(0, 10)}</span>,
+      sortValue: (p) => new Date(p.updatedAt).getTime(),
+    },
+    {
+      key: "actions",
+      header: lang === "ar" ? "إجراءات" : "Actions",
+      align: "end",
+      cell: (p) => (
+        <div className="flex gap-1 justify-end">
+          {canWrite && (
+            <Button size="sm" variant="outline" onClick={() => startEdit(p)} data-testid={`button-edit-${p.id}`}><Pencil className="w-3 h-3" /></Button>
+          )}
+          {canDelete && (
+            <ConfirmActionDialog
+              trigger={<Button size="sm" variant="destructive" data-testid={`button-delete-${p.id}`}><Trash2 className="w-3 h-3" /></Button>}
+              title={lang === "ar" ? "حذف المقال؟" : "Delete post?"}
+              description={p.title}
+              destructive
+              successMessage={lang === "ar" ? "تم الحذف" : "Deleted"}
+              onConfirm={() => deleteMutation.mutateAsync({ id: p.id })}
+            />
+          )}
+        </div>
+      ),
+    },
+  ];
+
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <PageHeader title={lang === "ar" ? "المدونة" : "Blog Posts"} />
-        <Button onClick={startCreate}><Plus className="w-4 h-4 mr-1" />{lang === "ar" ? "مقال جديد" : "New Post"}</Button>
-      </div>
+    <div className="space-y-4">
+      <PageHeader
+        title={lang === "ar" ? "المدونة" : "Blog Posts"}
+        actions={canWrite ? (
+          <Button onClick={startCreate} data-testid="button-new-post">
+            <Plus className="w-4 h-4 ltr:mr-1 rtl:ml-1" />{lang === "ar" ? "مقال جديد" : "New Post"}
+          </Button>
+        ) : undefined}
+      />
+      <FilterBar
+        search={search}
+        onSearchChange={setSearch}
+        searchPlaceholder={lang === "ar" ? "بحث بالعنوان أو المعرف" : "Search title or slug"}
+        onReset={() => { setSearch(""); setStatusFilter("all"); setLocaleFilter("all"); }}
+      >
+        <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} className="h-9 rounded-md border border-input bg-background px-2 text-sm">
+          <option value="all">{lang === "ar" ? "كل الحالات" : "All statuses"}</option>
+          <option value="published">Published</option>
+          <option value="draft">Draft</option>
+        </select>
+        <select value={localeFilter} onChange={(e) => setLocaleFilter(e.target.value)} className="h-9 rounded-md border border-input bg-background px-2 text-sm">
+          <option value="all">{lang === "ar" ? "كل اللغات" : "All locales"}</option>
+          <option value="en">English</option>
+          <option value="ar">العربية</option>
+        </select>
+      </FilterBar>
+      <DataTable
+        data={filtered}
+        columns={columns}
+        rowKey={(p) => p.id}
+        isLoading={isLoading}
+        search={search}
+        emptyTitle={lang === "ar" ? "لا مقالات" : "No posts"}
+        csvFilename="blog-posts.csv"
+      />
 
-      <div className="rounded-md border">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>{lang === "ar" ? "العنوان" : "Title"}</TableHead>
-              <TableHead>{lang === "ar" ? "الفئة" : "Category"}</TableHead>
-              <TableHead>{lang === "ar" ? "اللغة" : "Locale"}</TableHead>
-              <TableHead>{lang === "ar" ? "النشر" : "Status"}</TableHead>
-              <TableHead>{lang === "ar" ? "إجراءات" : "Actions"}</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {isLoading ? <TableRow><TableCell colSpan={5}><Skeleton className="h-8" /></TableCell></TableRow>
-              : !data?.length ? <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground py-8">{lang === "ar" ? "لا مقالات" : "No posts"}</TableCell></TableRow>
-              : data.map((p) => (
-                <TableRow key={p.id}>
-                  <TableCell className="font-medium max-w-md truncate">{p.title}</TableCell>
-                  <TableCell>{p.category ?? "—"}</TableCell>
-                  <TableCell><Badge variant="outline" className="uppercase">{p.locale}</Badge></TableCell>
-                  <TableCell>{p.isPublished ? <Badge>Published</Badge> : <Badge variant="outline">Draft</Badge>}</TableCell>
-                  <TableCell>
-                    <div className="flex gap-1">
-                      <Button size="sm" variant="outline" onClick={() => startEdit(p)}><Pencil className="w-3 h-3" /></Button>
-                      <AlertDialog>
-                        <AlertDialogTrigger asChild><Button size="sm" variant="destructive"><Trash2 className="w-3 h-3" /></Button></AlertDialogTrigger>
-                        <AlertDialogContent>
-                          <AlertDialogHeader>
-                            <AlertDialogTitle>{lang === "ar" ? "حذف المقال؟" : "Delete post?"}</AlertDialogTitle>
-                            <AlertDialogDescription>{p.title}</AlertDialogDescription>
-                          </AlertDialogHeader>
-                          <AlertDialogFooter>
-                            <AlertDialogCancel>{lang === "ar" ? "إلغاء" : "Cancel"}</AlertDialogCancel>
-                            <AlertDialogAction onClick={() => deleteMutation.mutate({ id: p.id }, {
-                              onSuccess: () => toast({ title: lang === "ar" ? "تم الحذف" : "Deleted" }),
-                              onError: (e) => toast({ variant: "destructive", title: "Error", description: e.message }),
-                            })}>{lang === "ar" ? "حذف" : "Delete"}</AlertDialogAction>
-                          </AlertDialogFooter>
-                        </AlertDialogContent>
-                      </AlertDialog>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))}
-          </TableBody>
-        </Table>
-      </div>
-
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-auto">
-          <DialogHeader><DialogTitle>{editing ? (lang === "ar" ? "تعديل مقال" : "Edit Post") : (lang === "ar" ? "مقال جديد" : "New Post")}</DialogTitle></DialogHeader>
-          <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-3">
-              <div><Label>Slug</Label><Input value={form.slug} onChange={(e) => setForm({ ...form, slug: e.target.value })} /></div>
-              <div><Label>Locale</Label>
-                <Select value={form.locale} onValueChange={(v) => setForm({ ...form, locale: v as any })}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent><SelectItem value="en">English</SelectItem><SelectItem value="ar">العربية</SelectItem></SelectContent>
-                </Select>
-              </div>
-            </div>
-            <div><Label>{lang === "ar" ? "العنوان" : "Title"}</Label><Input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} /></div>
-            <div><Label>{lang === "ar" ? "المقتطف" : "Excerpt"}</Label><Textarea value={form.excerpt} onChange={(e) => setForm({ ...form, excerpt: e.target.value })} rows={2} /></div>
-            <div><Label>{lang === "ar" ? "المحتوى (HTML)" : "Body (HTML)"}</Label><Textarea value={form.body} onChange={(e) => setForm({ ...form, body: e.target.value })} rows={10} className="font-mono text-sm" /></div>
-            <div className="grid grid-cols-2 gap-3">
-              <div><Label>{lang === "ar" ? "صورة الغلاف (URL)" : "Cover URL"}</Label><Input value={form.coverUrl} onChange={(e) => setForm({ ...form, coverUrl: e.target.value })} /></div>
-              <div><Label>{lang === "ar" ? "الفئة" : "Category"}</Label><Input value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })} /></div>
-            </div>
-            <div><Label>{lang === "ar" ? "العلامات (مفصولة بفواصل)" : "Tags (comma separated)"}</Label><Input value={form.tags} onChange={(e) => setForm({ ...form, tags: e.target.value })} /></div>
-            <div className="flex items-center gap-2">
-              <Switch checked={form.isPublished} onCheckedChange={(c) => setForm({ ...form, isPublished: c })} id="bp" />
-              <Label htmlFor="bp">{lang === "ar" ? "منشور" : "Published"}</Label>
-            </div>
+      <FormDialog
+        open={open}
+        onOpenChange={setOpen}
+        title={editing ? (lang === "ar" ? "تعديل مقال" : "Edit Post") : (lang === "ar" ? "مقال جديد" : "New Post")}
+        size="lg"
+        successMessage={lang === "ar" ? "تم الحفظ" : "Saved"}
+        onSubmit={save}
+      >
+        <div className="grid grid-cols-2 gap-3">
+          <div><Label>Slug</Label><Input value={form.slug} onChange={(e) => setForm({ ...form, slug: e.target.value })} /></div>
+          <div>
+            <Label>Locale</Label>
+            <Select value={form.locale} onValueChange={(v) => setForm({ ...form, locale: v as "en" | "ar" })}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="en">English</SelectItem>
+                <SelectItem value="ar">العربية</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setOpen(false)}>{lang === "ar" ? "إلغاء" : "Cancel"}</Button>
-            <Button onClick={handleSave} disabled={createMutation.isPending || updateMutation.isPending}>{lang === "ar" ? "حفظ" : "Save"}</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+        </div>
+        <div><Label>{lang === "ar" ? "العنوان" : "Title"}</Label><Input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} /></div>
+        <div><Label>{lang === "ar" ? "المقتطف" : "Excerpt"}</Label><Textarea value={form.excerpt} onChange={(e) => setForm({ ...form, excerpt: e.target.value })} rows={2} /></div>
+        <div><Label>{lang === "ar" ? "المحتوى (HTML)" : "Body (HTML)"}</Label><Textarea value={form.body} onChange={(e) => setForm({ ...form, body: e.target.value })} rows={10} className="font-mono text-sm" /></div>
+        <div className="grid grid-cols-2 gap-3">
+          <div><Label>{lang === "ar" ? "صورة الغلاف (URL)" : "Cover URL"}</Label><Input value={form.coverUrl} onChange={(e) => setForm({ ...form, coverUrl: e.target.value })} /></div>
+          <div><Label>{lang === "ar" ? "الفئة" : "Category"}</Label><Input value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })} /></div>
+        </div>
+        <div><Label>{lang === "ar" ? "العلامات (مفصولة بفواصل)" : "Tags (comma separated)"}</Label><Input value={form.tags} onChange={(e) => setForm({ ...form, tags: e.target.value })} /></div>
+        <div className="flex items-center gap-2">
+          <Switch checked={form.isPublished} onCheckedChange={(c) => setForm({ ...form, isPublished: c })} id="bp" />
+          <Label htmlFor="bp">{lang === "ar" ? "منشور" : "Published"}</Label>
+        </div>
+      </FormDialog>
     </div>
   );
 }

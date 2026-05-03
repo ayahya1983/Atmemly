@@ -1,24 +1,20 @@
 import { useState } from "react";
-import { PageHeader } from "@/components/admin";
 import { useAdminGet, useAdminMutation, adminApi } from "@/lib/api-admin";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import {
-  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
-  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
+import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { useTranslation } from "@/lib/i18n";
+import { useAuth } from "@/contexts/AuthContext";
+import { hasPermission } from "@/lib/permissions";
 import { Plus, Pencil, Trash2, Star } from "lucide-react";
+import {
+  DataTable, type Column, PageHeader, FilterBar, ConfirmActionDialog, FormDialog,
+} from "@/components/admin";
 
 interface TestiRow {
   id: number; locale: string; authorName: string; authorTitle: string | null;
@@ -35,10 +31,16 @@ const emptyForm: TestiForm = {
 
 export default function AdminTestimonials() {
   const { lang } = useTranslation();
+  const { user } = useAuth();
   const { toast } = useToast();
+  const canWrite = hasPermission(user, "testimonials", "write");
+  const canDelete = hasPermission(user, "testimonials", "delete");
+
   const key = ["admin-testimonials"];
   const { data, isLoading } = useAdminGet<TestiRow[]>(key, "/admin/testimonials");
 
+  const [search, setSearch] = useState("");
+  const [localeFilter, setLocaleFilter] = useState("all");
   const [open, setOpen] = useState(false);
   const [editing, setEditing] = useState<TestiRow | null>(null);
   const [form, setForm] = useState<TestiForm>(emptyForm);
@@ -56,100 +58,161 @@ export default function AdminTestimonials() {
   const startEdit = (r: TestiRow) => {
     setEditing(r);
     setForm({
-      locale: r.locale as any, authorName: r.authorName, authorTitle: r.authorTitle ?? "",
+      locale: r.locale as "en" | "ar", authorName: r.authorName, authorTitle: r.authorTitle ?? "",
       body: r.body, rating: r.rating, avatarUrl: r.avatarUrl ?? "",
       isFeatured: r.isFeatured, sortOrder: r.sortOrder,
     });
     setOpen(true);
   };
-  const save = () => {
-    const cb = {
-      onSuccess: () => { toast({ title: lang === "ar" ? "تم الحفظ" : "Saved" }); setOpen(false); },
-      onError: (e: any) => toast({ variant: "destructive", title: "Error", description: e.message }),
-    };
-    if (editing) updateMutation.mutate({ id: editing.id, data: form }, cb);
-    else createMutation.mutate(form, cb);
+  const save = async () => {
+    if (editing) await updateMutation.mutateAsync({ id: editing.id, data: form });
+    else await createMutation.mutateAsync(form);
   };
 
+  const filtered = (data ?? []).filter((t) => localeFilter === "all" || t.locale === localeFilter);
+
+  const columns: Column<TestiRow>[] = [
+    {
+      key: "authorName",
+      header: lang === "ar" ? "المؤلف" : "Author",
+      cell: (t) => (
+        <div>
+          <div className="font-medium">{t.authorName}</div>
+          {t.authorTitle && <div className="text-xs text-muted-foreground">{t.authorTitle}</div>}
+        </div>
+      ),
+      sortValue: (t) => t.authorName,
+      searchValue: (t) => `${t.authorName} ${t.authorTitle ?? ""}`,
+    },
+    {
+      key: "locale",
+      header: lang === "ar" ? "اللغة" : "Locale",
+      cell: (t) => <Badge variant="outline" className="uppercase">{t.locale}</Badge>,
+      sortValue: (t) => t.locale,
+    },
+    {
+      key: "rating",
+      header: lang === "ar" ? "التقييم" : "Rating",
+      cell: (t) => (
+        <div className="flex items-center gap-0.5">
+          {Array(t.rating).fill(0).map((_, i) => <Star key={i} className="w-3 h-3 fill-amber-400 text-amber-400" />)}
+        </div>
+      ),
+      sortValue: (t) => t.rating,
+    },
+    {
+      key: "body",
+      header: lang === "ar" ? "النص" : "Body",
+      cell: (t) => <span className="block max-w-md truncate text-sm text-muted-foreground">{t.body}</span>,
+      searchValue: (t) => t.body,
+    },
+    {
+      key: "isFeatured",
+      header: lang === "ar" ? "مميز" : "Featured",
+      cell: (t) => t.isFeatured ? <Badge>★</Badge> : <span className="text-muted-foreground">—</span>,
+      sortValue: (t) => (t.isFeatured ? 1 : 0),
+    },
+    {
+      key: "sortOrder",
+      header: lang === "ar" ? "ترتيب" : "Order",
+      align: "end",
+      cell: (t) => <span className="tabular-nums text-xs">{t.sortOrder}</span>,
+      sortValue: (t) => t.sortOrder,
+    },
+    {
+      key: "actions",
+      header: lang === "ar" ? "إجراءات" : "Actions",
+      align: "end",
+      cell: (t) => (
+        <div className="flex gap-1 justify-end">
+          {canWrite && (
+            <Button size="sm" variant="outline" onClick={() => startEdit(t)} data-testid={`button-edit-${t.id}`}>
+              <Pencil className="w-3 h-3" />
+            </Button>
+          )}
+          {canDelete && (
+            <ConfirmActionDialog
+              trigger={<Button size="sm" variant="destructive" data-testid={`button-delete-${t.id}`}><Trash2 className="w-3 h-3" /></Button>}
+              title={lang === "ar" ? "حذف الرأي؟" : "Delete testimonial?"}
+              description={t.authorName}
+              destructive
+              successMessage={lang === "ar" ? "تم الحذف" : "Deleted"}
+              onConfirm={() => deleteMutation.mutateAsync({ id: t.id })}
+            />
+          )}
+        </div>
+      ),
+    },
+  ];
+
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <PageHeader title={lang === "ar" ? "آراء العملاء" : "Testimonials"} />
-        <Button onClick={startCreate}><Plus className="w-4 h-4 mr-1" />{lang === "ar" ? "إضافة" : "New"}</Button>
-      </div>
+    <div className="space-y-4">
+      <PageHeader
+        title={lang === "ar" ? "آراء العملاء" : "Testimonials"}
+        actions={canWrite ? (
+          <Button onClick={startCreate} data-testid="button-new-testimonial">
+            <Plus className="w-4 h-4 ltr:mr-1 rtl:ml-1" />{lang === "ar" ? "إضافة" : "New"}
+          </Button>
+        ) : undefined}
+      />
+      <FilterBar
+        search={search}
+        onSearchChange={setSearch}
+        searchPlaceholder={lang === "ar" ? "بحث بالمؤلف أو النص" : "Search author or body"}
+        onReset={() => { setSearch(""); setLocaleFilter("all"); }}
+      >
+        <select value={localeFilter} onChange={(e) => setLocaleFilter(e.target.value)} className="h-9 rounded-md border border-input bg-background px-2 text-sm">
+          <option value="all">{lang === "ar" ? "كل اللغات" : "All locales"}</option>
+          <option value="en">English</option>
+          <option value="ar">العربية</option>
+        </select>
+      </FilterBar>
+      <DataTable
+        data={filtered}
+        columns={columns}
+        rowKey={(t) => t.id}
+        isLoading={isLoading}
+        search={search}
+        emptyTitle={lang === "ar" ? "لا آراء" : "No testimonials"}
+        csvFilename="testimonials.csv"
+      />
 
-      <div className="rounded-md border">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>{lang === "ar" ? "المؤلف" : "Author"}</TableHead>
-              <TableHead>{lang === "ar" ? "اللغة" : "Locale"}</TableHead>
-              <TableHead>{lang === "ar" ? "التقييم" : "Rating"}</TableHead>
-              <TableHead>{lang === "ar" ? "مميز" : "Featured"}</TableHead>
-              <TableHead>{lang === "ar" ? "إجراءات" : "Actions"}</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {isLoading ? <TableRow><TableCell colSpan={5}><Skeleton className="h-8" /></TableCell></TableRow>
-              : !data?.length ? <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground py-8">{lang === "ar" ? "لا آراء" : "No testimonials"}</TableCell></TableRow>
-              : data.map((t) => (
-                <TableRow key={t.id}>
-                  <TableCell><div className="font-medium">{t.authorName}</div>{t.authorTitle && <div className="text-xs text-muted-foreground">{t.authorTitle}</div>}</TableCell>
-                  <TableCell><Badge variant="outline" className="uppercase">{t.locale}</Badge></TableCell>
-                  <TableCell><div className="flex items-center gap-0.5">{Array(t.rating).fill(0).map((_, i) => <Star key={i} className="w-3 h-3 fill-amber-400 text-amber-400" />)}</div></TableCell>
-                  <TableCell>{t.isFeatured ? <Badge>Featured</Badge> : <Badge variant="outline">—</Badge>}</TableCell>
-                  <TableCell>
-                    <div className="flex gap-1">
-                      <Button size="sm" variant="outline" onClick={() => startEdit(t)}><Pencil className="w-3 h-3" /></Button>
-                      <AlertDialog>
-                        <AlertDialogTrigger asChild><Button size="sm" variant="destructive"><Trash2 className="w-3 h-3" /></Button></AlertDialogTrigger>
-                        <AlertDialogContent>
-                          <AlertDialogHeader><AlertDialogTitle>{lang === "ar" ? "حذف؟" : "Delete?"}</AlertDialogTitle><AlertDialogDescription>{t.authorName}</AlertDialogDescription></AlertDialogHeader>
-                          <AlertDialogFooter>
-                            <AlertDialogCancel>{lang === "ar" ? "إلغاء" : "Cancel"}</AlertDialogCancel>
-                            <AlertDialogAction onClick={() => deleteMutation.mutate({ id: t.id }, {
-                              onSuccess: () => toast({ title: lang === "ar" ? "تم الحذف" : "Deleted" }),
-                              onError: (e) => toast({ variant: "destructive", title: "Error", description: e.message }),
-                            })}>{lang === "ar" ? "حذف" : "Delete"}</AlertDialogAction>
-                          </AlertDialogFooter>
-                        </AlertDialogContent>
-                      </AlertDialog>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))}
-          </TableBody>
-        </Table>
-      </div>
-
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent>
-          <DialogHeader><DialogTitle>{editing ? "Edit" : "New"} Testimonial</DialogTitle></DialogHeader>
-          <div className="space-y-3">
-            <div className="grid grid-cols-2 gap-3">
-              <div><Label>Locale</Label>
-                <Select value={form.locale} onValueChange={(v) => setForm({ ...form, locale: v as any })}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent><SelectItem value="en">English</SelectItem><SelectItem value="ar">العربية</SelectItem></SelectContent>
-                </Select>
-              </div>
-              <div><Label>{lang === "ar" ? "التقييم" : "Rating (1-5)"}</Label><Input type="number" min={1} max={5} value={form.rating} onChange={(e) => setForm({ ...form, rating: Math.max(1, Math.min(5, Number(e.target.value) || 5)) })} /></div>
-            </div>
-            <div><Label>{lang === "ar" ? "الاسم" : "Author Name"}</Label><Input value={form.authorName} onChange={(e) => setForm({ ...form, authorName: e.target.value })} /></div>
-            <div><Label>{lang === "ar" ? "المسمى الوظيفي" : "Author Title"}</Label><Input value={form.authorTitle} onChange={(e) => setForm({ ...form, authorTitle: e.target.value })} /></div>
-            <div><Label>{lang === "ar" ? "الرأي" : "Body"}</Label><Textarea value={form.body} onChange={(e) => setForm({ ...form, body: e.target.value })} rows={4} /></div>
-            <div><Label>{lang === "ar" ? "الصورة (URL)" : "Avatar URL"}</Label><Input value={form.avatarUrl} onChange={(e) => setForm({ ...form, avatarUrl: e.target.value })} /></div>
-            <div className="grid grid-cols-2 gap-3 items-end">
-              <div><Label>Sort Order</Label><Input type="number" value={form.sortOrder} onChange={(e) => setForm({ ...form, sortOrder: Number(e.target.value) || 0 })} /></div>
-              <div className="flex items-center gap-2 pb-2"><Switch checked={form.isFeatured} onCheckedChange={(c) => setForm({ ...form, isFeatured: c })} id="ft" /><Label htmlFor="ft">{lang === "ar" ? "مميز" : "Featured"}</Label></div>
-            </div>
+      <FormDialog
+        open={open}
+        onOpenChange={setOpen}
+        title={editing ? (lang === "ar" ? "تعديل رأي" : "Edit Testimonial") : (lang === "ar" ? "رأي جديد" : "New Testimonial")}
+        size="md"
+        successMessage={lang === "ar" ? "تم الحفظ" : "Saved"}
+        onSubmit={save}
+      >
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <Label>Locale</Label>
+            <Select value={form.locale} onValueChange={(v) => setForm({ ...form, locale: v as "en" | "ar" })}>
+              <SelectTrigger><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="en">English</SelectItem>
+                <SelectItem value="ar">العربية</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setOpen(false)}>{lang === "ar" ? "إلغاء" : "Cancel"}</Button>
-            <Button onClick={save} disabled={createMutation.isPending || updateMutation.isPending}>{lang === "ar" ? "حفظ" : "Save"}</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+          <div>
+            <Label>{lang === "ar" ? "التقييم (1-5)" : "Rating (1-5)"}</Label>
+            <Input type="number" min={1} max={5} value={form.rating} onChange={(e) => setForm({ ...form, rating: Math.max(1, Math.min(5, Number(e.target.value) || 5)) })} />
+          </div>
+        </div>
+        <div><Label>{lang === "ar" ? "الاسم" : "Author Name"}</Label><Input value={form.authorName} onChange={(e) => setForm({ ...form, authorName: e.target.value })} /></div>
+        <div><Label>{lang === "ar" ? "المسمى الوظيفي" : "Author Title"}</Label><Input value={form.authorTitle} onChange={(e) => setForm({ ...form, authorTitle: e.target.value })} /></div>
+        <div><Label>{lang === "ar" ? "الرأي" : "Body"}</Label><Textarea value={form.body} onChange={(e) => setForm({ ...form, body: e.target.value })} rows={4} /></div>
+        <div><Label>{lang === "ar" ? "صورة (URL)" : "Avatar URL"}</Label><Input value={form.avatarUrl} onChange={(e) => setForm({ ...form, avatarUrl: e.target.value })} /></div>
+        <div className="grid grid-cols-2 gap-3 items-end">
+          <div><Label>Sort Order</Label><Input type="number" value={form.sortOrder} onChange={(e) => setForm({ ...form, sortOrder: Number(e.target.value) || 0 })} /></div>
+          <div className="flex items-center gap-2 pb-2">
+            <Switch checked={form.isFeatured} onCheckedChange={(c) => setForm({ ...form, isFeatured: c })} id="ft" />
+            <Label htmlFor="ft">{lang === "ar" ? "مميز" : "Featured"}</Label>
+          </div>
+        </div>
+      </FormDialog>
     </div>
   );
 }
