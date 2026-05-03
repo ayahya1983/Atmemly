@@ -12,3 +12,33 @@ id = "PsKO1tszXQGJDjm4xltYq"
 uri = "file://artifacts/marketplace/public/assets/mobile/gcc-mobile-app.png"
 type = "image"
 title = "gcc mobile app user"
+
+[[generated]]
+id = "tY9H4Ns6OaXX6p7azoZTr"
+uri = "file://artifacts/marketplace/public/assets/avatars/layla.png"
+type = "image"
+title = "generated_image"
+
+[[generated]]
+id = "lb5JUTvM_XPWb9GeGOP4L"
+uri = "file://artifacts/marketplace/public/assets/avatars/omar.png"
+type = "image"
+title = "generated_image"
+
+[[generated]]
+id = "kH_6J1hBicNi4PlsnUsth"
+uri = "file://artifacts/marketplace/public/assets/avatars/huda.png"
+type = "image"
+title = "generated_image"
+
+[[generated]]
+id = "69C1EuXBaiqvye6J1Tlv-"
+uri = "file://artifacts/marketplace/public/assets/avatars/khalid.png"
+type = "image"
+title = "generated_image"
+
+[[generated]]
+id = "_TcQFtWBVW_7Nnbe-vInW"
+uri = "file://artifacts/marketplace/public/assets/avatars/amal.png"
+type = "image"
+title = "generated_image"

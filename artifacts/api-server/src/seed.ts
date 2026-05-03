@@ -1,5 +1,5 @@
 import bcrypt from "bcryptjs";
-import { eq, sql } from "drizzle-orm";
+import { and, eq, ilike, or, sql } from "drizzle-orm";
 import { BRAND } from "@workspace/branding";
 import {
   db,
@@ -189,6 +189,7 @@ async function main() {
       hourlyRate: 220,
       skills: ["Branding", "Logo Design", "Figma", "UI/UX"],
       location: "Dubai, UAE",
+      avatarUrl: "/assets/avatars/layla.png",
     },
     {
       email: "omar@atmemly.com",
@@ -198,6 +199,7 @@ async function main() {
       hourlyRate: 280,
       skills: ["React", "Next.js", "TypeScript", "Node.js", "PostgreSQL"],
       location: "Riyadh, KSA",
+      avatarUrl: "/assets/avatars/omar.png",
     },
     {
       email: "huda@atmemly.com",
@@ -207,6 +209,7 @@ async function main() {
       hourlyRate: 180,
       skills: ["Arabic Copywriting", "English Copywriting", "Content Strategy", "Translation EN-AR"],
       location: "Amman, Jordan",
+      avatarUrl: "/assets/avatars/huda.png",
     },
     {
       email: "khalid@atmemly.com",
@@ -216,6 +219,7 @@ async function main() {
       hourlyRate: 240,
       skills: ["Google Ads", "Meta Ads", "SEO", "Content Strategy"],
       location: "Doha, Qatar",
+      avatarUrl: "/assets/avatars/khalid.png",
     },
     {
       email: "amal@atmemly.com",
@@ -225,6 +229,7 @@ async function main() {
       hourlyRate: 200,
       skills: ["Video Editing", "Motion Graphics", "After Effects"],
       location: "Cairo, Egypt",
+      avatarUrl: "/assets/avatars/amal.png",
     },
   ];
 
@@ -235,8 +240,26 @@ async function main() {
       passwordHash: freelancerPwd,
       fullName: f.fullName,
       role: "freelancer",
-      avatarUrl: avatarFor(f.email),
+      avatarUrl: f.avatarUrl,
     });
+    // Backfill avatar for previously-seeded freelancers that were created
+    // before avatars existed, including stale rows from earlier brands that
+    // share the same fullName but use a placeholder dicebear URL.
+    // upsertUser is create-if-missing only, so it never overwrites avatars.
+    await db
+      .update(usersTable)
+      .set({ avatarUrl: f.avatarUrl })
+      .where(
+        and(
+          eq(usersTable.role, "freelancer"),
+          eq(usersTable.fullName, f.fullName),
+          or(sql`${usersTable.avatarUrl} is null`, ilike(usersTable.avatarUrl, "%dicebear%")),
+        ),
+      );
+    if (!u.avatarUrl) {
+      const [refreshed] = await db.select().from(usersTable).where(eq(usersTable.id, u.id));
+      if (refreshed) u.avatarUrl = refreshed.avatarUrl;
+    }
     await db
       .insert(freelancerProfilesTable)
       .values({

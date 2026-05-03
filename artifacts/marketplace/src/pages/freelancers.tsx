@@ -6,7 +6,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Search, MapPin, Filter, Star } from "lucide-react";
@@ -80,6 +80,9 @@ export default function FreelancersDirectory() {
               <Card key={f.id} className="hover:shadow-md transition-shadow">
                 <CardContent className="p-6 flex flex-col sm:flex-row gap-6">
                   <Avatar className="w-20 h-20">
+                    {f.avatarUrl && f.avatarUrl.trim() !== "" && (
+                      <AvatarImage src={f.avatarUrl} alt={f.fullName ?? ""} />
+                    )}
                     <AvatarFallback className="text-xl bg-primary/10 text-primary">
                       {f.fullName?.charAt(0) ?? "?"}
                     </AvatarFallback>
