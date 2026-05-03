@@ -1,0 +1,15 @@
+name: Check pnpm version pin
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  check-pnpm-version:
+    name: Verify pnpm version is pinned consistently
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run pnpm version drift check
+        run: bash scripts/check-pnpm-version.sh

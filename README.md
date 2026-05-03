@@ -148,6 +148,14 @@ responses; never expose SSO secrets in the marketplace bundle.
 * The repo is a pnpm workspace. Always install with `pnpm install` and
   never commit `package-lock.json` / `yarn.lock` (the root preinstall
   hook deletes them).
+* The pnpm version is pinned in **three** places that must always agree:
+  `package.json#packageManager`, `infra/aws/terraform/cloud-init.yaml.tpl`
+  (`corepack prepare pnpm@X.Y.Z --activate`), and
+  `infra/aws/scripts/deploy.sh`. When they drift, the EC2 host activates
+  the wrong pnpm and the lockfile fails to resolve in production
+  (Task #50). Bump all three together and run
+  `bash scripts/check-pnpm-version.sh` locally; CI runs the same check
+  on every PR via `.github/workflows/check-pnpm-version.yml`.
 * Production must set `SESSION_SECRET` (or `JWT_SECRET`) and a real
   `CORS_ORIGINS` allow-list. The env validator refuses to boot with the
   `dev-secret` placeholder in production.

@@ -130,7 +130,9 @@ runcmd:
   # `packageManager` field. Pinning to a generic major (e.g. pnpm v9)
   # silently drifted from what the lockfile expected and broke a prod deploy
   # (Task #50: "wrong package manager version on EC2"). Bump this in
-  # lockstep with package.json#packageManager.
+  # lockstep with package.json#packageManager and the pnpm@X.Y.Z literal
+  # in infra/aws/scripts/deploy.sh -- scripts/check-pnpm-version.sh (run
+  # in CI) enforces all three stay in sync.
   - bash -c 'command -v node >/dev/null 2>&1 || (curl -fsSL https://deb.nodesource.com/setup_20.x | bash - && apt-get install -y nodejs)'
   - corepack enable
   - corepack prepare pnpm@10.26.1 --activate
