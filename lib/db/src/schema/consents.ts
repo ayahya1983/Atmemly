@@ -1,10 +1,13 @@
 import { pgTable, serial, integer, text, timestamp, index } from "drizzle-orm/pg-core";
+import { usersTable } from "./users";
 
 export const consentsTable = pgTable(
   "consents",
   {
     id: serial("id").primaryKey(),
-    userId: integer("user_id").notNull(),
+    userId: integer("user_id")
+      .notNull()
+      .references(() => usersTable.id, { onDelete: "cascade" }),
     documentId: integer("document_id").notNull(),
     documentSlug: text("document_slug").notNull(),
     documentVersion: integer("document_version").notNull(),

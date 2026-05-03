@@ -1,10 +1,13 @@
 import { pgTable, serial, integer, text, numeric, timestamp, index } from "drizzle-orm/pg-core";
+import { walletsTable } from "./wallets";
 
 export const walletTransactionsTable = pgTable(
   "wallet_transactions",
   {
     id: serial("id").primaryKey(),
-    walletId: integer("wallet_id").notNull(),
+    walletId: integer("wallet_id")
+      .notNull()
+      .references(() => walletsTable.id, { onDelete: "cascade" }),
     type: text("type").notNull(),
     amount: numeric("amount", { precision: 14, scale: 2 }).notNull(),
     currency: text("currency").notNull().default("AED"),
@@ -16,6 +19,7 @@ export const walletTransactionsTable = pgTable(
   (t) => ({
     walletIdx: index("wallet_transactions_wallet_idx").on(t.walletId),
     createdIdx: index("wallet_transactions_created_idx").on(t.createdAt),
+    typeIdx: index("wallet_transactions_type_idx").on(t.type),
   }),
 );
 

@@ -1,4 +1,5 @@
 import { and, eq, sql } from "drizzle-orm";
+import { logger } from "./logger";
 import {
   db,
   freelancerProfilesTable,
@@ -262,7 +263,7 @@ export function recomputeForUserAsync(
           ? recomputeClientQuality(userId)
           : Promise.resolve();
     Promise.resolve(p).catch((err) => {
-      console.warn("recomputeForUserAsync failed", { userId, role, err });
+      logger.warn({ userId, role, err }, "recomputeForUserAsync failed");
     });
   });
 }
@@ -275,7 +276,7 @@ export function recomputePairAsync(freelancerUserId: number, clientUserId: numbe
       recomputeClientQuality(clientUserId),
     ]).then((results) => {
       for (const r of results) {
-        if (r.status === "rejected") console.warn("recomputePairAsync failed", r.reason);
+        if (r.status === "rejected") logger.warn({ reason: r.reason }, "recomputePairAsync failed");
       }
     });
   });

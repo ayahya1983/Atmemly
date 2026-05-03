@@ -8,12 +8,16 @@ import {
   timestamp,
   index,
 } from "drizzle-orm/pg-core";
+import { usersTable } from "./users";
 
 export const freelancerProfilesTable = pgTable(
   "freelancer_profiles",
   {
     id: serial("id").primaryKey(),
-    userId: integer("user_id").notNull().unique(),
+    userId: integer("user_id")
+      .notNull()
+      .unique()
+      .references(() => usersTable.id, { onDelete: "cascade" }),
     headline: text("headline").notNull().default(""),
     bio: text("bio").notNull().default(""),
     hourlyRate: numeric("hourly_rate", { precision: 10, scale: 2 }).notNull().default("0"),
@@ -28,6 +32,8 @@ export const freelancerProfilesTable = pgTable(
     // Phase 3 — denormalized trust score (0..100). Recomputed on review/contract/verification events.
     trustScore: integer("trust_score").notNull().default(0),
     lastScoreAt: timestamp("last_score_at", { withTimezone: true }),
+    // Architecture audit (May 2026) — track row updates.
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => ({
     trustIdx: index("freelancer_profiles_trust_idx").on(t.trustScore),

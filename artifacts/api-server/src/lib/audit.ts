@@ -1,6 +1,7 @@
 import type { Request } from "express";
 import { db, auditLogsTable } from "@workspace/db";
 import { clientIp, clientUa } from "./auth";
+import { logger } from "./logger";
 
 export async function audit(
   req: Request | null,
@@ -26,6 +27,6 @@ export async function audit(
   } catch (err) {
     // swallow audit errors so they never break the request
     if (req) req.log?.warn?.({ err }, "audit log insert failed");
-    else console.warn("audit log insert failed", err);
+    else logger.warn({ err }, "audit log insert failed");
   }
 }

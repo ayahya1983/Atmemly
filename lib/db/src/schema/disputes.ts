@@ -1,19 +1,28 @@
 import { pgTable, serial, integer, text, timestamp, index } from "drizzle-orm/pg-core";
+import { contractsTable } from "./contracts";
+import { milestonesTable } from "./milestones";
+import { usersTable } from "./users";
 
 export const disputesTable = pgTable(
   "disputes",
   {
     id: serial("id").primaryKey(),
-    contractId: integer("contract_id").notNull(),
-    milestoneId: integer("milestone_id"),
-    raisedById: integer("raised_by_id").notNull(),
-    raisedAgainstId: integer("raised_against_id").notNull(),
+    contractId: integer("contract_id")
+      .notNull()
+      .references(() => contractsTable.id, { onDelete: "restrict" }),
+    milestoneId: integer("milestone_id").references(() => milestonesTable.id, { onDelete: "set null" }),
+    raisedById: integer("raised_by_id")
+      .notNull()
+      .references(() => usersTable.id, { onDelete: "restrict" }),
+    raisedAgainstId: integer("raised_against_id")
+      .notNull()
+      .references(() => usersTable.id, { onDelete: "restrict" }),
     kind: text("kind").notNull(),
     subject: text("subject").notNull(),
     description: text("description").notNull(),
     status: text("status").notNull().default("open"),
     resolutionNotes: text("resolution_notes"),
-    resolvedById: integer("resolved_by_id"),
+    resolvedById: integer("resolved_by_id").references(() => usersTable.id, { onDelete: "set null" }),
     resolvedAt: timestamp("resolved_at", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
@@ -31,8 +40,12 @@ export const disputeMessagesTable = pgTable(
   "dispute_messages",
   {
     id: serial("id").primaryKey(),
-    disputeId: integer("dispute_id").notNull(),
-    senderId: integer("sender_id").notNull(),
+    disputeId: integer("dispute_id")
+      .notNull()
+      .references(() => disputesTable.id, { onDelete: "cascade" }),
+    senderId: integer("sender_id")
+      .notNull()
+      .references(() => usersTable.id, { onDelete: "restrict" }),
     body: text("body").notNull(),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },

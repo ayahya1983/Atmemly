@@ -1,0 +1,102 @@
+Perform a full system-wide audit to confirm the Khidma → ATMEMLY rebranding is 100% complete.
+
+Do not modify anything yet. First audit and report.
+
+Verification scope:
+
+1. Frontend audit
+- Check all pages (public + dashboard + admin)
+- Navbar, footer, hero, headings
+- Login/register pages
+- Dashboard titles
+- Admin panel
+- Modals, buttons, tooltips
+- Empty states
+- Error messages
+- Page titles (browser tab)
+- SEO meta tags
+- Arabic text (ensure "أتمملي" is used correctly)
+- Ensure no "Khidma" text is visible anywhere
+
+2. Backend audit
+- Search for "Khidma" and "khidma" across backend
+- Check:
+  - Email templates
+  - Notification messages
+  - Logs
+  - Invoice generation
+  - System messages
+  - API responses
+- Ensure APP_NAME is ATMEMLY everywhere
+
+3. Database / Seed data audit
+- Check seed data content
+- Check CMS content:
+  - Homepage
+  - Footer
+  - Legal pages
+  - FAQs
+  - Blog posts
+- Ensure no "Khidma" remains in user-facing content
+
+4. Admin panel audit
+- Sidebar branding
+- Dashboard title
+- Reports
+- Export files (CSV headers)
+- Settings page
+- Notifications/messages
+- Ensure full ATMEMLY branding
+
+5. Emails audit
+- Welcome email
+- Password reset
+- Payment confirmation
+- Contract notifications
+- Sender name = "ATMEMLY"
+- Signature = "ATMEMLY Team"
+- No "Khidma" references
+
+6. API audit
+- Public endpoints (settings, metadata)
+- Ensure platform name returned is ATMEMLY
+- No legacy branding in responses
+
+7. Assets audit
+- Logo
+- Favicon
+- Images containing text
+- Ensure no old branding
+
+8. Codebase scan
+Search entire repo for:
+- "Khidma"
+- "khidma"
+
+Categorize results:
+- Critical (user-facing, must fix)
+- Internal (safe to keep, e.g., DB table names)
+- Ignored (comments, legacy notes)
+
+9. Routing and URLs
+- Ensure no public URL paths include "khidma"
+- Ensure domain references are correct if applicable
+
+10. Config audit
+- .env
+- .env.example
+- Constants
+- Branding config files
+
+Output required:
+1. List of all remaining "Khidma" references
+2. Categorized as:
+   - Must fix immediately
+   - Safe internal
+   - Optional cleanup
+3. Confirm % completion of rebrand (target 100%)
+4. If not 100%, provide exact files + lines to fix
+5. Do NOT auto-fix yet, wait for approval
+
+Goal:
+Ensure ZERO visible Khidma references remain anywhere in the user experience or system outputs.

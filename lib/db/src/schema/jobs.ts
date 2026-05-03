@@ -7,12 +7,15 @@ import {
   timestamp,
   index,
 } from "drizzle-orm/pg-core";
+import { usersTable } from "./users";
 
 export const jobsTable = pgTable(
   "jobs",
   {
     id: serial("id").primaryKey(),
-    clientId: integer("client_id").notNull(),
+    clientId: integer("client_id")
+      .notNull()
+      .references(() => usersTable.id, { onDelete: "restrict" }),
     title: text("title").notNull(),
     description: text("description").notNull(),
     categorySlug: text("category_slug").notNull(),
@@ -24,10 +27,15 @@ export const jobsTable = pgTable(
     status: text("status").notNull().default("open"),
     deadline: timestamp("deadline", { withTimezone: true }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    // Architecture audit (May 2026) — updated_at + soft delete.
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+    deletedAt: timestamp("deleted_at", { withTimezone: true }),
   },
   (t) => ({
     statusCreatedIdx: index("jobs_status_created_idx").on(t.status, t.createdAt),
     categoryIdx: index("jobs_category_idx").on(t.categorySlug),
+    clientIdx: index("jobs_client_idx").on(t.clientId),
+    deletedIdx: index("jobs_deleted_idx").on(t.deletedAt),
   }),
 );
 

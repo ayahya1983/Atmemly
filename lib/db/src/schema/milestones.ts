@@ -1,10 +1,13 @@
 import { pgTable, serial, integer, text, numeric, timestamp, index } from "drizzle-orm/pg-core";
+import { contractsTable } from "./contracts";
 
 export const milestonesTable = pgTable(
   "milestones",
   {
     id: serial("id").primaryKey(),
-    contractId: integer("contract_id").notNull(),
+    contractId: integer("contract_id")
+      .notNull()
+      .references(() => contractsTable.id, { onDelete: "cascade" }),
     title: text("title").notNull(),
     description: text("description").notNull().default(""),
     amount: numeric("amount", { precision: 12, scale: 2 }).notNull().default("0"),
@@ -16,6 +19,8 @@ export const milestonesTable = pgTable(
     submittedAt: timestamp("submitted_at", { withTimezone: true }),
     approvedAt: timestamp("approved_at", { withTimezone: true }),
     releasedAt: timestamp("released_at", { withTimezone: true }),
+    // payment_id is intentionally NOT a hard FK — payments.milestone_id is the
+    // canonical link, and adding the back-pointer FK would create a cycle.
     paymentId: integer("payment_id"),
     sortOrder: integer("sort_order").notNull().default(0),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),

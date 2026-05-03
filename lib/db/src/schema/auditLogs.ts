@@ -1,10 +1,11 @@
 import { pgTable, serial, integer, text, jsonb, timestamp, index } from "drizzle-orm/pg-core";
+import { usersTable } from "./users";
 
 export const auditLogsTable = pgTable(
   "audit_logs",
   {
     id: serial("id").primaryKey(),
-    userId: integer("user_id"),
+    userId: integer("user_id").references(() => usersTable.id, { onDelete: "set null" }),
     action: text("action").notNull(),
     entityType: text("entity_type").notNull(),
     entityId: integer("entity_id"),
@@ -20,6 +21,7 @@ export const auditLogsTable = pgTable(
     userIdx: index("audit_logs_user_idx").on(t.userId),
     entityIdx: index("audit_logs_entity_idx").on(t.entityType, t.entityId),
     createdIdx: index("audit_logs_created_idx").on(t.createdAt),
+    actionIdx: index("audit_logs_action_idx").on(t.action),
   }),
 );
 

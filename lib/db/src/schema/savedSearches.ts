@@ -9,6 +9,8 @@ import {
   index,
   uniqueIndex,
 } from "drizzle-orm/pg-core";
+import { usersTable } from "./users";
+import { jobsTable } from "./jobs";
 
 export type SavedSearchQuery = {
   q?: string | null;
@@ -23,7 +25,9 @@ export const savedSearchesTable = pgTable(
   "saved_searches",
   {
     id: serial("id").primaryKey(),
-    userId: integer("user_id").notNull(),
+    userId: integer("user_id")
+      .notNull()
+      .references(() => usersTable.id, { onDelete: "cascade" }),
     name: text("name").notNull(),
     query: jsonb("query").$type<SavedSearchQuery>().notNull().default({}),
     notify: boolean("notify").notNull().default(true),
@@ -40,8 +44,12 @@ export const savedSearchAlertsTable = pgTable(
   "saved_search_alerts",
   {
     id: serial("id").primaryKey(),
-    savedSearchId: integer("saved_search_id").notNull(),
-    jobId: integer("job_id").notNull(),
+    savedSearchId: integer("saved_search_id")
+      .notNull()
+      .references(() => savedSearchesTable.id, { onDelete: "cascade" }),
+    jobId: integer("job_id")
+      .notNull()
+      .references(() => jobsTable.id, { onDelete: "cascade" }),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (t) => ({

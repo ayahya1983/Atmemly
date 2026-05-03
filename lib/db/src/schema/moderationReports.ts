@@ -1,4 +1,5 @@
 import { pgTable, serial, integer, text, timestamp, index } from "drizzle-orm/pg-core";
+import { usersTable } from "./users";
 
 export const moderationReportsTable = pgTable(
   "moderation_reports",
@@ -6,12 +7,12 @@ export const moderationReportsTable = pgTable(
     id: serial("id").primaryKey(),
     targetKind: text("target_kind").notNull(),
     targetId: integer("target_id").notNull(),
-    reporterUserId: integer("reporter_user_id"),
+    reporterUserId: integer("reporter_user_id").references(() => usersTable.id, { onDelete: "set null" }),
     reason: text("reason").notNull(),
     details: text("details"),
     status: text("status").notNull().default("pending"),
     action: text("action"),
-    reviewedById: integer("reviewed_by_id"),
+    reviewedById: integer("reviewed_by_id").references(() => usersTable.id, { onDelete: "set null" }),
     reviewedAt: timestamp("reviewed_at", { withTimezone: true }),
     notes: text("notes"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),

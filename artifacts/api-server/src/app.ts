@@ -1,5 +1,6 @@
 import express, { type Express, type Request, type Response, type NextFunction } from "express";
 import cors from "cors";
+import helmet from "helmet";
 import pinoHttp from "pino-http";
 import { randomUUID } from "node:crypto";
 import router from "./routes";
@@ -23,6 +24,21 @@ app.use((req: Request, res: Response, next: NextFunction) => {
   next();
 });
 
+// Architecture audit (May 2026) — helmet hardens HTTP response headers
+// (X-Frame-Options, X-DNS-Prefetch-Control, Referrer-Policy, etc.). CSP is
+// disabled here because the API never serves HTML; the marketplace front
+// end is hosted by Vite/Replit's preview proxy and applies its own CSP.
+// COEP/CORP are also off so that uploaded files served from /api/uploads
+// remain embeddable from the marketplace origin.
+app.use(
+  helmet({
+    contentSecurityPolicy: false,
+    crossOriginEmbedderPolicy: false,
+    crossOriginResourcePolicy: { policy: "cross-origin" },
+  }),
+);
+// Legacy securityHeaders() retained as a defense-in-depth fallback for
+// any header helmet doesn't set (e.g. our custom X-API-Version).
 app.use(securityHeaders());
 app.use(metricsMiddleware);
 

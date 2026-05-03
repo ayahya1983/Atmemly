@@ -1,4 +1,5 @@
 import { pgTable, serial, integer, text, timestamp, index } from "drizzle-orm/pg-core";
+import { usersTable } from "./users";
 
 export const adminNotesTable = pgTable(
   "admin_notes",
@@ -6,7 +7,9 @@ export const adminNotesTable = pgTable(
     id: serial("id").primaryKey(),
     subjectKind: text("subject_kind").notNull(),
     subjectId: integer("subject_id").notNull(),
-    authorId: integer("author_id").notNull(),
+    authorId: integer("author_id")
+      .notNull()
+      .references(() => usersTable.id, { onDelete: "restrict" }),
     body: text("body").notNull(),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },

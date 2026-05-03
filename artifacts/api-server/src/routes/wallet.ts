@@ -14,6 +14,7 @@ import {
 import { requireAuth, requireRole } from "../lib/auth";
 import { audit } from "../lib/audit";
 import { ensureWallet } from "../lib/escrow";
+import { withIdempotency } from "../lib/idempotency";
 
 const router: IRouter = Router();
 
@@ -50,6 +51,10 @@ router.post(
   "/wallet/payouts",
   requireAuth,
   requireRole("freelancer"),
+  // Architecture audit (May 2026) — opt-in replay protection. Clients that
+  // send `Idempotency-Key` get exact-once semantics; legacy clients keep
+  // working unchanged.
+  withIdempotency("wallet:payouts"),
   async (req, res): Promise<void> => {
     const parsed = RequestPayoutBody.safeParse(req.body);
     if (!parsed.success) {

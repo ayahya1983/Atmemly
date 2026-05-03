@@ -6,6 +6,7 @@ import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { LanguageProvider } from "@/lib/i18n";
 import { TopNav } from "@/components/layout/TopNav";
 import { Footer } from "@/components/layout/Footer";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 
 import NotFound from "@/pages/not-found";
 import Home from "@/pages/home";
@@ -120,11 +121,13 @@ function App() {
       <LanguageProvider>
         <AuthProvider>
           <TooltipProvider>
-            <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
-              <Layout>
-                <Router />
-              </Layout>
-            </WouterRouter>
+            <ErrorBoundary scope="App">
+              <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, "")}>
+                <Layout>
+                  <Router />
+                </Layout>
+              </WouterRouter>
+            </ErrorBoundary>
             <Toaster />
           </TooltipProvider>
         </AuthProvider>

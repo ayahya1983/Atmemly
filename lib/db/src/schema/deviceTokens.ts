@@ -1,10 +1,13 @@
 import { pgTable, serial, integer, text, timestamp, uniqueIndex, index } from "drizzle-orm/pg-core";
+import { usersTable } from "./users";
 
 export const deviceTokensTable = pgTable(
   "device_tokens",
   {
     id: serial("id").primaryKey(),
-    userId: integer("user_id").notNull(),
+    userId: integer("user_id")
+      .notNull()
+      .references(() => usersTable.id, { onDelete: "cascade" }),
     platform: text("platform").notNull(),
     token: text("token").notNull(),
     appVersion: text("app_version"),
