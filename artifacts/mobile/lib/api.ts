@@ -3,15 +3,57 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 const DOMAIN = process.env.EXPO_PUBLIC_DOMAIN;
 export const BASE_URL = DOMAIN ? `https://${DOMAIN}` : "";
 
-const TOKEN_KEY = "khidma.token";
-const USER_KEY = "khidma.user";
-const LANG_KEY = "khidma.lang";
+const TOKEN_KEY = "atmemly.token";
+const USER_KEY = "atmemly.user";
+const LANG_KEY = "atmemly.lang";
+
+const LEGACY_TOKEN_KEY = "khidma.token";
+const LEGACY_USER_KEY = "khidma.user";
+const LEGACY_LANG_KEY = "khidma.lang";
+const MIGRATION_FLAG_KEY = "atmemly.storageMigrated.v1";
 
 let currentToken: string | null = null;
+let migrationPromise: Promise<void> | null = null;
+
+async function migrateLegacyKeysOnce(): Promise<void> {
+  if (!migrationPromise) {
+    migrationPromise = (async () => {
+      try {
+        const done = await AsyncStorage.getItem(MIGRATION_FLAG_KEY);
+        if (done) return;
+        const [legacyToken, legacyUser, legacyLang] = await Promise.all([
+          AsyncStorage.getItem(LEGACY_TOKEN_KEY),
+          AsyncStorage.getItem(LEGACY_USER_KEY),
+          AsyncStorage.getItem(LEGACY_LANG_KEY),
+        ]);
+        if (legacyToken !== null) {
+          const existing = await AsyncStorage.getItem(TOKEN_KEY);
+          if (existing === null) await AsyncStorage.setItem(TOKEN_KEY, legacyToken);
+          await AsyncStorage.removeItem(LEGACY_TOKEN_KEY);
+        }
+        if (legacyUser !== null) {
+          const existing = await AsyncStorage.getItem(USER_KEY);
+          if (existing === null) await AsyncStorage.setItem(USER_KEY, legacyUser);
+          await AsyncStorage.removeItem(LEGACY_USER_KEY);
+        }
+        if (legacyLang !== null) {
+          const existing = await AsyncStorage.getItem(LANG_KEY);
+          if (existing === null) await AsyncStorage.setItem(LANG_KEY, legacyLang);
+          await AsyncStorage.removeItem(LEGACY_LANG_KEY);
+        }
+        await AsyncStorage.setItem(MIGRATION_FLAG_KEY, "1");
+      } catch {
+        migrationPromise = null;
+      }
+    })();
+  }
+  return migrationPromise;
+}
 
 export async function loadToken(): Promise<string | null> {
   if (currentToken) return currentToken;
   try {
+    await migrateLegacyKeysOnce();
     const t = await AsyncStorage.getItem(TOKEN_KEY);
     currentToken = t;
     return t;
@@ -33,6 +75,7 @@ export async function setStoredUser(user: unknown): Promise<void> {
 
 export async function getStoredUser<T = unknown>(): Promise<T | null> {
   try {
+    await migrateLegacyKeysOnce();
     const raw = await AsyncStorage.getItem(USER_KEY);
     return raw ? (JSON.parse(raw) as T) : null;
   } catch {
@@ -42,6 +85,7 @@ export async function getStoredUser<T = unknown>(): Promise<T | null> {
 
 export async function getStoredLang(): Promise<"ar" | "en" | null> {
   try {
+    await migrateLegacyKeysOnce();
     const v = await AsyncStorage.getItem(LANG_KEY);
     return v === "ar" || v === "en" ? v : null;
   } catch {
