@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { Logo } from "@/components/ui/logo";
 import { Loader2 } from "lucide-react";
+import { SsoButtons } from "@/components/SsoButtons";
 import { effectiveAdminRole } from "@/lib/permissions";
 import { BRAND } from "@workspace/branding";
 
@@ -113,6 +114,7 @@ export default function AdminLogin() {
               </Button>
             </form>
           </Form>
+          <SsoButtons />
         </CardContent>
       </Card>
     </div>

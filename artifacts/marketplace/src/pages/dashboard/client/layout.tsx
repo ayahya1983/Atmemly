@@ -1,5 +1,5 @@
 import { Link, useLocation } from "wouter";
-import { LayoutDashboard, Briefcase, MessageSquare, CreditCard, UserCircle, Plus } from "lucide-react";
+import { LayoutDashboard, Briefcase, MessageSquare, CreditCard, UserCircle, Plus, Link2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useTranslation } from "@/lib/i18n";
 
@@ -14,6 +14,7 @@ export function ClientDashboardLayout({ children }: { children: React.ReactNode 
     { href: "/dashboard/client/messages", label: "Messages", icon: MessageSquare },
     { href: "/dashboard/client/payments", label: "Payments", icon: CreditCard },
     { href: "/dashboard/client/profile", label: "Profile", icon: UserCircle },
+    { href: "/dashboard/client/linked-accounts", label: "Linked Accounts", icon: Link2 },
   ];
 
   return (

@@ -1160,6 +1160,291 @@ paths:
               schema:
                 $ref: "#/components/schemas/PayoutDetail"
 
+  /auth/providers:
+    get:
+      operationId: listSsoProviders
+      tags: [auth]
+      responses:
+        "200":
+          description: Enabled SSO providers (public)
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/SsoProviderPublic"
+  /auth/sso/{provider}/start:
+    get:
+      operationId: ssoStart
+      tags: [auth]
+      parameters:
+        - in: path
+          name: provider
+          required: true
+          schema: { type: string }
+        - in: query
+          name: returnTo
+          schema: { type: string }
+        - in: query
+          name: link
+          schema: { type: boolean }
+      responses:
+        "200":
+          description: Authorization URL
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SsoStartResponse"
+  /auth/sso/{provider}/callback:
+    get:
+      operationId: ssoCallback
+      tags: [auth]
+      parameters:
+        - in: path
+          name: provider
+          required: true
+          schema: { type: string }
+        - in: query
+          name: code
+          schema: { type: string }
+        - in: query
+          name: state
+          schema: { type: string }
+        - in: query
+          name: error
+          schema: { type: string }
+        - in: query
+          name: error_description
+          schema: { type: string }
+      responses:
+        "200":
+          description: Callback result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SsoCallbackResponse"
+  /auth/sso/link:
+    post:
+      operationId: ssoLink
+      tags: [auth]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SsoLinkBody"
+      responses:
+        "200":
+          description: Linked
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResponse"
+  /auth/sso/unlink:
+    post:
+      operationId: ssoUnlink
+      tags: [auth]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SsoUnlinkBody"
+      responses:
+        "200":
+          description: Unlinked
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SimpleOk"
+  /auth/sso/identities:
+    get:
+      operationId: listMyIdentities
+      tags: [auth]
+      responses:
+        "200":
+          description: Linked identities for current user
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/UserIdentitySummary"
+
+  /admin/sso/providers:
+    get:
+      operationId: adminListSsoProviders
+      tags: [admin]
+      responses:
+        "200":
+          description: All providers
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/SsoProviderAdmin"
+    post:
+      operationId: adminCreateSsoProvider
+      tags: [admin]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SsoProviderUpsertBody"
+      responses:
+        "200":
+          description: Created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SsoProviderAdmin"
+  /admin/sso/providers/{id}:
+    patch:
+      operationId: adminUpdateSsoProvider
+      tags: [admin]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: integer }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SsoProviderUpsertBody"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SsoProviderAdmin"
+    delete:
+      operationId: adminDeleteSsoProvider
+      tags: [admin]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SimpleOk"
+  /admin/sso/providers/{id}/enable:
+    post:
+      operationId: adminEnableSsoProvider
+      tags: [admin]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Enabled
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SsoProviderAdmin"
+  /admin/sso/providers/{id}/disable:
+    post:
+      operationId: adminDisableSsoProvider
+      tags: [admin]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Disabled
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SsoProviderAdmin"
+  /admin/sso/providers/{id}/test:
+    post:
+      operationId: adminTestSsoProvider
+      tags: [admin]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Test result
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SsoTestResult"
+  /admin/sso/audit:
+    get:
+      operationId: adminListSsoAudit
+      tags: [admin]
+      parameters:
+        - in: query
+          name: providerId
+          schema: { type: integer }
+        - in: query
+          name: userId
+          schema: { type: integer }
+        - in: query
+          name: outcome
+          schema: { type: string }
+        - in: query
+          name: from
+          schema: { type: string, format: date-time }
+        - in: query
+          name: to
+          schema: { type: string, format: date-time }
+        - in: query
+          name: limit
+          schema: { type: integer }
+      responses:
+        "200":
+          description: Audit log
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/SsoAuditEntry"
+  /admin/sso/settings:
+    get:
+      operationId: adminGetSsoSettings
+      tags: [admin]
+      responses:
+        "200":
+          description: Settings
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SsoGlobalSettings"
+    put:
+      operationId: adminUpdateSsoSettings
+      tags: [admin]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SsoGlobalSettings"
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SsoGlobalSettings"
+
 components:
   schemas:
     HealthStatus:
@@ -2031,3 +2316,166 @@ components:
         ip: { type: ["string", "null"] }
         userAgent: { type: ["string", "null"] }
         createdAt: { type: string, format: date-time }
+
+    SsoProviderPublic:
+      type: object
+      required: [id, slug, type, displayName, isDefault]
+      properties:
+        id: { type: integer }
+        slug: { type: string }
+        type: { type: string }
+        displayName: { type: string }
+        displayNameAr: { type: ["string", "null"] }
+        isDefault: { type: boolean }
+
+    SsoProviderAdmin:
+      type: object
+      required: [id, slug, type, displayName, enabled, isDefault, scopes, autoProvision, defaultRole, allowedDomains, secretConfigured, createdAt]
+      properties:
+        id: { type: integer }
+        slug: { type: string }
+        type: { type: string }
+        displayName: { type: string }
+        displayNameAr: { type: ["string", "null"] }
+        enabled: { type: boolean }
+        isDefault: { type: boolean }
+        issuerUrl: { type: ["string", "null"] }
+        clientId: { type: ["string", "null"] }
+        # clientSecretRef is write-only on upsert; never returned in admin reads.
+        secretConfigured: { type: boolean }
+        scopes: { type: string }
+        autoProvision: { type: boolean }
+        defaultRole: { type: string }
+        allowedDomains:
+          type: array
+          items: { type: string }
+        roleMappingJson:
+          type: object
+          additionalProperties: true
+        metadata:
+          type: object
+          additionalProperties: true
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+
+    SsoProviderUpsertBody:
+      type: object
+      required: [slug, type, displayName]
+      properties:
+        slug: { type: string }
+        type:
+          type: string
+          enum: [google, linkedin, microsoft, keycloak, oidc]
+        displayName: { type: string }
+        displayNameAr: { type: ["string", "null"] }
+        enabled: { type: boolean }
+        isDefault: { type: boolean }
+        issuerUrl: { type: ["string", "null"] }
+        clientId: { type: ["string", "null"] }
+        clientSecretRef: { type: ["string", "null"] }
+        scopes: { type: ["string", "null"] }
+        autoProvision: { type: boolean }
+        defaultRole: { type: ["string", "null"] }
+        allowedDomains:
+          type: array
+          items: { type: string }
+        roleMappingJson:
+          type: object
+          additionalProperties: true
+        metadata:
+          type: object
+          additionalProperties: true
+
+    SsoStartResponse:
+      type: object
+      required: [authorizationUrl, state]
+      properties:
+        authorizationUrl: { type: string }
+        state: { type: string }
+
+    SsoCallbackResponse:
+      type: object
+      required: [outcome]
+      properties:
+        outcome:
+          type: string
+          enum: [signed_in, needs_linking, denied, error]
+        token: { type: ["string", "null"] }
+        refreshToken: { type: ["string", "null"] }
+        user:
+          oneOf:
+            - $ref: "#/components/schemas/Me"
+            - type: "null"
+        linkChallengeToken: { type: ["string", "null"] }
+        candidateEmail: { type: ["string", "null"] }
+        provider: { type: ["string", "null"] }
+        message: { type: ["string", "null"] }
+        returnTo: { type: ["string", "null"] }
+
+    SsoLinkBody:
+      type: object
+      required: [linkChallengeToken, password]
+      properties:
+        linkChallengeToken: { type: string }
+        password: { type: string }
+
+    SsoUnlinkBody:
+      type: object
+      required: [identityId]
+      properties:
+        identityId: { type: integer }
+
+    UserIdentitySummary:
+      type: object
+      required: [id, providerId, providerSlug, providerDisplayName, externalId, createdAt]
+      properties:
+        id: { type: integer }
+        providerId: { type: integer }
+        providerSlug: { type: string }
+        providerDisplayName: { type: string }
+        externalId: { type: string }
+        email: { type: ["string", "null"] }
+        displayName: { type: ["string", "null"] }
+        lastLoginAt: { type: ["string", "null"], format: date-time }
+        createdAt: { type: string, format: date-time }
+
+    SsoTestResult:
+      type: object
+      required: [ok]
+      properties:
+        ok: { type: boolean }
+        issuer: { type: ["string", "null"] }
+        authorizationEndpoint: { type: ["string", "null"] }
+        tokenEndpoint: { type: ["string", "null"] }
+        jwksUri: { type: ["string", "null"] }
+        jwksKeys: { type: ["integer", "null"] }
+        error: { type: ["string", "null"] }
+
+    SsoAuditEntry:
+      type: object
+      required: [id, action, outcome, createdAt]
+      properties:
+        id: { type: integer }
+        userId: { type: ["integer", "null"] }
+        providerId: { type: ["integer", "null"] }
+        providerSlug: { type: ["string", "null"] }
+        email: { type: ["string", "null"] }
+        action: { type: string }
+        outcome: { type: string }
+        reason: { type: ["string", "null"] }
+        ip: { type: ["string", "null"] }
+        userAgent: { type: ["string", "null"] }
+        metadata:
+          type: object
+          additionalProperties: true
+        createdAt: { type: string, format: date-time }
+
+    SsoGlobalSettings:
+      type: object
+      required: [allowLocalPassword, defaultLoginMethod]
+      properties:
+        allowLocalPassword: { type: boolean }
+        defaultLoginMethod:
+          type: string
+          enum: [password, sso]
+        forceSsoForOrganizations: { type: boolean }

@@ -16,6 +16,7 @@ import Freelancers from "@/pages/freelancers";
 import FreelancerProfile from "@/pages/freelancer-profile";
 import ClientProfile from "@/pages/client-profile";
 import Login from "@/pages/login";
+import SsoCallback from "@/pages/sso-callback";
 import Register from "@/pages/register";
 import About from "@/pages/about";
 import Contact from "@/pages/contact";
@@ -34,6 +35,7 @@ import JobProposals from "@/pages/dashboard/client/job-proposals";
 import ClientMessages from "@/pages/dashboard/client/messages";
 import ClientPayments from "@/pages/dashboard/client/payments";
 import ClientProfileEdit from "@/pages/dashboard/client/profile";
+import LinkedAccountsPage from "@/pages/dashboard/linked-accounts";
 
 import { FreelancerDashboardLayout } from "@/pages/dashboard/freelancer/layout";
 import FreelancerOverview from "@/pages/dashboard/freelancer/overview";
@@ -90,6 +92,7 @@ function Router() {
       <Route path="/faq" component={Faq} />
 
       <Route path="/login" component={Login} />
+      <Route path="/auth/sso/:provider/callback" component={SsoCallback} />
       <Route path="/register" component={Register} />
 
       {/* Client Dashboard */}
@@ -100,6 +103,8 @@ function Router() {
       <Route path="/dashboard/client/messages"><ProtectedClientRoute component={ClientMessages} /></Route>
       <Route path="/dashboard/client/payments"><ProtectedClientRoute component={ClientPayments} /></Route>
       <Route path="/dashboard/client/profile"><ProtectedClientRoute component={ClientProfileEdit} /></Route>
+      <Route path="/dashboard/client/linked-accounts"><ProtectedClientRoute component={LinkedAccountsPage} /></Route>
+      <Route path="/dashboard/freelancer/linked-accounts"><ProtectedFreelancerRoute component={LinkedAccountsPage} /></Route>
 
       {/* Freelancer Dashboard */}
       <Route path="/dashboard/freelancer"><ProtectedFreelancerRoute component={FreelancerOverview} /></Route>

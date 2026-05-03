@@ -19,6 +19,7 @@ import type {
 import type {
   AdminAnalytics,
   AdminListAuditLogsParams,
+  AdminListSsoAuditParams,
   AdminListVerificationsParams,
   AdminReviewVerificationBody,
   AdminUser,
@@ -74,6 +75,18 @@ import type {
   SendMessageBody,
   SimpleOk,
   Skill,
+  SsoAuditEntry,
+  SsoCallbackParams,
+  SsoCallbackResponse,
+  SsoGlobalSettings,
+  SsoLinkBody,
+  SsoProviderAdmin,
+  SsoProviderPublic,
+  SsoProviderUpsertBody,
+  SsoStartParams,
+  SsoStartResponse,
+  SsoTestResult,
+  SsoUnlinkBody,
   SubmitDeliverableBody,
   SubmitVerificationBody,
   UpdateClientProfileBody,
@@ -82,6 +95,7 @@ import type {
   UpdateJobBody,
   UpdateProposalStatusBody,
   UpdateUserStatusBody,
+  UserIdentitySummary,
   VerificationDetail,
   VerifyEmailBody,
   WalletDetail,
@@ -5393,4 +5407,1286 @@ export const useAdminProcessPayout = <
   TContext
 > => {
   return useMutation(getAdminProcessPayoutMutationOptions(options));
+};
+
+export const getListSsoProvidersUrl = () => {
+  return `/api/auth/providers`;
+};
+
+export const listSsoProviders = async (
+  options?: RequestInit,
+): Promise<SsoProviderPublic[]> => {
+  return customFetch<SsoProviderPublic[]>(getListSsoProvidersUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListSsoProvidersQueryKey = () => {
+  return [`/api/auth/providers`] as const;
+};
+
+export const getListSsoProvidersQueryOptions = <
+  TData = Awaited<ReturnType<typeof listSsoProviders>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listSsoProviders>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getListSsoProvidersQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listSsoProviders>>
+  > = ({ signal }) => listSsoProviders({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listSsoProviders>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListSsoProvidersQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listSsoProviders>>
+>;
+export type ListSsoProvidersQueryError = ErrorType<unknown>;
+
+export function useListSsoProviders<
+  TData = Awaited<ReturnType<typeof listSsoProviders>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listSsoProviders>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListSsoProvidersQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+export const getSsoStartUrl = (provider: string, params?: SsoStartParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/auth/sso/${provider}/start?${stringifiedParams}`
+    : `/api/auth/sso/${provider}/start`;
+};
+
+export const ssoStart = async (
+  provider: string,
+  params?: SsoStartParams,
+  options?: RequestInit,
+): Promise<SsoStartResponse> => {
+  return customFetch<SsoStartResponse>(getSsoStartUrl(provider, params), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getSsoStartQueryKey = (
+  provider: string,
+  params?: SsoStartParams,
+) => {
+  return [
+    `/api/auth/sso/${provider}/start`,
+    ...(params ? [params] : []),
+  ] as const;
+};
+
+export const getSsoStartQueryOptions = <
+  TData = Awaited<ReturnType<typeof ssoStart>>,
+  TError = ErrorType<unknown>,
+>(
+  provider: string,
+  params?: SsoStartParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof ssoStart>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getSsoStartQueryKey(provider, params);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof ssoStart>>> = ({
+    signal,
+  }) => ssoStart(provider, params, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!provider,
+    ...queryOptions,
+  } as UseQueryOptions<Awaited<ReturnType<typeof ssoStart>>, TError, TData> & {
+    queryKey: QueryKey;
+  };
+};
+
+export type SsoStartQueryResult = NonNullable<
+  Awaited<ReturnType<typeof ssoStart>>
+>;
+export type SsoStartQueryError = ErrorType<unknown>;
+
+export function useSsoStart<
+  TData = Awaited<ReturnType<typeof ssoStart>>,
+  TError = ErrorType<unknown>,
+>(
+  provider: string,
+  params?: SsoStartParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof ssoStart>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getSsoStartQueryOptions(provider, params, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+export const getSsoCallbackUrl = (
+  provider: string,
+  params?: SsoCallbackParams,
+) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/auth/sso/${provider}/callback?${stringifiedParams}`
+    : `/api/auth/sso/${provider}/callback`;
+};
+
+export const ssoCallback = async (
+  provider: string,
+  params?: SsoCallbackParams,
+  options?: RequestInit,
+): Promise<SsoCallbackResponse> => {
+  return customFetch<SsoCallbackResponse>(getSsoCallbackUrl(provider, params), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getSsoCallbackQueryKey = (
+  provider: string,
+  params?: SsoCallbackParams,
+) => {
+  return [
+    `/api/auth/sso/${provider}/callback`,
+    ...(params ? [params] : []),
+  ] as const;
+};
+
+export const getSsoCallbackQueryOptions = <
+  TData = Awaited<ReturnType<typeof ssoCallback>>,
+  TError = ErrorType<unknown>,
+>(
+  provider: string,
+  params?: SsoCallbackParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof ssoCallback>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getSsoCallbackQueryKey(provider, params);
+
+  const queryFn: QueryFunction<Awaited<ReturnType<typeof ssoCallback>>> = ({
+    signal,
+  }) => ssoCallback(provider, params, { signal, ...requestOptions });
+
+  return {
+    queryKey,
+    queryFn,
+    enabled: !!provider,
+    ...queryOptions,
+  } as UseQueryOptions<
+    Awaited<ReturnType<typeof ssoCallback>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type SsoCallbackQueryResult = NonNullable<
+  Awaited<ReturnType<typeof ssoCallback>>
+>;
+export type SsoCallbackQueryError = ErrorType<unknown>;
+
+export function useSsoCallback<
+  TData = Awaited<ReturnType<typeof ssoCallback>>,
+  TError = ErrorType<unknown>,
+>(
+  provider: string,
+  params?: SsoCallbackParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof ssoCallback>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getSsoCallbackQueryOptions(provider, params, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+export const getSsoLinkUrl = () => {
+  return `/api/auth/sso/link`;
+};
+
+export const ssoLink = async (
+  ssoLinkBody: SsoLinkBody,
+  options?: RequestInit,
+): Promise<AuthResponse> => {
+  return customFetch<AuthResponse>(getSsoLinkUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(ssoLinkBody),
+  });
+};
+
+export const getSsoLinkMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof ssoLink>>,
+    TError,
+    { data: BodyType<SsoLinkBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof ssoLink>>,
+  TError,
+  { data: BodyType<SsoLinkBody> },
+  TContext
+> => {
+  const mutationKey = ["ssoLink"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof ssoLink>>,
+    { data: BodyType<SsoLinkBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return ssoLink(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type SsoLinkMutationResult = NonNullable<
+  Awaited<ReturnType<typeof ssoLink>>
+>;
+export type SsoLinkMutationBody = BodyType<SsoLinkBody>;
+export type SsoLinkMutationError = ErrorType<unknown>;
+
+export const useSsoLink = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof ssoLink>>,
+    TError,
+    { data: BodyType<SsoLinkBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof ssoLink>>,
+  TError,
+  { data: BodyType<SsoLinkBody> },
+  TContext
+> => {
+  return useMutation(getSsoLinkMutationOptions(options));
+};
+
+export const getSsoUnlinkUrl = () => {
+  return `/api/auth/sso/unlink`;
+};
+
+export const ssoUnlink = async (
+  ssoUnlinkBody: SsoUnlinkBody,
+  options?: RequestInit,
+): Promise<SimpleOk> => {
+  return customFetch<SimpleOk>(getSsoUnlinkUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(ssoUnlinkBody),
+  });
+};
+
+export const getSsoUnlinkMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof ssoUnlink>>,
+    TError,
+    { data: BodyType<SsoUnlinkBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof ssoUnlink>>,
+  TError,
+  { data: BodyType<SsoUnlinkBody> },
+  TContext
+> => {
+  const mutationKey = ["ssoUnlink"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof ssoUnlink>>,
+    { data: BodyType<SsoUnlinkBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return ssoUnlink(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type SsoUnlinkMutationResult = NonNullable<
+  Awaited<ReturnType<typeof ssoUnlink>>
+>;
+export type SsoUnlinkMutationBody = BodyType<SsoUnlinkBody>;
+export type SsoUnlinkMutationError = ErrorType<unknown>;
+
+export const useSsoUnlink = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof ssoUnlink>>,
+    TError,
+    { data: BodyType<SsoUnlinkBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof ssoUnlink>>,
+  TError,
+  { data: BodyType<SsoUnlinkBody> },
+  TContext
+> => {
+  return useMutation(getSsoUnlinkMutationOptions(options));
+};
+
+export const getListMyIdentitiesUrl = () => {
+  return `/api/auth/sso/identities`;
+};
+
+export const listMyIdentities = async (
+  options?: RequestInit,
+): Promise<UserIdentitySummary[]> => {
+  return customFetch<UserIdentitySummary[]>(getListMyIdentitiesUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getListMyIdentitiesQueryKey = () => {
+  return [`/api/auth/sso/identities`] as const;
+};
+
+export const getListMyIdentitiesQueryOptions = <
+  TData = Awaited<ReturnType<typeof listMyIdentities>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listMyIdentities>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getListMyIdentitiesQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof listMyIdentities>>
+  > = ({ signal }) => listMyIdentities({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof listMyIdentities>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type ListMyIdentitiesQueryResult = NonNullable<
+  Awaited<ReturnType<typeof listMyIdentities>>
+>;
+export type ListMyIdentitiesQueryError = ErrorType<unknown>;
+
+export function useListMyIdentities<
+  TData = Awaited<ReturnType<typeof listMyIdentities>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof listMyIdentities>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getListMyIdentitiesQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+export const getAdminListSsoProvidersUrl = () => {
+  return `/api/admin/sso/providers`;
+};
+
+export const adminListSsoProviders = async (
+  options?: RequestInit,
+): Promise<SsoProviderAdmin[]> => {
+  return customFetch<SsoProviderAdmin[]>(getAdminListSsoProvidersUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getAdminListSsoProvidersQueryKey = () => {
+  return [`/api/admin/sso/providers`] as const;
+};
+
+export const getAdminListSsoProvidersQueryOptions = <
+  TData = Awaited<ReturnType<typeof adminListSsoProviders>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof adminListSsoProviders>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getAdminListSsoProvidersQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof adminListSsoProviders>>
+  > = ({ signal }) => adminListSsoProviders({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof adminListSsoProviders>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type AdminListSsoProvidersQueryResult = NonNullable<
+  Awaited<ReturnType<typeof adminListSsoProviders>>
+>;
+export type AdminListSsoProvidersQueryError = ErrorType<unknown>;
+
+export function useAdminListSsoProviders<
+  TData = Awaited<ReturnType<typeof adminListSsoProviders>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof adminListSsoProviders>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getAdminListSsoProvidersQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+export const getAdminCreateSsoProviderUrl = () => {
+  return `/api/admin/sso/providers`;
+};
+
+export const adminCreateSsoProvider = async (
+  ssoProviderUpsertBody: SsoProviderUpsertBody,
+  options?: RequestInit,
+): Promise<SsoProviderAdmin> => {
+  return customFetch<SsoProviderAdmin>(getAdminCreateSsoProviderUrl(), {
+    ...options,
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(ssoProviderUpsertBody),
+  });
+};
+
+export const getAdminCreateSsoProviderMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminCreateSsoProvider>>,
+    TError,
+    { data: BodyType<SsoProviderUpsertBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof adminCreateSsoProvider>>,
+  TError,
+  { data: BodyType<SsoProviderUpsertBody> },
+  TContext
+> => {
+  const mutationKey = ["adminCreateSsoProvider"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof adminCreateSsoProvider>>,
+    { data: BodyType<SsoProviderUpsertBody> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return adminCreateSsoProvider(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type AdminCreateSsoProviderMutationResult = NonNullable<
+  Awaited<ReturnType<typeof adminCreateSsoProvider>>
+>;
+export type AdminCreateSsoProviderMutationBody =
+  BodyType<SsoProviderUpsertBody>;
+export type AdminCreateSsoProviderMutationError = ErrorType<unknown>;
+
+export const useAdminCreateSsoProvider = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminCreateSsoProvider>>,
+    TError,
+    { data: BodyType<SsoProviderUpsertBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof adminCreateSsoProvider>>,
+  TError,
+  { data: BodyType<SsoProviderUpsertBody> },
+  TContext
+> => {
+  return useMutation(getAdminCreateSsoProviderMutationOptions(options));
+};
+
+export const getAdminUpdateSsoProviderUrl = (id: number) => {
+  return `/api/admin/sso/providers/${id}`;
+};
+
+export const adminUpdateSsoProvider = async (
+  id: number,
+  ssoProviderUpsertBody: SsoProviderUpsertBody,
+  options?: RequestInit,
+): Promise<SsoProviderAdmin> => {
+  return customFetch<SsoProviderAdmin>(getAdminUpdateSsoProviderUrl(id), {
+    ...options,
+    method: "PATCH",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(ssoProviderUpsertBody),
+  });
+};
+
+export const getAdminUpdateSsoProviderMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminUpdateSsoProvider>>,
+    TError,
+    { id: number; data: BodyType<SsoProviderUpsertBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof adminUpdateSsoProvider>>,
+  TError,
+  { id: number; data: BodyType<SsoProviderUpsertBody> },
+  TContext
+> => {
+  const mutationKey = ["adminUpdateSsoProvider"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof adminUpdateSsoProvider>>,
+    { id: number; data: BodyType<SsoProviderUpsertBody> }
+  > = (props) => {
+    const { id, data } = props ?? {};
+
+    return adminUpdateSsoProvider(id, data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type AdminUpdateSsoProviderMutationResult = NonNullable<
+  Awaited<ReturnType<typeof adminUpdateSsoProvider>>
+>;
+export type AdminUpdateSsoProviderMutationBody =
+  BodyType<SsoProviderUpsertBody>;
+export type AdminUpdateSsoProviderMutationError = ErrorType<unknown>;
+
+export const useAdminUpdateSsoProvider = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminUpdateSsoProvider>>,
+    TError,
+    { id: number; data: BodyType<SsoProviderUpsertBody> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof adminUpdateSsoProvider>>,
+  TError,
+  { id: number; data: BodyType<SsoProviderUpsertBody> },
+  TContext
+> => {
+  return useMutation(getAdminUpdateSsoProviderMutationOptions(options));
+};
+
+export const getAdminDeleteSsoProviderUrl = (id: number) => {
+  return `/api/admin/sso/providers/${id}`;
+};
+
+export const adminDeleteSsoProvider = async (
+  id: number,
+  options?: RequestInit,
+): Promise<SimpleOk> => {
+  return customFetch<SimpleOk>(getAdminDeleteSsoProviderUrl(id), {
+    ...options,
+    method: "DELETE",
+  });
+};
+
+export const getAdminDeleteSsoProviderMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminDeleteSsoProvider>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof adminDeleteSsoProvider>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  const mutationKey = ["adminDeleteSsoProvider"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof adminDeleteSsoProvider>>,
+    { id: number }
+  > = (props) => {
+    const { id } = props ?? {};
+
+    return adminDeleteSsoProvider(id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type AdminDeleteSsoProviderMutationResult = NonNullable<
+  Awaited<ReturnType<typeof adminDeleteSsoProvider>>
+>;
+
+export type AdminDeleteSsoProviderMutationError = ErrorType<unknown>;
+
+export const useAdminDeleteSsoProvider = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminDeleteSsoProvider>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof adminDeleteSsoProvider>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  return useMutation(getAdminDeleteSsoProviderMutationOptions(options));
+};
+
+export const getAdminEnableSsoProviderUrl = (id: number) => {
+  return `/api/admin/sso/providers/${id}/enable`;
+};
+
+export const adminEnableSsoProvider = async (
+  id: number,
+  options?: RequestInit,
+): Promise<SsoProviderAdmin> => {
+  return customFetch<SsoProviderAdmin>(getAdminEnableSsoProviderUrl(id), {
+    ...options,
+    method: "POST",
+  });
+};
+
+export const getAdminEnableSsoProviderMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminEnableSsoProvider>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof adminEnableSsoProvider>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  const mutationKey = ["adminEnableSsoProvider"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof adminEnableSsoProvider>>,
+    { id: number }
+  > = (props) => {
+    const { id } = props ?? {};
+
+    return adminEnableSsoProvider(id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type AdminEnableSsoProviderMutationResult = NonNullable<
+  Awaited<ReturnType<typeof adminEnableSsoProvider>>
+>;
+
+export type AdminEnableSsoProviderMutationError = ErrorType<unknown>;
+
+export const useAdminEnableSsoProvider = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminEnableSsoProvider>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof adminEnableSsoProvider>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  return useMutation(getAdminEnableSsoProviderMutationOptions(options));
+};
+
+export const getAdminDisableSsoProviderUrl = (id: number) => {
+  return `/api/admin/sso/providers/${id}/disable`;
+};
+
+export const adminDisableSsoProvider = async (
+  id: number,
+  options?: RequestInit,
+): Promise<SsoProviderAdmin> => {
+  return customFetch<SsoProviderAdmin>(getAdminDisableSsoProviderUrl(id), {
+    ...options,
+    method: "POST",
+  });
+};
+
+export const getAdminDisableSsoProviderMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminDisableSsoProvider>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof adminDisableSsoProvider>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  const mutationKey = ["adminDisableSsoProvider"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof adminDisableSsoProvider>>,
+    { id: number }
+  > = (props) => {
+    const { id } = props ?? {};
+
+    return adminDisableSsoProvider(id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type AdminDisableSsoProviderMutationResult = NonNullable<
+  Awaited<ReturnType<typeof adminDisableSsoProvider>>
+>;
+
+export type AdminDisableSsoProviderMutationError = ErrorType<unknown>;
+
+export const useAdminDisableSsoProvider = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminDisableSsoProvider>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof adminDisableSsoProvider>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  return useMutation(getAdminDisableSsoProviderMutationOptions(options));
+};
+
+export const getAdminTestSsoProviderUrl = (id: number) => {
+  return `/api/admin/sso/providers/${id}/test`;
+};
+
+export const adminTestSsoProvider = async (
+  id: number,
+  options?: RequestInit,
+): Promise<SsoTestResult> => {
+  return customFetch<SsoTestResult>(getAdminTestSsoProviderUrl(id), {
+    ...options,
+    method: "POST",
+  });
+};
+
+export const getAdminTestSsoProviderMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminTestSsoProvider>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof adminTestSsoProvider>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  const mutationKey = ["adminTestSsoProvider"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof adminTestSsoProvider>>,
+    { id: number }
+  > = (props) => {
+    const { id } = props ?? {};
+
+    return adminTestSsoProvider(id, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type AdminTestSsoProviderMutationResult = NonNullable<
+  Awaited<ReturnType<typeof adminTestSsoProvider>>
+>;
+
+export type AdminTestSsoProviderMutationError = ErrorType<unknown>;
+
+export const useAdminTestSsoProvider = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminTestSsoProvider>>,
+    TError,
+    { id: number },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof adminTestSsoProvider>>,
+  TError,
+  { id: number },
+  TContext
+> => {
+  return useMutation(getAdminTestSsoProviderMutationOptions(options));
+};
+
+export const getAdminListSsoAuditUrl = (params?: AdminListSsoAuditParams) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? "null" : value.toString());
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0
+    ? `/api/admin/sso/audit?${stringifiedParams}`
+    : `/api/admin/sso/audit`;
+};
+
+export const adminListSsoAudit = async (
+  params?: AdminListSsoAuditParams,
+  options?: RequestInit,
+): Promise<SsoAuditEntry[]> => {
+  return customFetch<SsoAuditEntry[]>(getAdminListSsoAuditUrl(params), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getAdminListSsoAuditQueryKey = (
+  params?: AdminListSsoAuditParams,
+) => {
+  return [`/api/admin/sso/audit`, ...(params ? [params] : [])] as const;
+};
+
+export const getAdminListSsoAuditQueryOptions = <
+  TData = Awaited<ReturnType<typeof adminListSsoAudit>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: AdminListSsoAuditParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof adminListSsoAudit>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey =
+    queryOptions?.queryKey ?? getAdminListSsoAuditQueryKey(params);
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof adminListSsoAudit>>
+  > = ({ signal }) => adminListSsoAudit(params, { signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof adminListSsoAudit>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type AdminListSsoAuditQueryResult = NonNullable<
+  Awaited<ReturnType<typeof adminListSsoAudit>>
+>;
+export type AdminListSsoAuditQueryError = ErrorType<unknown>;
+
+export function useAdminListSsoAudit<
+  TData = Awaited<ReturnType<typeof adminListSsoAudit>>,
+  TError = ErrorType<unknown>,
+>(
+  params?: AdminListSsoAuditParams,
+  options?: {
+    query?: UseQueryOptions<
+      Awaited<ReturnType<typeof adminListSsoAudit>>,
+      TError,
+      TData
+    >;
+    request?: SecondParameter<typeof customFetch>;
+  },
+): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getAdminListSsoAuditQueryOptions(params, options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+export const getAdminGetSsoSettingsUrl = () => {
+  return `/api/admin/sso/settings`;
+};
+
+export const adminGetSsoSettings = async (
+  options?: RequestInit,
+): Promise<SsoGlobalSettings> => {
+  return customFetch<SsoGlobalSettings>(getAdminGetSsoSettingsUrl(), {
+    ...options,
+    method: "GET",
+  });
+};
+
+export const getAdminGetSsoSettingsQueryKey = () => {
+  return [`/api/admin/sso/settings`] as const;
+};
+
+export const getAdminGetSsoSettingsQueryOptions = <
+  TData = Awaited<ReturnType<typeof adminGetSsoSettings>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof adminGetSsoSettings>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}) => {
+  const { query: queryOptions, request: requestOptions } = options ?? {};
+
+  const queryKey = queryOptions?.queryKey ?? getAdminGetSsoSettingsQueryKey();
+
+  const queryFn: QueryFunction<
+    Awaited<ReturnType<typeof adminGetSsoSettings>>
+  > = ({ signal }) => adminGetSsoSettings({ signal, ...requestOptions });
+
+  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
+    Awaited<ReturnType<typeof adminGetSsoSettings>>,
+    TError,
+    TData
+  > & { queryKey: QueryKey };
+};
+
+export type AdminGetSsoSettingsQueryResult = NonNullable<
+  Awaited<ReturnType<typeof adminGetSsoSettings>>
+>;
+export type AdminGetSsoSettingsQueryError = ErrorType<unknown>;
+
+export function useAdminGetSsoSettings<
+  TData = Awaited<ReturnType<typeof adminGetSsoSettings>>,
+  TError = ErrorType<unknown>,
+>(options?: {
+  query?: UseQueryOptions<
+    Awaited<ReturnType<typeof adminGetSsoSettings>>,
+    TError,
+    TData
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+  const queryOptions = getAdminGetSsoSettingsQueryOptions(options);
+
+  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
+    queryKey: QueryKey;
+  };
+
+  return { ...query, queryKey: queryOptions.queryKey };
+}
+
+export const getAdminUpdateSsoSettingsUrl = () => {
+  return `/api/admin/sso/settings`;
+};
+
+export const adminUpdateSsoSettings = async (
+  ssoGlobalSettings: SsoGlobalSettings,
+  options?: RequestInit,
+): Promise<SsoGlobalSettings> => {
+  return customFetch<SsoGlobalSettings>(getAdminUpdateSsoSettingsUrl(), {
+    ...options,
+    method: "PUT",
+    headers: { "Content-Type": "application/json", ...options?.headers },
+    body: JSON.stringify(ssoGlobalSettings),
+  });
+};
+
+export const getAdminUpdateSsoSettingsMutationOptions = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminUpdateSsoSettings>>,
+    TError,
+    { data: BodyType<SsoGlobalSettings> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationOptions<
+  Awaited<ReturnType<typeof adminUpdateSsoSettings>>,
+  TError,
+  { data: BodyType<SsoGlobalSettings> },
+  TContext
+> => {
+  const mutationKey = ["adminUpdateSsoSettings"];
+  const { mutation: mutationOptions, request: requestOptions } = options
+    ? options.mutation &&
+      "mutationKey" in options.mutation &&
+      options.mutation.mutationKey
+      ? options
+      : { ...options, mutation: { ...options.mutation, mutationKey } }
+    : { mutation: { mutationKey }, request: undefined };
+
+  const mutationFn: MutationFunction<
+    Awaited<ReturnType<typeof adminUpdateSsoSettings>>,
+    { data: BodyType<SsoGlobalSettings> }
+  > = (props) => {
+    const { data } = props ?? {};
+
+    return adminUpdateSsoSettings(data, requestOptions);
+  };
+
+  return { mutationFn, ...mutationOptions };
+};
+
+export type AdminUpdateSsoSettingsMutationResult = NonNullable<
+  Awaited<ReturnType<typeof adminUpdateSsoSettings>>
+>;
+export type AdminUpdateSsoSettingsMutationBody = BodyType<SsoGlobalSettings>;
+export type AdminUpdateSsoSettingsMutationError = ErrorType<unknown>;
+
+export const useAdminUpdateSsoSettings = <
+  TError = ErrorType<unknown>,
+  TContext = unknown,
+>(options?: {
+  mutation?: UseMutationOptions<
+    Awaited<ReturnType<typeof adminUpdateSsoSettings>>,
+    TError,
+    { data: BodyType<SsoGlobalSettings> },
+    TContext
+  >;
+  request?: SecondParameter<typeof customFetch>;
+}): UseMutationResult<
+  Awaited<ReturnType<typeof adminUpdateSsoSettings>>,
+  TError,
+  { data: BodyType<SsoGlobalSettings> },
+  TContext
+> => {
+  return useMutation(getAdminUpdateSsoSettingsMutationOptions(options));
 };

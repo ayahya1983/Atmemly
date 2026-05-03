@@ -1784,3 +1784,359 @@ export const AdminProcessPayoutResponse = zod.object({
   processedAt: zod.coerce.date().nullish(),
   processedBy: zod.number().nullish(),
 });
+
+export const ListSsoProvidersResponseItem = zod.object({
+  id: zod.number(),
+  slug: zod.string(),
+  type: zod.string(),
+  displayName: zod.string(),
+  displayNameAr: zod.string().nullish(),
+  isDefault: zod.boolean(),
+});
+export const ListSsoProvidersResponse = zod.array(ListSsoProvidersResponseItem);
+
+export const SsoStartParams = zod.object({
+  provider: zod.coerce.string(),
+});
+
+export const SsoStartQueryParams = zod.object({
+  returnTo: zod.coerce.string().optional(),
+  link: zod.coerce.boolean().optional(),
+});
+
+export const SsoStartResponse = zod.object({
+  authorizationUrl: zod.string(),
+  state: zod.string(),
+});
+
+export const SsoCallbackParams = zod.object({
+  provider: zod.coerce.string(),
+});
+
+export const SsoCallbackQueryParams = zod.object({
+  code: zod.coerce.string().optional(),
+  state: zod.coerce.string().optional(),
+  error: zod.coerce.string().optional(),
+  error_description: zod.coerce.string().optional(),
+});
+
+export const SsoCallbackResponse = zod.object({
+  outcome: zod.enum(["signed_in", "needs_linking", "denied", "error"]),
+  token: zod.string().nullish(),
+  refreshToken: zod.string().nullish(),
+  user: zod
+    .union([
+      zod.object({
+        id: zod.number(),
+        email: zod.string(),
+        fullName: zod.string(),
+        role: zod.enum(["client", "freelancer", "admin"]),
+        adminRole: zod.string().nullish(),
+        status: zod.enum([
+          "active",
+          "suspended",
+          "pending_email_verification",
+          "banned",
+          "deleted",
+        ]),
+        avatarUrl: zod.string().nullish(),
+        createdAt: zod.coerce.date(),
+        emailVerifiedAt: zod.coerce.date().nullish(),
+        lastLoginAt: zod.coerce.date().nullish(),
+        phone: zod.string().nullish(),
+        country: zod.string().nullish(),
+        city: zod.string().nullish(),
+        verificationStatus: zod
+          .enum(["not_submitted", "pending", "verified", "rejected", "expired"])
+          .optional(),
+      }),
+      zod.null(),
+    ])
+    .optional(),
+  linkChallengeToken: zod.string().nullish(),
+  candidateEmail: zod.string().nullish(),
+  provider: zod.string().nullish(),
+  message: zod.string().nullish(),
+  returnTo: zod.string().nullish(),
+});
+
+export const SsoLinkBody = zod.object({
+  linkChallengeToken: zod.string(),
+  password: zod.string(),
+});
+
+export const SsoLinkResponse = zod.object({
+  token: zod.string(),
+  refreshToken: zod.string().nullish(),
+  emailVerificationDevToken: zod.string().nullish(),
+  user: zod.object({
+    id: zod.number(),
+    email: zod.string(),
+    fullName: zod.string(),
+    role: zod.enum(["client", "freelancer", "admin"]),
+    adminRole: zod.string().nullish(),
+    status: zod.enum([
+      "active",
+      "suspended",
+      "pending_email_verification",
+      "banned",
+      "deleted",
+    ]),
+    avatarUrl: zod.string().nullish(),
+    createdAt: zod.coerce.date(),
+    emailVerifiedAt: zod.coerce.date().nullish(),
+    lastLoginAt: zod.coerce.date().nullish(),
+    phone: zod.string().nullish(),
+    country: zod.string().nullish(),
+    city: zod.string().nullish(),
+    verificationStatus: zod
+      .enum(["not_submitted", "pending", "verified", "rejected", "expired"])
+      .optional(),
+  }),
+});
+
+export const SsoUnlinkBody = zod.object({
+  identityId: zod.number(),
+});
+
+export const SsoUnlinkResponse = zod.object({
+  ok: zod.boolean(),
+  message: zod.string().nullish(),
+});
+
+export const ListMyIdentitiesResponseItem = zod.object({
+  id: zod.number(),
+  providerId: zod.number(),
+  providerSlug: zod.string(),
+  providerDisplayName: zod.string(),
+  externalId: zod.string(),
+  email: zod.string().nullish(),
+  displayName: zod.string().nullish(),
+  lastLoginAt: zod.coerce.date().nullish(),
+  createdAt: zod.coerce.date(),
+});
+export const ListMyIdentitiesResponse = zod.array(ListMyIdentitiesResponseItem);
+
+export const AdminListSsoProvidersResponseItem = zod.object({
+  id: zod.number(),
+  slug: zod.string(),
+  type: zod.string(),
+  displayName: zod.string(),
+  displayNameAr: zod.string().nullish(),
+  enabled: zod.boolean(),
+  isDefault: zod.boolean(),
+  issuerUrl: zod.string().nullish(),
+  clientId: zod.string().nullish(),
+  secretConfigured: zod.boolean(),
+  scopes: zod.string(),
+  autoProvision: zod.boolean(),
+  defaultRole: zod.string(),
+  allowedDomains: zod.array(zod.string()),
+  roleMappingJson: zod.record(zod.string(), zod.unknown()).optional(),
+  metadata: zod.record(zod.string(), zod.unknown()).optional(),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date().optional(),
+});
+export const AdminListSsoProvidersResponse = zod.array(
+  AdminListSsoProvidersResponseItem,
+);
+
+export const AdminCreateSsoProviderBody = zod.object({
+  slug: zod.string(),
+  type: zod.enum(["google", "linkedin", "microsoft", "keycloak", "oidc"]),
+  displayName: zod.string(),
+  displayNameAr: zod.string().nullish(),
+  enabled: zod.boolean().optional(),
+  isDefault: zod.boolean().optional(),
+  issuerUrl: zod.string().nullish(),
+  clientId: zod.string().nullish(),
+  clientSecretRef: zod.string().nullish(),
+  scopes: zod.string().nullish(),
+  autoProvision: zod.boolean().optional(),
+  defaultRole: zod.string().nullish(),
+  allowedDomains: zod.array(zod.string()).optional(),
+  roleMappingJson: zod.record(zod.string(), zod.unknown()).optional(),
+  metadata: zod.record(zod.string(), zod.unknown()).optional(),
+});
+
+export const AdminCreateSsoProviderResponse = zod.object({
+  id: zod.number(),
+  slug: zod.string(),
+  type: zod.string(),
+  displayName: zod.string(),
+  displayNameAr: zod.string().nullish(),
+  enabled: zod.boolean(),
+  isDefault: zod.boolean(),
+  issuerUrl: zod.string().nullish(),
+  clientId: zod.string().nullish(),
+  secretConfigured: zod.boolean(),
+  scopes: zod.string(),
+  autoProvision: zod.boolean(),
+  defaultRole: zod.string(),
+  allowedDomains: zod.array(zod.string()),
+  roleMappingJson: zod.record(zod.string(), zod.unknown()).optional(),
+  metadata: zod.record(zod.string(), zod.unknown()).optional(),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date().optional(),
+});
+
+export const AdminUpdateSsoProviderParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const AdminUpdateSsoProviderBody = zod.object({
+  slug: zod.string(),
+  type: zod.enum(["google", "linkedin", "microsoft", "keycloak", "oidc"]),
+  displayName: zod.string(),
+  displayNameAr: zod.string().nullish(),
+  enabled: zod.boolean().optional(),
+  isDefault: zod.boolean().optional(),
+  issuerUrl: zod.string().nullish(),
+  clientId: zod.string().nullish(),
+  clientSecretRef: zod.string().nullish(),
+  scopes: zod.string().nullish(),
+  autoProvision: zod.boolean().optional(),
+  defaultRole: zod.string().nullish(),
+  allowedDomains: zod.array(zod.string()).optional(),
+  roleMappingJson: zod.record(zod.string(), zod.unknown()).optional(),
+  metadata: zod.record(zod.string(), zod.unknown()).optional(),
+});
+
+export const AdminUpdateSsoProviderResponse = zod.object({
+  id: zod.number(),
+  slug: zod.string(),
+  type: zod.string(),
+  displayName: zod.string(),
+  displayNameAr: zod.string().nullish(),
+  enabled: zod.boolean(),
+  isDefault: zod.boolean(),
+  issuerUrl: zod.string().nullish(),
+  clientId: zod.string().nullish(),
+  secretConfigured: zod.boolean(),
+  scopes: zod.string(),
+  autoProvision: zod.boolean(),
+  defaultRole: zod.string(),
+  allowedDomains: zod.array(zod.string()),
+  roleMappingJson: zod.record(zod.string(), zod.unknown()).optional(),
+  metadata: zod.record(zod.string(), zod.unknown()).optional(),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date().optional(),
+});
+
+export const AdminDeleteSsoProviderParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const AdminDeleteSsoProviderResponse = zod.object({
+  ok: zod.boolean(),
+  message: zod.string().nullish(),
+});
+
+export const AdminEnableSsoProviderParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const AdminEnableSsoProviderResponse = zod.object({
+  id: zod.number(),
+  slug: zod.string(),
+  type: zod.string(),
+  displayName: zod.string(),
+  displayNameAr: zod.string().nullish(),
+  enabled: zod.boolean(),
+  isDefault: zod.boolean(),
+  issuerUrl: zod.string().nullish(),
+  clientId: zod.string().nullish(),
+  secretConfigured: zod.boolean(),
+  scopes: zod.string(),
+  autoProvision: zod.boolean(),
+  defaultRole: zod.string(),
+  allowedDomains: zod.array(zod.string()),
+  roleMappingJson: zod.record(zod.string(), zod.unknown()).optional(),
+  metadata: zod.record(zod.string(), zod.unknown()).optional(),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date().optional(),
+});
+
+export const AdminDisableSsoProviderParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const AdminDisableSsoProviderResponse = zod.object({
+  id: zod.number(),
+  slug: zod.string(),
+  type: zod.string(),
+  displayName: zod.string(),
+  displayNameAr: zod.string().nullish(),
+  enabled: zod.boolean(),
+  isDefault: zod.boolean(),
+  issuerUrl: zod.string().nullish(),
+  clientId: zod.string().nullish(),
+  secretConfigured: zod.boolean(),
+  scopes: zod.string(),
+  autoProvision: zod.boolean(),
+  defaultRole: zod.string(),
+  allowedDomains: zod.array(zod.string()),
+  roleMappingJson: zod.record(zod.string(), zod.unknown()).optional(),
+  metadata: zod.record(zod.string(), zod.unknown()).optional(),
+  createdAt: zod.coerce.date(),
+  updatedAt: zod.coerce.date().optional(),
+});
+
+export const AdminTestSsoProviderParams = zod.object({
+  id: zod.coerce.number(),
+});
+
+export const AdminTestSsoProviderResponse = zod.object({
+  ok: zod.boolean(),
+  issuer: zod.string().nullish(),
+  authorizationEndpoint: zod.string().nullish(),
+  tokenEndpoint: zod.string().nullish(),
+  jwksUri: zod.string().nullish(),
+  jwksKeys: zod.number().nullish(),
+  error: zod.string().nullish(),
+});
+
+export const AdminListSsoAuditQueryParams = zod.object({
+  providerId: zod.coerce.number().optional(),
+  userId: zod.coerce.number().optional(),
+  outcome: zod.coerce.string().optional(),
+  from: zod.date().optional(),
+  to: zod.date().optional(),
+  limit: zod.coerce.number().optional(),
+});
+
+export const AdminListSsoAuditResponseItem = zod.object({
+  id: zod.number(),
+  userId: zod.number().nullish(),
+  providerId: zod.number().nullish(),
+  providerSlug: zod.string().nullish(),
+  email: zod.string().nullish(),
+  action: zod.string(),
+  outcome: zod.string(),
+  reason: zod.string().nullish(),
+  ip: zod.string().nullish(),
+  userAgent: zod.string().nullish(),
+  metadata: zod.record(zod.string(), zod.unknown()).optional(),
+  createdAt: zod.coerce.date(),
+});
+export const AdminListSsoAuditResponse = zod.array(
+  AdminListSsoAuditResponseItem,
+);
+
+export const AdminGetSsoSettingsResponse = zod.object({
+  allowLocalPassword: zod.boolean(),
+  defaultLoginMethod: zod.enum(["password", "sso"]),
+  forceSsoForOrganizations: zod.boolean().optional(),
+});
+
+export const AdminUpdateSsoSettingsBody = zod.object({
+  allowLocalPassword: zod.boolean(),
+  defaultLoginMethod: zod.enum(["password", "sso"]),
+  forceSsoForOrganizations: zod.boolean().optional(),
+});
+
+export const AdminUpdateSsoSettingsResponse = zod.object({
+  allowLocalPassword: zod.boolean(),
+  defaultLoginMethod: zod.enum(["password", "sso"]),
+  forceSsoForOrganizations: zod.boolean().optional(),
+});

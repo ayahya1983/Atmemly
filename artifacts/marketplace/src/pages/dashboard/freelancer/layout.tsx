@@ -1,5 +1,5 @@
 import { Link, useLocation } from "wouter";
-import { LayoutDashboard, Briefcase, FileText, Bookmark, MessageSquare, CreditCard, UserCircle } from "lucide-react";
+import { LayoutDashboard, Briefcase, FileText, Bookmark, MessageSquare, CreditCard, UserCircle, Link2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useTranslation } from "@/lib/i18n";
 
@@ -15,6 +15,7 @@ export function FreelancerDashboardLayout({ children }: { children: React.ReactN
     { href: "/dashboard/freelancer/messages", label: "Messages", icon: MessageSquare },
     { href: "/dashboard/freelancer/earnings", label: "Earnings", icon: CreditCard },
     { href: "/dashboard/freelancer/profile", label: "Profile", icon: UserCircle },
+    { href: "/dashboard/freelancer/linked-accounts", label: "Linked Accounts", icon: Link2 },
   ];
 
   return (

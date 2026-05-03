@@ -1,3 +1,4 @@
+import { loadSsoSettings } from "../lib/sso/settings";
 import { Router, type IRouter } from "express";
 import { and, eq, gt, isNull } from "drizzle-orm";
 import {
@@ -187,6 +188,22 @@ router.post("/auth/login", loginLimiter, async (req, res): Promise<void> => {
     .where(eq(usersTable.email, parsed.data.email.toLowerCase()));
   if (!user) {
     res.status(401).json({ error: "Invalid credentials" });
+    return;
+  }
+  // SSO enforcement: deterministic checks BEFORE password verification so
+  // SSO-only accounts get a clear message instead of "Invalid credentials".
+  if (user.passwordHash === "!sso") {
+    await audit(req, "user.login_blocked", "user", user.id, { reason: "sso_only_user" });
+    res.status(403).json({ error: "This account uses SSO sign-in only." });
+    return;
+  }
+  const ssoSettings = await loadSsoSettings();
+  if (!ssoSettings.allowLocalPassword) {
+    // Truly global enforcement: when local password login is disabled, no
+    // user — including admins — may sign in with a password. Operators must
+    // ensure SSO is configured before flipping this flag.
+    await audit(req, "user.login_blocked", "user", user.id, { reason: "local_password_disabled" });
+    res.status(403).json({ error: "Email/password login is disabled. Please sign in with SSO." });
     return;
   }
   const ok = await verifyPassword(parsed.data.password, user.passwordHash);

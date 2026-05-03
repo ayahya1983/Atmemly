@@ -45,6 +45,9 @@ import adminWorkflowRouter from "./adminWorkflow";
 import adminContentRouter from "./adminContent";
 import adminBroadcastRouter from "./adminBroadcast";
 import adminReportsRouter from "./adminReports";
+// Task #8 — ATMEMLY enterprise SSO
+import ssoRouter from "./sso";
+import adminSsoRouter from "./adminSso";
 import { attachUser } from "../lib/auth";
 import { mountRateLimitPolicies } from "../lib/rateLimitPolicies";
 
@@ -109,5 +112,7 @@ router.use(adminWorkflowRouter);
 router.use(adminContentRouter);
 router.use(adminBroadcastRouter);
 router.use(adminReportsRouter);
+router.use(ssoRouter);
+router.use(adminSsoRouter);
 
 export default router;

@@ -8,6 +8,20 @@
       "when": 1777776114672,
       "tag": "0000_atmemly_audit_indexes",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1777776924701,
+      "tag": "0001_atmemly_sso",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1777777000000,
+      "tag": "0002_atmemly_sso_binding",
+      "breakpoints": true
     }
   ]
 }

@@ -1,4 +1,5 @@
 import express, { type Express, type Request, type Response, type NextFunction } from "express";
+import cookieParser from "cookie-parser";
 import cors from "cors";
 import helmet from "helmet";
 import pinoHttp from "pino-http";
@@ -83,6 +84,7 @@ app.use(
 // JSON / form bodies capped at 1mb. Multer file uploads are handled per-route at 10mb.
 app.use(express.json({ limit: "1mb" }));
 app.use(express.urlencoded({ extended: true, limit: "1mb" }));
+app.use(cookieParser());
 
 app.use("/api", router);
 

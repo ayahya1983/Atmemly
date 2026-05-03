@@ -6,10 +6,16 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { LanguageProvider } from "@/lib/i18n";
 import { AdminShell } from "@/components/layout/AdminShell";
-import { isAdminStaff, hasPermission, type Resource } from "@/lib/permissions";
+import { isAdminStaff, hasPermission, effectiveAdminRole, type Resource } from "@/lib/permissions";
 import { Loader2 } from "lucide-react";
 
 import AdminLogin from "@/pages/login";
+import AdminSsoCallback from "@/pages/sso-callback";
+import AdminSsoOverview from "@/pages/sso/overview";
+import AdminSsoProviders from "@/pages/sso/providers";
+import AdminSsoProviderEdit from "@/pages/sso/provider-edit";
+import AdminSsoAudit from "@/pages/sso/audit";
+import AdminSsoSettings from "@/pages/sso/settings";
 import Forbidden from "@/pages/forbidden";
 import NotFound from "@/pages/not-found";
 
@@ -52,9 +58,11 @@ function FullScreenLoader() {
 function ProtectedRoute({
   children,
   resource,
+  requireSuperAdmin = false,
 }: {
   children: ReactNode;
   resource?: Resource;
+  requireSuperAdmin?: boolean;
 }) {
   const { user, isLoading } = useAuth();
   if (isLoading) return <FullScreenLoader />;
@@ -62,6 +70,9 @@ function ProtectedRoute({
   if (!isAdminStaff(user)) {
     if (typeof window !== "undefined") window.location.href = "/login";
     return <FullScreenLoader />;
+  }
+  if (requireSuperAdmin && effectiveAdminRole(user) !== "super_admin") {
+    return <AdminShell><Forbidden /></AdminShell>;
   }
   if (resource && !hasPermission(user, resource, "read")) {
     return <AdminShell><Forbidden /></AdminShell>;
@@ -73,6 +84,13 @@ function Routes() {
   return (
     <Switch>
       <Route path="/login" component={AdminLogin} />
+      <Route path="/auth/sso/:provider/callback" component={AdminSsoCallback} />
+      <Route path="/sso"><ProtectedRoute requireSuperAdmin><AdminSsoOverview /></ProtectedRoute></Route>
+      <Route path="/sso/providers"><ProtectedRoute requireSuperAdmin><AdminSsoProviders /></ProtectedRoute></Route>
+      <Route path="/sso/providers/new"><ProtectedRoute requireSuperAdmin><AdminSsoProviderEdit /></ProtectedRoute></Route>
+      <Route path="/sso/providers/:id"><ProtectedRoute requireSuperAdmin><AdminSsoProviderEdit /></ProtectedRoute></Route>
+      <Route path="/sso/audit"><ProtectedRoute requireSuperAdmin><AdminSsoAudit /></ProtectedRoute></Route>
+      <Route path="/sso/settings"><ProtectedRoute requireSuperAdmin><AdminSsoSettings /></ProtectedRoute></Route>
 
       <Route path="/"><ProtectedRoute resource="dashboard"><AdminDashboard /></ProtectedRoute></Route>
       <Route path="/analytics"><ProtectedRoute resource="reports"><AdminAnalytics /></ProtectedRoute></Route>

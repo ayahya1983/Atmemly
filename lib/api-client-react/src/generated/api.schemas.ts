@@ -854,6 +854,195 @@ export interface AuditLogEntry {
   createdAt: string;
 }
 
+export interface SsoProviderPublic {
+  id: number;
+  slug: string;
+  type: string;
+  displayName: string;
+  /** @nullable */
+  displayNameAr?: string | null;
+  isDefault: boolean;
+}
+
+export type SsoProviderAdminRoleMappingJson = { [key: string]: unknown };
+
+export type SsoProviderAdminMetadata = { [key: string]: unknown };
+
+export interface SsoProviderAdmin {
+  id: number;
+  slug: string;
+  type: string;
+  displayName: string;
+  /** @nullable */
+  displayNameAr?: string | null;
+  enabled: boolean;
+  isDefault: boolean;
+  /** @nullable */
+  issuerUrl?: string | null;
+  /** @nullable */
+  clientId?: string | null;
+  secretConfigured: boolean;
+  scopes: string;
+  autoProvision: boolean;
+  defaultRole: string;
+  allowedDomains: string[];
+  roleMappingJson?: SsoProviderAdminRoleMappingJson;
+  metadata?: SsoProviderAdminMetadata;
+  createdAt: string;
+  updatedAt?: string;
+}
+
+export type SsoProviderUpsertBodyType =
+  (typeof SsoProviderUpsertBodyType)[keyof typeof SsoProviderUpsertBodyType];
+
+export const SsoProviderUpsertBodyType = {
+  google: "google",
+  linkedin: "linkedin",
+  microsoft: "microsoft",
+  keycloak: "keycloak",
+  oidc: "oidc",
+} as const;
+
+export type SsoProviderUpsertBodyRoleMappingJson = { [key: string]: unknown };
+
+export type SsoProviderUpsertBodyMetadata = { [key: string]: unknown };
+
+export interface SsoProviderUpsertBody {
+  slug: string;
+  type: SsoProviderUpsertBodyType;
+  displayName: string;
+  /** @nullable */
+  displayNameAr?: string | null;
+  enabled?: boolean;
+  isDefault?: boolean;
+  /** @nullable */
+  issuerUrl?: string | null;
+  /** @nullable */
+  clientId?: string | null;
+  /** @nullable */
+  clientSecretRef?: string | null;
+  /** @nullable */
+  scopes?: string | null;
+  autoProvision?: boolean;
+  /** @nullable */
+  defaultRole?: string | null;
+  allowedDomains?: string[];
+  roleMappingJson?: SsoProviderUpsertBodyRoleMappingJson;
+  metadata?: SsoProviderUpsertBodyMetadata;
+}
+
+export interface SsoStartResponse {
+  authorizationUrl: string;
+  state: string;
+}
+
+export type SsoCallbackResponseOutcome =
+  (typeof SsoCallbackResponseOutcome)[keyof typeof SsoCallbackResponseOutcome];
+
+export const SsoCallbackResponseOutcome = {
+  signed_in: "signed_in",
+  needs_linking: "needs_linking",
+  denied: "denied",
+  error: "error",
+} as const;
+
+export interface SsoCallbackResponse {
+  outcome: SsoCallbackResponseOutcome;
+  /** @nullable */
+  token?: string | null;
+  /** @nullable */
+  refreshToken?: string | null;
+  user?: Me | null;
+  /** @nullable */
+  linkChallengeToken?: string | null;
+  /** @nullable */
+  candidateEmail?: string | null;
+  /** @nullable */
+  provider?: string | null;
+  /** @nullable */
+  message?: string | null;
+  /** @nullable */
+  returnTo?: string | null;
+}
+
+export interface SsoLinkBody {
+  linkChallengeToken: string;
+  password: string;
+}
+
+export interface SsoUnlinkBody {
+  identityId: number;
+}
+
+export interface UserIdentitySummary {
+  id: number;
+  providerId: number;
+  providerSlug: string;
+  providerDisplayName: string;
+  externalId: string;
+  /** @nullable */
+  email?: string | null;
+  /** @nullable */
+  displayName?: string | null;
+  /** @nullable */
+  lastLoginAt?: string | null;
+  createdAt: string;
+}
+
+export interface SsoTestResult {
+  ok: boolean;
+  /** @nullable */
+  issuer?: string | null;
+  /** @nullable */
+  authorizationEndpoint?: string | null;
+  /** @nullable */
+  tokenEndpoint?: string | null;
+  /** @nullable */
+  jwksUri?: string | null;
+  /** @nullable */
+  jwksKeys?: number | null;
+  /** @nullable */
+  error?: string | null;
+}
+
+export type SsoAuditEntryMetadata = { [key: string]: unknown };
+
+export interface SsoAuditEntry {
+  id: number;
+  /** @nullable */
+  userId?: number | null;
+  /** @nullable */
+  providerId?: number | null;
+  /** @nullable */
+  providerSlug?: string | null;
+  /** @nullable */
+  email?: string | null;
+  action: string;
+  outcome: string;
+  /** @nullable */
+  reason?: string | null;
+  /** @nullable */
+  ip?: string | null;
+  /** @nullable */
+  userAgent?: string | null;
+  metadata?: SsoAuditEntryMetadata;
+  createdAt: string;
+}
+
+export type SsoGlobalSettingsDefaultLoginMethod =
+  (typeof SsoGlobalSettingsDefaultLoginMethod)[keyof typeof SsoGlobalSettingsDefaultLoginMethod];
+
+export const SsoGlobalSettingsDefaultLoginMethod = {
+  password: "password",
+  sso: "sso",
+} as const;
+
+export interface SsoGlobalSettings {
+  allowLocalPassword: boolean;
+  defaultLoginMethod: SsoGlobalSettingsDefaultLoginMethod;
+  forceSsoForOrganizations?: boolean;
+}
+
 export type ListFreelancersParams = {
   q?: string;
   skill?: string;
@@ -887,4 +1076,25 @@ export type AdminListVerificationsParams = {
 export type AdminListAuditLogsParams = {
   limit?: number;
   action?: string;
+};
+
+export type SsoStartParams = {
+  returnTo?: string;
+  link?: boolean;
+};
+
+export type SsoCallbackParams = {
+  code?: string;
+  state?: string;
+  error?: string;
+  error_description?: string;
+};
+
+export type AdminListSsoAuditParams = {
+  providerId?: number;
+  userId?: number;
+  outcome?: string;
+  from?: string;
+  to?: string;
+  limit?: number;
 };

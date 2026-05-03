@@ -5,12 +5,13 @@ import {
   Star, AlertTriangle, ShieldCheck, FileEdit, Layers, BookOpen, HelpCircle,
   MessageSquareQuote, Ban, Megaphone, History, Settings, BarChart3, ScrollText,
   ChevronDown, ChevronLeft, ChevronRight,
+  KeyRound, ListChecks, SlidersHorizontal,
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useTranslation } from "@/lib/i18n";
 import { useAuth } from "@/contexts/AuthContext";
-import { hasPermission, type Resource } from "@/lib/permissions";
+import { hasPermission, effectiveAdminRole, type Resource } from "@/lib/permissions";
 import { Logo } from "@/components/ui/logo";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 
@@ -19,6 +20,8 @@ interface NavItem {
   label: { ar: string; en: string };
   icon: LucideIcon;
   resource: Resource;
+  /** Hide this item unless the viewer's effective admin role is super_admin. */
+  requireSuperAdmin?: boolean;
 }
 
 interface NavGroup {
@@ -78,6 +81,16 @@ const NAV_GROUPS: NavGroup[] = [
     ],
   },
   {
+    key: "security",
+    label: { ar: "الأمان والدخول الموحّد", en: "Security & SSO" },
+    items: [
+      { href: "/sso", label: { ar: "نظرة عامة على SSO", en: "SSO Overview" }, icon: ShieldCheck, resource: "users", requireSuperAdmin: true },
+      { href: "/sso/providers", label: { ar: "موفّرو SSO", en: "SSO Providers" }, icon: KeyRound, resource: "users", requireSuperAdmin: true },
+      { href: "/sso/audit", label: { ar: "سجل SSO", en: "SSO Audit" }, icon: ListChecks, resource: "users", requireSuperAdmin: true },
+      { href: "/sso/settings", label: { ar: "إعدادات SSO", en: "SSO Settings" }, icon: SlidersHorizontal, resource: "users", requireSuperAdmin: true },
+    ],
+  },
+  {
     key: "system",
     label: { ar: "النظام", en: "System" },
     items: [
@@ -131,7 +144,12 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
 
       <nav className="flex-1 overflow-y-auto py-3 px-2 space-y-4">
         {NAV_GROUPS.map((group) => {
-          const visibleItems = group.items.filter((it) => hasPermission(user, it.resource, "read"));
+          const isSuper = effectiveAdminRole(user) === "super_admin";
+          const visibleItems = group.items.filter(
+            (it) =>
+              hasPermission(user, it.resource, "read") &&
+              (!it.requireSuperAdmin || isSuper),
+          );
           if (visibleItems.length === 0) return null;
           const open = openGroups[group.key] ?? true;
           return (

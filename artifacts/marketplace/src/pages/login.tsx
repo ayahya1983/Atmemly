@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { Logo } from "@/components/ui/logo";
 import { Loader2 } from "lucide-react";
+import { SsoButtons } from "@/components/SsoButtons";
 
 const loginSchema = z.object({
   email: z.string().email("Please enter a valid email address"),
@@ -106,6 +107,7 @@ export default function Login() {
               </Button>
             </form>
           </Form>
+          <div className="mt-6"><SsoButtons /></div>
         </CardContent>
         <CardFooter className="flex justify-center border-t p-6">
           <p className="text-sm text-muted-foreground">

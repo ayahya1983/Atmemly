@@ -49,3 +49,9 @@ export * from "./faqItems";
 export * from "./testimonials";
 export * from "./bannedWords";
 export * from "./idempotencyKeys";
+// SSO layer (Task #8 — ATMEMLY enterprise SSO)
+export * from "./identityProviders";
+export * from "./userIdentities";
+export * from "./ssoSessions";
+export * from "./organizationSsoSettings";
+export * from "./loginAuditLogs";
