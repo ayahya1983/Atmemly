@@ -41,6 +41,26 @@ async function hash(p: string) {
   return bcrypt.hash(p, 10);
 }
 
+// Demo-user avatar map. Each demo email is bound to a same-origin SVG
+// avatar shipped under `artifacts/marketplace/public/assets/avatars/`.
+// These replace the previously-used external dicebear URLs which
+// silently failed in production and made the homepage show only
+// single-letter initials.
+const DEMO_AVATARS: Record<string, string> = {
+  "admin@atmemly.com": "/assets/avatars/avatar-08.svg",
+  "noor@atmemly.com": "/assets/avatars/avatar-06.svg",
+  "saeed@atmemly.com": "/assets/avatars/avatar-07.svg",
+  "layla@atmemly.com": "/assets/avatars/avatar-01.svg",
+  "omar@atmemly.com": "/assets/avatars/avatar-02.svg",
+  "huda@atmemly.com": "/assets/avatars/avatar-03.svg",
+  "khalid@atmemly.com": "/assets/avatars/avatar-04.svg",
+  "amal@atmemly.com": "/assets/avatars/avatar-05.svg",
+};
+
+function avatarFor(email: string): string | null {
+  return DEMO_AVATARS[email] ?? null;
+}
+
 function assertNotProduction() {
   const nodeEnv = process.env["NODE_ENV"];
   const allow = process.env["ALLOW_PROD_SEED"];
@@ -119,7 +139,7 @@ async function main() {
     passwordHash: adminPwd,
     fullName: `${BRAND.name} Admin`,
     role: "admin",
-    avatarUrl: null,
+    avatarUrl: avatarFor("admin@atmemly.com"),
   });
 
   const clientsData = [
@@ -145,7 +165,7 @@ async function main() {
       passwordHash: clientPwd,
       fullName: c.fullName,
       role: "client",
-      avatarUrl: null,
+      avatarUrl: avatarFor(c.email),
     });
     await db
       .insert(clientProfilesTable)
@@ -215,7 +235,7 @@ async function main() {
       passwordHash: freelancerPwd,
       fullName: f.fullName,
       role: "freelancer",
-      avatarUrl: null,
+      avatarUrl: avatarFor(f.email),
     });
     await db
       .insert(freelancerProfilesTable)
@@ -235,6 +255,29 @@ async function main() {
       .onConflictDoNothing({ target: freelancerProfilesTable.userId });
     freelancers.push({ id: u.id, fullName: u.fullName });
   }
+
+  // ---------- Refresh demo avatars on every run ----------
+  // upsertUser is create-if-missing only, so existing demo accounts
+  // keep their old avatar_url (previously external dicebear URLs that
+  // failed to load). Force the demo set onto same-origin SVGs so the
+  // homepage never falls back to single-letter initials.
+  for (const [email, url] of Object.entries(DEMO_AVATARS)) {
+    await db
+      .update(usersTable)
+      .set({ avatarUrl: url })
+      .where(eq(usersTable.email, email));
+  }
+
+  // Sweep any remaining external dicebear avatars (legacy seed
+  // iterations created accounts under @khidma.ae / @nooragency.ae /
+  // etc. that survive across re-seeds). Map them deterministically to
+  // one of the 8 same-origin SVG avatars by user id so no card on the
+  // homepage ever depends on the external CDN.
+  await db.execute(sql`
+    UPDATE users
+    SET avatar_url = '/assets/avatars/avatar-0' || ((id % 8) + 1)::text || '.svg'
+    WHERE avatar_url LIKE '%dicebear%'
+  `);
 
   // ---------- Demo marketplace content (jobs/proposals/payments/reviews) ----------
   // No natural unique key; gate on emptiness so re-running doesn't duplicate.

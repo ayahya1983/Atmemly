@@ -344,6 +344,21 @@ export default function Home() {
                           height={450}
                           className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                           loading="lazy"
+                          fallback={
+                            <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-primary/30 to-primary/10">
+                              {(() => {
+                                const Icon = Briefcase;
+                                return (
+                                  <div className="flex flex-col items-center gap-2 text-primary">
+                                    <Icon className="w-12 h-12" />
+                                    <span className="text-sm font-bold tracking-wide">
+                                      {f.fullName.split(" ").map((s) => s[0]).join("").slice(0, 2).toUpperCase()}
+                                    </span>
+                                  </div>
+                                );
+                              })()}
+                            </div>
+                          }
                         />
                       </div>
                       <CardContent className="p-4 space-y-3">
