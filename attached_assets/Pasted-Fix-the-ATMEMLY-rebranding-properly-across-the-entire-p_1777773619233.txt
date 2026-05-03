@@ -1,0 +1,138 @@
+Fix the ATMEMLY rebranding properly across the entire platform.
+
+Do NOT do partial fixes.
+Do NOT manually patch random files.
+
+Step 1 — Create central brand configuration
+
+Create a single source of truth:
+
+/shared/config/branding.ts
+
+export const BRAND = {
+  name: "ATMEMLY",
+  nameAr: "أتمملي",
+  email: "hello@atmemly.com",
+  supportEmail: "support@atmemly.com",
+  companyName: "ATMEMLY Marketplace LLC",
+  currency: "AED",
+  seoTitle: "ATMEMLY | UAE Freelance Marketplace",
+  seoDescription: "ATMEMLY connects freelancers and clients across the UAE and GCC.",
+};
+
+This must be used everywhere.
+
+---
+
+Step 2 — Replace ALL user-visible branding
+
+Replace ALL "Khidma" and "خدمة" with:
+- ATMEMLY
+- أتمملي
+
+Apply to:
+- Web pages (home, about, faq, terms, register)
+- Footer
+- Hero section
+- Navbar
+- Blog
+- FAQ
+- Testimonials
+- CMS content
+- Mobile app name
+- i18n files
+- SEO meta tags
+
+---
+
+Step 3 — Fix backend user-facing strings
+
+Update:
+- Payment descriptions:
+  "ATMEMLY transaction #..."
+  "ATMEMLY payment"
+
+- Bank transfer:
+  "ATMEMLY Marketplace LLC"
+
+- SEO routes
+- API responses
+- Notifications
+
+---
+
+Step 4 — Fix seed data (VERY IMPORTANT)
+
+Update ALL seed content:
+- About page
+- Legal pages
+- Blog posts
+- FAQ
+- Testimonials
+- Settings
+- Support emails
+
+Replace:
+- khidma.ae → atmemly.com
+- Khidma → ATMEMLY
+- خدمة → أتمملي
+
+---
+
+Step 5 — Fix mobile app
+
+- App name → ATMEMLY
+- i18n → ATMEMLY / أتمملي
+
+---
+
+Step 6 — Admin panel
+
+- Dashboard branding
+- Reports
+- Settings
+- Exports
+- Emails
+
+---
+
+Step 7 — Payments (CRITICAL)
+
+Ensure:
+- Stripe descriptions updated
+- PayTabs descriptions updated
+- Telr descriptions updated
+- Invoices updated
+
+NO payment should mention Khidma.
+
+---
+
+Step 8 — Keep internal safe items unchanged for now
+
+Do NOT change yet:
+- Database table names
+- Storage keys (khidma.token etc.)
+- Migration-sensitive identifiers
+
+These can be handled later safely.
+
+---
+
+Step 9 — Final verification
+
+Run full scan again:
+- "Khidma"
+- "khidma"
+- "خدمة"
+
+Output:
+- Remaining references
+- Must be ZERO user-visible occurrences
+
+---
+
+Goal:
+100% ATMEMLY branding across UI, backend, mobile, payments, CMS, and SEO.
+
+No mixed branding allowed.
