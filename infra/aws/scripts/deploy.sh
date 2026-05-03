@@ -22,17 +22,23 @@ SEED=${SEED:-0}
 
 cd "${APP_DIR}"
 
-echo "==> Pulling latest source"
-git fetch --all --prune
-git reset --hard "origin/$(git rev-parse --abbrev-ref HEAD)"
+if [[ "${SKIP_GIT:-0}" == "1" || ! -d .git ]]; then
+  echo "==> Skipping git pull (SKIP_GIT=1 or no .git directory)"
+else
+  echo "==> Pulling latest source"
+  git fetch --all --prune
+  git reset --hard "origin/$(git rev-parse --abbrev-ref HEAD)"
+fi
 
 echo "==> Refreshing /opt/atmemly/.env from SSM"
 sudo /usr/local/bin/atmemly-fetch-env
 
-# shellcheck disable=SC1090
-set -a; . "${ENV_FILE}"; set +a
-
-if [[ -z "${DATABASE_URL:-}" ]]; then
+# Sanity-check that DATABASE_URL is present, but do NOT `source` the env
+# file — values may contain shell-significant characters (`$`, backticks,
+# parentheses, quotes) that would either fail to parse or, worse, execute.
+# Containers consume the file via `docker --env-file`, which reads it
+# verbatim as KEY=VALUE.
+if ! sudo grep -qE '^DATABASE_URL=.+' "${ENV_FILE}"; then
   echo "FATAL: DATABASE_URL missing from ${ENV_FILE}" >&2
   exit 1
 fi
@@ -43,22 +49,23 @@ docker compose -f "${COMPOSE_FILE}" build --pull
 extract_static () {
   local artifact_path="$1"   # e.g. artifacts/marketplace
   local volume="$2"          # e.g. atmemly_marketplace_static
-  local img="atmemly/$(basename "${artifact_path}")-static:latest"
 
-  docker build -f "${artifact_path}/Dockerfile" --target export -t "${img}" .
   docker volume create "${volume}" >/dev/null
 
   local tmp
   tmp="$(mktemp -d)"
-  local cid
-  cid="$(docker create "${img}")"
-  docker cp "${cid}:/dist/." "${tmp}/"
-  docker rm "${cid}" >/dev/null
+  # Build the export stage straight onto the host filesystem so we don't
+  # need to `docker create` a `FROM scratch` image (which has no command).
+  docker buildx build \
+    -f "${artifact_path}/Dockerfile" \
+    --target export \
+    --output "type=local,dest=${tmp}" \
+    .
 
   docker run --rm \
     -v "${volume}:/dst" \
     -v "${tmp}:/src:ro" \
-    alpine:3 sh -c "rm -rf /dst/* /dst/.[!.]* 2>/dev/null; cp -R /src/. /dst/"
+    alpine:3 sh -c "rm -rf /dst/* /dst/.[!.]* 2>/dev/null; cp -R /src/dist/. /dst/"
 
   rm -rf "${tmp}"
 }

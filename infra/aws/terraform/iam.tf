@@ -29,6 +29,7 @@ data "aws_iam_policy_document" "ec2_app" {
       "ssm:GetParametersByPath",
     ]
     resources = [
+      "arn:aws:ssm:${var.region}:*:parameter/${var.project}",
       "arn:aws:ssm:${var.region}:*:parameter/${var.project}/*",
     ]
   }

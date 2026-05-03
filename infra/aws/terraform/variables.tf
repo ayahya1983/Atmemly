@@ -59,7 +59,7 @@ variable "db_username" {
 
 variable "db_engine_version" {
   type    = string
-  default = "16.4"
+  default = "16.6"
 }
 
 variable "ssh_public_key" {

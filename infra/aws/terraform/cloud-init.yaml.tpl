@@ -38,9 +38,11 @@ write_files:
         --output text |
         while IFS=$'\t' read -r name value; do
           key="$${name##*/}"
-          # escape backslashes and double quotes for safe shell sourcing
-          esc=$$(printf '%s' "$value" | sed -e 's/\\/\\\\/g' -e 's/"/\\"/g')
-          printf '%s="%s"\n' "$key" "$esc" >> "$tmp"
+          # docker --env-file reads KEY=VALUE literally and does NOT
+          # interpret quotes, so write unquoted values. Newlines aren't
+          # supported in env-file values; reject them defensively.
+          case "$value" in *$'\n'*) echo "ERROR: $key contains a newline" >&2; exit 1 ;; esac
+          printf '%s=%s\n' "$key" "$value" >> "$tmp"
         done
       mv "$tmp" /opt/atmemly/.env
       chmod 0600 /opt/atmemly/.env
@@ -67,6 +69,12 @@ runcmd:
   - usermod -aG docker ubuntu
   - systemctl enable --now docker
 
+  # The apt `nginx` package above starts on install and grabs port 80,
+  # which would prevent the dockerised nginx from binding. Stop and
+  # disable it so the docker-compose stack owns :80 deterministically.
+  - systemctl stop nginx || true
+  - systemctl disable nginx || true
+
   # Install AWS CLI v2
   - curl -fsSL "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o /tmp/awscliv2.zip
   - unzip -q /tmp/awscliv2.zip -d /tmp
@@ -82,6 +90,13 @@ runcmd:
   # Bootstrap project directory
   - mkdir -p /opt/atmemly
   - chown -R ubuntu:ubuntu /opt/atmemly
+
+  # Uploads dir is bind-mounted into the api-server container at /app/uploads.
+  # The container runs as uid 10001, so the host directory must be owned by
+  # the same uid (the user does not exist on the host — that's fine).
+  - mkdir -p /opt/atmemly/uploads
+  - chown -R 10001:10001 /opt/atmemly/uploads
+  - chmod 0755 /opt/atmemly/uploads
 
   # Initial fetch of SSM env (deploy.sh will refresh on every deploy)
   - systemctl daemon-reload

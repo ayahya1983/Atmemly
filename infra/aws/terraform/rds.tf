@@ -43,7 +43,7 @@ resource "aws_db_instance" "main" {
 }
 
 locals {
-  database_url = "postgres://${var.db_username}:${random_password.db.result}@${aws_db_instance.main.address}:${aws_db_instance.main.port}/${var.db_name}"
+  database_url = "postgres://${var.db_username}:${random_password.db.result}@${aws_db_instance.main.address}:${aws_db_instance.main.port}/${var.db_name}?sslmode=no-verify"
 }
 
 resource "aws_ssm_parameter" "database_url" {
