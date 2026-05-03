@@ -2,13 +2,12 @@ import { useState } from "react";
 import { useTranslation, formatCurrency } from "@/lib/i18n";
 import { useListJobs, useListCategories } from "@workspace/api-client-react";
 import { Link } from "wouter";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Search, MapPin, Clock, Filter } from "lucide-react";
-import { Skeleton } from "@/components/ui/skeleton";
+import { Search, Clock, Filter } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 
 export default function JobsDirectory() {
@@ -17,7 +16,7 @@ export default function JobsDirectory() {
   const [category, setCategory] = useState("all");
 
   const { data: categories } = useListCategories();
-  
+
   const { data: jobs, isLoading } = useListJobs({
     q: search || undefined,
     category: category !== "all" ? category : undefined,
@@ -27,8 +26,8 @@ export default function JobsDirectory() {
     <div className="container mx-auto px-4 py-8">
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
         <div>
-          <h1 className="text-3xl font-bold mb-2">Find Jobs</h1>
-          <p className="text-muted-foreground">Discover freelance opportunities across the GCC.</p>
+          <h1 className="text-3xl font-bold mb-2">{t("jobs.title")}</h1>
+          <p className="text-muted-foreground">{t("jobs.subtitle")}</p>
         </div>
       </div>
 
@@ -37,16 +36,16 @@ export default function JobsDirectory() {
           <Card className="sticky top-24">
             <CardHeader>
               <CardTitle className="text-lg flex items-center gap-2">
-                <Filter className="w-5 h-5" /> Filters
+                <Filter className="w-5 h-5" /> {t("jobs.filters.heading")}
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-2">
-                <label className="text-sm font-medium">Search</label>
+                <label className="text-sm font-medium">{t("jobs.filters.searchLabel")}</label>
                 <div className="relative">
                   <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-                  <Input 
-                    placeholder="Search jobs..." 
+                  <Input
+                    placeholder={t("jobs.filters.searchPlaceholder")}
                     className="pl-9"
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
@@ -54,13 +53,13 @@ export default function JobsDirectory() {
                 </div>
               </div>
               <div className="space-y-2">
-                <label className="text-sm font-medium">Category</label>
+                <label className="text-sm font-medium">{t("jobs.filters.categoryLabel")}</label>
                 <Select value={category} onValueChange={setCategory}>
                   <SelectTrigger>
-                    <SelectValue placeholder="All Categories" />
+                    <SelectValue placeholder={t("jobs.filters.allCategories")} />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="all">All Categories</SelectItem>
+                    <SelectItem value="all">{t("jobs.filters.allCategories")}</SelectItem>
                     {categories?.map((cat) => (
                       <SelectItem key={cat.slug} value={cat.slug}>
                         {lang === "ar" ? cat.nameAr : cat.nameEn}
@@ -82,10 +81,10 @@ export default function JobsDirectory() {
             ))
           ) : jobs?.length === 0 ? (
             <div className="text-center py-12 bg-muted/10 rounded-xl border border-dashed">
-              <h3 className="text-lg font-medium mb-2">No jobs found</h3>
-              <p className="text-muted-foreground mb-4">Try adjusting your filters or search query.</p>
+              <h3 className="text-lg font-medium mb-2">{t("jobs.empty.title")}</h3>
+              <p className="text-muted-foreground mb-4">{t("jobs.empty.body")}</p>
               <Button variant="outline" onClick={() => { setSearch(""); setCategory("all"); }}>
-                Clear Filters
+                {t("jobs.empty.clear")}
               </Button>
             </div>
           ) : (
@@ -127,10 +126,10 @@ export default function JobsDirectory() {
                           {job.budgetMax > job.budgetMin && ` - ${formatCurrency(job.budgetMax, "", lang)}`}
                         </div>
                         <div className="text-sm text-muted-foreground capitalize">
-                          {job.budgetType} Budget
+                          {job.budgetType} {t("jobs.budget.suffix")}
                         </div>
                         <div className="text-sm text-muted-foreground mt-2">
-                          <span className="font-medium text-foreground">{job.proposalCount}</span> proposals
+                          <span className="font-medium text-foreground">{job.proposalCount}</span> {t("jobs.proposals")}
                         </div>
                       </div>
                     </div>

@@ -20,6 +20,7 @@ import {
 import { requireAuth } from "../lib/auth";
 import { requirePermission, hasPermission } from "../lib/permissions";
 import { audit } from "../lib/audit";
+import { rateLimit } from "../lib/rateLimit";
 
 const router: IRouter = Router();
 
@@ -672,6 +673,77 @@ router.put(
       .returning();
     await audit(req, "localization.settings.update", "localization_settings", after!.id, {}, before, after);
     res.json(after);
+  },
+);
+
+// Endpoint for the marketplace runtime to report missing translation keys
+// so admins can fill them in via the existing localization editor
+// (/admin/localization?missing=1). Intentionally unauthenticated because
+// it is invoked from the public, unauthenticated marketplace; abuse is
+// mitigated by:
+//   • strict zod payload validation (shape, sizes, locale enum)
+//   • per-IP rate limiting (60 requests / minute)
+//   • idempotent insert via onConflictDoNothing on (key, locale) so spam
+//     cannot create duplicate or pollute existing translated rows.
+const ReportMissingBody = z.object({
+  keys: z
+    .array(
+      z.object({
+        key: z
+          .string()
+          .trim()
+          .min(1)
+          .max(200)
+          // Allow only alphanum, dot, underscore, dash, colon — blocks weird
+          // payloads while supporting our `namespace.sub.key` convention.
+          .regex(/^[A-Za-z0-9._:-]+$/),
+        locale: Locale,
+        namespace: z
+          .string()
+          .trim()
+          .min(1)
+          .max(60)
+          .regex(/^[A-Za-z0-9._-]+$/)
+          .default("common"),
+      }),
+    )
+    .min(1)
+    .max(50),
+});
+
+const reportMissingLimiter = rateLimit({
+  windowMs: 60_000,
+  max: 60,
+  keyPrefix: "loc-missing",
+  message: "Too many missing-key reports; slow down.",
+});
+
+router.post(
+  "/admin/localization/missing",
+  reportMissingLimiter,
+  async (req, res): Promise<void> => {
+    const parsed = ReportMissingBody.safeParse(req.body);
+    if (!parsed.success) {
+      res.status(400).json({ error: parsed.error.message });
+      return;
+    }
+    const rows = parsed.data.keys.map((item) => ({
+      key: item.key,
+      locale: item.locale,
+      namespace: item.namespace,
+      value: "",
+      isMissing: true,
+    }));
+    // onConflictDoNothing on the (key, locale) unique index ensures we
+    // never overwrite an existing translation (missing or filled-in).
+    const inserted = await db
+      .insert(localizationStringsTable)
+      .values(rows)
+      .onConflictDoNothing({
+        target: [localizationStringsTable.key, localizationStringsTable.locale],
+      })
+      .returning({ id: localizationStringsTable.id });
+    res.json({ recorded: inserted.length });
   },
 );
 

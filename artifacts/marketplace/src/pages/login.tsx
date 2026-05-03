@@ -14,16 +14,17 @@ import { Logo } from "@/components/ui/logo";
 import { Loader2 } from "lucide-react";
 import { SsoButtons } from "@/components/SsoButtons";
 
-const loginSchema = z.object({
-  email: z.string().email("Please enter a valid email address"),
-  password: z.string().min(1, "Password is required"),
-});
 
 export default function Login() {
   const [, setLocation] = useLocation();
   const { login } = useAuth();
   const { t } = useTranslation();
   const { toast } = useToast();
+
+  const loginSchema = z.object({
+    email: z.string().email(),
+    password: z.string().min(1),
+  });
 
   const form = useForm<LoginBody>({
     resolver: zodResolver(loginSchema),
@@ -38,8 +39,8 @@ export default function Login() {
       onSuccess: (data) => {
         login(data.token, data.user);
         toast({
-          title: "Welcome back!",
-          description: "You have successfully logged in.",
+          title: t("auth.login.welcomeToast"),
+          description: t("auth.login.welcomeBody"),
         });
         const u = data.user as { role?: string; adminRole?: string | null };
         if (u.role === "admin" || (u.adminRole && u.adminRole.length > 0)) {
@@ -52,8 +53,8 @@ export default function Login() {
       onError: (error: any) => {
         toast({
           variant: "destructive",
-          title: "Login Failed",
-          description: error.message || "Invalid credentials. Please try again.",
+          title: t("auth.login.failedTitle"),
+          description: error.message || t("auth.login.failedBody"),
         });
       },
     },
@@ -70,8 +71,8 @@ export default function Login() {
       </div>
       <Card className="w-full max-w-md shadow-xl border-border/50">
         <CardHeader className="space-y-2 text-center">
-          <CardTitle className="text-2xl font-bold">Welcome back</CardTitle>
-          <CardDescription>Enter your credentials to access your account</CardDescription>
+          <CardTitle className="text-2xl font-bold">{t("auth.login.title")}</CardTitle>
+          <CardDescription>{t("auth.login.subtitle")}</CardDescription>
         </CardHeader>
         <CardContent>
           <Form {...form}>
@@ -81,7 +82,7 @@ export default function Login() {
                 name="email"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Email</FormLabel>
+                    <FormLabel>{t("auth.login.email")}</FormLabel>
                     <FormControl>
                       <Input placeholder="name@example.com" type="email" {...field} />
                     </FormControl>
@@ -94,7 +95,7 @@ export default function Login() {
                 name="password"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Password</FormLabel>
+                    <FormLabel>{t("auth.login.password")}</FormLabel>
                     <FormControl>
                       <Input placeholder="••••••••" type="password" {...field} />
                     </FormControl>
@@ -103,7 +104,7 @@ export default function Login() {
                 )}
               />
               <Button type="submit" className="w-full h-12 text-base font-medium" disabled={loginMutation.isPending}>
-                {loginMutation.isPending ? <Loader2 className="w-5 h-5 animate-spin" /> : "Log In"}
+                {loginMutation.isPending ? <Loader2 className="w-5 h-5 animate-spin" /> : t("auth.login.submit")}
               </Button>
             </form>
           </Form>
@@ -111,9 +112,9 @@ export default function Login() {
         </CardContent>
         <CardFooter className="flex justify-center border-t p-6">
           <p className="text-sm text-muted-foreground">
-            Don't have an account?{" "}
+            {t("auth.login.noAccount")}{" "}
             <Link href="/register" className="text-primary font-semibold hover:underline">
-              Sign up
+              {t("auth.login.signupLink")}
             </Link>
           </p>
         </CardFooter>

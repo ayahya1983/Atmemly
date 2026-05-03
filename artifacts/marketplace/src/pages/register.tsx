@@ -4,6 +4,7 @@ import * as z from "zod";
 import { useRegister, type RegisterBody } from "@workspace/api-client-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useLocation, Link } from "wouter";
+import { useTranslation } from "@/lib/i18n";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
@@ -15,9 +16,9 @@ import { Loader2, Briefcase, User } from "lucide-react";
 import { BRAND } from "@workspace/branding";
 
 const registerSchema = z.object({
-  email: z.string().email("Please enter a valid email address"),
-  password: z.string().min(6, "Password must be at least 6 characters"),
-  fullName: z.string().min(2, "Full name is required"),
+  email: z.string().email(),
+  password: z.string().min(6),
+  fullName: z.string().min(2),
   role: z.enum(["client", "freelancer"] as const),
   companyName: z.string().optional(),
 }).superRefine((data, ctx) => {
@@ -36,6 +37,8 @@ export default function Register() {
   const [, setLocation] = useLocation();
   const { login } = useAuth();
   const { toast } = useToast();
+  const { t, lang } = useTranslation();
+  const brandName = lang === "ar" ? BRAND.platformNameAr : BRAND.platformName;
 
   const form = useForm<FormValues>({
     resolver: zodResolver(registerSchema),
@@ -55,8 +58,8 @@ export default function Register() {
       onSuccess: (data) => {
         login(data.token, data.user);
         toast({
-          title: "Account created!",
-          description: `Welcome to ${BRAND.name}.`,
+          title: t("auth.register.successTitle"),
+          description: t("auth.register.successBody", { brand: brandName }),
         });
         if (data.user.role === "client") setLocation("/dashboard/client");
         else setLocation("/dashboard/freelancer");
@@ -64,15 +67,14 @@ export default function Register() {
       onError: (error: any) => {
         toast({
           variant: "destructive",
-          title: "Registration Failed",
-          description: error.message || "An error occurred during registration.",
+          title: t("auth.register.failedTitle"),
+          description: error.message || t("auth.register.failedBody"),
         });
       },
     },
   });
 
   const onSubmit = (data: FormValues) => {
-    // Cast to RegisterBody as we know role is correct and companyName is handled
     registerMutation.mutate({ data: data as RegisterBody });
   };
 
@@ -83,19 +85,19 @@ export default function Register() {
       </div>
       <Card className="w-full max-w-lg shadow-xl border-border/50">
         <CardHeader className="space-y-2 text-center">
-          <CardTitle className="text-2xl font-bold">Create an Account</CardTitle>
-          <CardDescription>Join {BRAND.name} to hire or find work across the GCC.</CardDescription>
+          <CardTitle className="text-2xl font-bold">{t("auth.register.title")}</CardTitle>
+          <CardDescription>{t("auth.register.subtitle", { brand: brandName })}</CardDescription>
         </CardHeader>
         <CardContent>
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-              
+
               <FormField
                 control={form.control}
                 name="role"
                 render={({ field }) => (
                   <FormItem className="space-y-3">
-                    <FormLabel>I want to...</FormLabel>
+                    <FormLabel>{t("auth.register.roleLabel")}</FormLabel>
                     <FormControl>
                       <RadioGroup
                         onValueChange={field.onChange}
@@ -108,7 +110,7 @@ export default function Register() {
                           </FormControl>
                           <FormLabel className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent/5 hover:text-accent cursor-pointer peer-data-[state=checked]:border-primary peer-data-[state=checked]:bg-primary/5 [&:has([data-state=checked])]:border-primary">
                             <Briefcase className="mb-3 h-6 w-6" />
-                            Hire Talent
+                            {t("auth.register.roleClient")}
                           </FormLabel>
                         </FormItem>
                         <FormItem>
@@ -117,7 +119,7 @@ export default function Register() {
                           </FormControl>
                           <FormLabel className="flex flex-col items-center justify-between rounded-md border-2 border-muted bg-popover p-4 hover:bg-accent/5 hover:text-accent cursor-pointer peer-data-[state=checked]:border-primary peer-data-[state=checked]:bg-primary/5 [&:has([data-state=checked])]:border-primary">
                             <User className="mb-3 h-6 w-6" />
-                            Find Work
+                            {t("auth.register.roleFreelancer")}
                           </FormLabel>
                         </FormItem>
                       </RadioGroup>
@@ -133,7 +135,7 @@ export default function Register() {
                   name="fullName"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Full Name</FormLabel>
+                      <FormLabel>{t("auth.register.fullName")}</FormLabel>
                       <FormControl>
                         <Input placeholder="John Doe" {...field} />
                       </FormControl>
@@ -148,7 +150,7 @@ export default function Register() {
                     name="companyName"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Company Name</FormLabel>
+                        <FormLabel>{t("auth.register.companyName")}</FormLabel>
                         <FormControl>
                           <Input placeholder="Acme LLC" {...field} />
                         </FormControl>
@@ -163,7 +165,7 @@ export default function Register() {
                   name="email"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Email</FormLabel>
+                      <FormLabel>{t("auth.register.email")}</FormLabel>
                       <FormControl>
                         <Input placeholder="name@example.com" type="email" {...field} />
                       </FormControl>
@@ -177,7 +179,7 @@ export default function Register() {
                   name="password"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Password</FormLabel>
+                      <FormLabel>{t("auth.register.password")}</FormLabel>
                       <FormControl>
                         <Input placeholder="••••••••" type="password" {...field} />
                       </FormControl>
@@ -188,16 +190,16 @@ export default function Register() {
               </div>
 
               <Button type="submit" className="w-full h-12 text-base font-medium" disabled={registerMutation.isPending}>
-                {registerMutation.isPending ? <Loader2 className="w-5 h-5 animate-spin" /> : "Sign Up"}
+                {registerMutation.isPending ? <Loader2 className="w-5 h-5 animate-spin" /> : t("auth.register.submit")}
               </Button>
             </form>
           </Form>
         </CardContent>
         <CardFooter className="flex justify-center border-t p-6">
           <p className="text-sm text-muted-foreground">
-            Already have an account?{" "}
+            {t("auth.register.haveAccount")}{" "}
             <Link href="/login" className="text-primary font-semibold hover:underline">
-              Log in
+              {t("auth.register.loginLink")}
             </Link>
           </p>
         </CardFooter>

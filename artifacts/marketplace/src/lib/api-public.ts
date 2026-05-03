@@ -17,6 +17,21 @@ async function getJson<T>(path: string): Promise<T> {
   return (await res.json()) as T;
 }
 
+export async function reportMissingLocalizationKeys(
+  keys: { key: string; locale: "ar" | "en"; namespace?: string }[],
+): Promise<void> {
+  if (keys.length === 0) return;
+  try {
+    await fetch(`${BASE}/admin/localization/missing`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Accept: "application/json" },
+      body: JSON.stringify({ keys }),
+    });
+  } catch {
+    // Best-effort reporting; never throw from translation paths.
+  }
+}
+
 export interface BlogPost {
   id: number;
   slug: string;

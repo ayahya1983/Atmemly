@@ -1,7 +1,43 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { type ReactNode, useEffect } from "react";
-import { useLocalizationStrings, useLocalizationSettings } from "./api-public";
+import { useLocalizationStrings, useLocalizationSettings, reportMissingLocalizationKeys } from "./api-public";
+
+// Buffer + debounce for missing key reporting so we batch POSTs to the
+// /admin/localization/missing endpoint instead of hammering it on every
+// render. Keys exceeding the per-request batch size remain in the pending
+// queue and are flushed in subsequent ticks (no silent drops).
+const reportedMissing = new Set<string>();
+const pendingMissing = new Map<string, { key: string; locale: "ar" | "en"; namespace: string }>();
+const REPORT_BATCH_SIZE = 50;
+let flushTimer: ReturnType<typeof setTimeout> | null = null;
+
+function scheduleFlush() {
+  if (flushTimer) return;
+  flushTimer = setTimeout(() => {
+    flushTimer = null;
+    const items = Array.from(pendingMissing.values());
+    if (items.length === 0) return;
+    const batch = items.slice(0, REPORT_BATCH_SIZE);
+    for (const item of batch) {
+      const id = `${item.locale}::${item.key}`;
+      pendingMissing.delete(id);
+      reportedMissing.add(id);
+    }
+    void reportMissingLocalizationKeys(batch);
+    // If there are leftover items beyond the batch size, schedule another
+    // flush so nothing is dropped.
+    if (pendingMissing.size > 0) scheduleFlush();
+  }, 2000);
+}
+
+function queueMissing(key: string, locale: "ar" | "en") {
+  const id = `${locale}::${key}`;
+  if (reportedMissing.has(id) || pendingMissing.has(id)) return;
+  const namespace = key.includes(".") ? key.split(".")[0]! : "common";
+  pendingMissing.set(id, { key, locale, namespace });
+  scheduleFlush();
+}
 
 type Language = "en" | "ar";
 type Currency = "AED" | "USD";
@@ -139,6 +175,45 @@ const translations: Record<Language, Record<string, string>> = {
     "footer.privacy": "Privacy Policy",
     "footer.cancellation": "Cancellation Policy",
     "footer.about_us": "About us",
+    "jobs.title": "Find Jobs",
+    "jobs.subtitle": "Discover freelance opportunities across the GCC.",
+    "jobs.filters.heading": "Filters",
+    "jobs.filters.searchLabel": "Search",
+    "jobs.filters.searchPlaceholder": "Search jobs…",
+    "jobs.filters.categoryLabel": "Category",
+    "jobs.filters.allCategories": "All Categories",
+    "jobs.empty.title": "No jobs found",
+    "jobs.empty.body": "Try adjusting your filters or search query.",
+    "jobs.empty.clear": "Clear Filters",
+    "jobs.budget.suffix": "Budget",
+    "jobs.proposals": "proposals",
+    "auth.login.title": "Welcome back",
+    "auth.login.subtitle": "Enter your credentials to access your account",
+    "auth.login.email": "Email",
+    "auth.login.password": "Password",
+    "auth.login.submit": "Log In",
+    "auth.login.noAccount": "Don't have an account?",
+    "auth.login.signupLink": "Sign up",
+    "auth.login.welcomeToast": "Welcome back!",
+    "auth.login.welcomeBody": "You have successfully logged in.",
+    "auth.login.failedTitle": "Login Failed",
+    "auth.login.failedBody": "Invalid credentials. Please try again.",
+    "auth.register.title": "Create an Account",
+    "auth.register.subtitle": "Join {brand} to hire or find work across the GCC.",
+    "auth.register.roleLabel": "I want to…",
+    "auth.register.roleClient": "Hire Talent",
+    "auth.register.roleFreelancer": "Find Work",
+    "auth.register.fullName": "Full Name",
+    "auth.register.companyName": "Company Name",
+    "auth.register.email": "Email",
+    "auth.register.password": "Password",
+    "auth.register.submit": "Sign Up",
+    "auth.register.haveAccount": "Already have an account?",
+    "auth.register.loginLink": "Log in",
+    "auth.register.successTitle": "Account created!",
+    "auth.register.successBody": "Welcome to {brand}.",
+    "auth.register.failedTitle": "Registration Failed",
+    "auth.register.failedBody": "An error occurred during registration.",
   },
   ar: {
     "nav.services": "الخدمات",
@@ -215,6 +290,45 @@ const translations: Record<Language, Record<string, string>> = {
     "footer.privacy": "سياسة الخصوصية",
     "footer.cancellation": "سياسة الإلغاء",
     "footer.about_us": "من نحن",
+    "jobs.title": "تصفح الوظائف",
+    "jobs.subtitle": "اكتشف فرص العمل الحر في منطقة الخليج.",
+    "jobs.filters.heading": "تصفية النتائج",
+    "jobs.filters.searchLabel": "بحث",
+    "jobs.filters.searchPlaceholder": "ابحث عن وظائف…",
+    "jobs.filters.categoryLabel": "التصنيف",
+    "jobs.filters.allCategories": "كل التصنيفات",
+    "jobs.empty.title": "لا توجد وظائف",
+    "jobs.empty.body": "حاول تعديل التصفية أو كلمات البحث.",
+    "jobs.empty.clear": "إعادة ضبط التصفية",
+    "jobs.budget.suffix": "الميزانية",
+    "jobs.proposals": "عرض",
+    "auth.login.title": "مرحباً بعودتك",
+    "auth.login.subtitle": "أدخل بياناتك للوصول إلى حسابك",
+    "auth.login.email": "البريد الإلكتروني",
+    "auth.login.password": "كلمة المرور",
+    "auth.login.submit": "تسجيل الدخول",
+    "auth.login.noAccount": "لا تملك حساباً؟",
+    "auth.login.signupLink": "إنشاء حساب",
+    "auth.login.welcomeToast": "مرحباً بعودتك!",
+    "auth.login.welcomeBody": "تم تسجيل دخولك بنجاح.",
+    "auth.login.failedTitle": "فشل تسجيل الدخول",
+    "auth.login.failedBody": "بيانات الاعتماد غير صحيحة. حاول مرة أخرى.",
+    "auth.register.title": "إنشاء حساب جديد",
+    "auth.register.subtitle": "انضم إلى {brand} للتوظيف أو العمل عن بُعد في منطقة الخليج.",
+    "auth.register.roleLabel": "أريد أن…",
+    "auth.register.roleClient": "أوظّف كفاءات",
+    "auth.register.roleFreelancer": "أبحث عن عمل",
+    "auth.register.fullName": "الاسم الكامل",
+    "auth.register.companyName": "اسم الشركة",
+    "auth.register.email": "البريد الإلكتروني",
+    "auth.register.password": "كلمة المرور",
+    "auth.register.submit": "إنشاء حساب",
+    "auth.register.haveAccount": "لديك حساب بالفعل؟",
+    "auth.register.loginLink": "تسجيل الدخول",
+    "auth.register.successTitle": "تم إنشاء الحساب!",
+    "auth.register.successBody": "مرحباً بك في {brand}.",
+    "auth.register.failedTitle": "فشل إنشاء الحساب",
+    "auth.register.failedBody": "حدث خطأ أثناء إنشاء الحساب.",
   },
 };
 
@@ -225,18 +339,33 @@ export function useTranslation() {
   const { data: cmsStrings } = useLocalizationStrings(lang);
   const { data: cmsFallbackStrings } = useLocalizationStrings(fallbackLocale);
 
-  const t = (key: string): string => {
+  // Once the CMS strings have been fetched, we know whether each key has
+  // been customized by an admin. Any key referenced by the UI that has no
+  // CMS entry for the active locale should be surfaced to the admin
+  // editor — even if a bundled default exists — so admins get full
+  // visibility of every translatable string.
+  const cmsLoadedForLang = !!cmsStrings;
+
+  const t = (key: string, vars?: Record<string, string | number>): string => {
+    const interpolate = (s: string): string =>
+      vars ? s.replace(/\{(\w+)\}/g, (_, k) => (vars[k] !== undefined ? String(vars[k]) : `{${k}}`)) : s;
+
+    if (cmsLoadedForLang) {
+      const has = cmsStrings && Object.prototype.hasOwnProperty.call(cmsStrings, key);
+      if (!has) queueMissing(key, lang);
+    }
+
     const cmsValue = cmsStrings?.[key];
-    if (typeof cmsValue === "string" && cmsValue.length > 0) return cmsValue;
+    if (typeof cmsValue === "string" && cmsValue.length > 0) return interpolate(cmsValue);
     if (fallbackLocale !== lang) {
       const cmsFb = cmsFallbackStrings?.[key];
-      if (typeof cmsFb === "string" && cmsFb.length > 0) return cmsFb;
+      if (typeof cmsFb === "string" && cmsFb.length > 0) return interpolate(cmsFb);
     }
     const own = translations[lang]?.[key];
-    if (own) return own;
+    if (own) return interpolate(own);
     if (fallbackLocale !== lang) {
       const fb = translations[fallbackLocale]?.[key];
-      if (fb) return fb;
+      if (fb) return interpolate(fb);
     }
     return key;
   };
