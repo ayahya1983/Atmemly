@@ -37,7 +37,7 @@ export default function Faq() {
         <p className="text-muted-foreground">
           {lang === "ar"
             ? "كل ما تحتاج معرفته عن خِدمة."
-            : "Everything you need to know about Khidma."}
+            : "Everything you need to know about Atmemly."}
         </p>
       </div>
 

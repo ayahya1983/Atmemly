@@ -40,8 +40,12 @@ export default function Login() {
           title: "Welcome back!",
           description: "You have successfully logged in.",
         });
-        if (data.user.role === "admin") setLocation("/admin");
-        else if (data.user.role === "client") setLocation("/dashboard/client");
+        const u = data.user as { role?: string; adminRole?: string | null };
+        if (u.role === "admin" || (u.adminRole && u.adminRole.length > 0)) {
+          window.location.href = "/admin/";
+          return;
+        }
+        if (data.user.role === "client") setLocation("/dashboard/client");
         else setLocation("/dashboard/freelancer");
       },
       onError: (error: any) => {

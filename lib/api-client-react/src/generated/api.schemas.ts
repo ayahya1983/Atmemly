@@ -122,6 +122,8 @@ export interface Me {
   email: string;
   fullName: string;
   role: Role;
+  /** @nullable */
+  adminRole?: string | null;
   status: UserStatus;
   /** @nullable */
   avatarUrl?: string | null;

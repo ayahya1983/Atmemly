@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl" class="dark">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1" />
+    <title>Atmemly · Admin</title>
+    <meta name="theme-color" content="#458cca" />
+    <link rel="icon" href="/admin/favicon.ico" />
+    <link rel="apple-touch-icon" href="/admin/logo-192.png" />
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script>
+      // Pre-hydration setup for lang/dir/theme to avoid flash.
+      try {
+        const langRaw = localStorage.getItem('atmemly-lang');
+        let lang = 'ar';
+        if (langRaw) {
+          try { const p = JSON.parse(langRaw); lang = (p && p.state && p.state.lang) || 'ar'; } catch (_) {}
+        }
+        document.documentElement.lang = lang;
+        document.documentElement.dir = lang === 'ar' ? 'rtl' : 'ltr';
+
+        const themeRaw = localStorage.getItem('atmemly-admin-theme');
+        let theme = 'dark';
+        if (themeRaw) {
+          try { const p = JSON.parse(themeRaw); theme = (p && p.state && p.state.theme) || 'dark'; } catch (_) {}
+        }
+        if (theme === 'dark') document.documentElement.classList.add('dark');
+        else document.documentElement.classList.remove('dark');
+      } catch (_) {}
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

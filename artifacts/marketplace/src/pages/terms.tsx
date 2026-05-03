@@ -7,6 +7,6 @@ export default function Terms() {
   const fallbackBody =
     lang === "ar"
       ? "آخر تحديث: " + new Date().toLocaleDateString("ar-AE") + "\n\nباستخدامك خِدمة، فإنك توافق على هذه الشروط. يرجى مراجعتها بعناية."
-      : "Last updated: " + new Date().toLocaleDateString() + "\n\nBy using Khidma, you agree to these terms. Please review them carefully.";
+      : "Last updated: " + new Date().toLocaleDateString() + "\n\nBy using Atmemly, you agree to these terms. Please review them carefully.";
   return <StaticCmsPage slug="terms" fallbackTitle={fallbackTitle} fallbackBody={fallbackBody} />;
 }

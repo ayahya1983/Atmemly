@@ -76,7 +76,7 @@ async function main() {
   const [admin] = await db
     .insert(usersTable)
     .values({
-      email: "admin@khidma.ae",
+      email: "admin@atmemly.ae",
       passwordHash: adminPwd,
       fullName: "Khidma Admin",
       role: "admin",
@@ -125,7 +125,7 @@ async function main() {
 
   const freelancersData = [
     {
-      email: "layla@khidma.ae",
+      email: "layla@atmemly.ae",
       fullName: "Layla Bin Saeed",
       headline: "Senior Brand & Identity Designer",
       bio: "10+ years crafting identities for regional and international brands. Based in Dubai, fluent in Arabic and English.",
@@ -134,7 +134,7 @@ async function main() {
       location: "Dubai, UAE",
     },
     {
-      email: "omar@khidma.ae",
+      email: "omar@atmemly.ae",
       fullName: "Omar Al Saadi",
       headline: "Full-stack Developer (React + Node)",
       bio: "Building production web apps for fintech and e-commerce clients across the GCC.",
@@ -143,7 +143,7 @@ async function main() {
       location: "Riyadh, KSA",
     },
     {
-      email: "huda@khidma.ae",
+      email: "huda@atmemly.ae",
       fullName: "Huda Mansour",
       headline: "Bilingual Copywriter & Content Strategist",
       bio: "I write punchy bilingual copy for brands that want to win Arabic-speaking audiences without losing their English voice.",
@@ -152,7 +152,7 @@ async function main() {
       location: "Amman, Jordan",
     },
     {
-      email: "khalid@khidma.ae",
+      email: "khalid@atmemly.ae",
       fullName: "Khalid Al Farsi",
       headline: "Performance Marketer (Google + Meta)",
       bio: "I run profitable paid campaigns for D2C brands. AED 50M+ ad spend managed across the Gulf.",
@@ -161,7 +161,7 @@ async function main() {
       location: "Doha, Qatar",
     },
     {
-      email: "amal@khidma.ae",
+      email: "amal@atmemly.ae",
       fullName: "Amal Karim",
       headline: "Motion Designer & Video Editor",
       bio: "I make broadcast-quality short videos and motion graphics for ads, social and product launches.",
@@ -446,7 +446,7 @@ async function main() {
     },
     {
       key: "support_email",
-      value: "support@khidma.ae",
+      value: "support@atmemly.ae",
       isPublic: 1,
       description: "Public-facing support contact",
       updatedById: admin!.id,
@@ -605,7 +605,7 @@ async function main() {
 
   // ---------- Phase 6: Admin role + content ----------
   // Promote primary admin to super_admin (admin role + adminRole = super_admin).
-  await db.execute(sql`UPDATE users SET admin_role = 'super_admin' WHERE email = 'admin@khidma.ae'`);
+  await db.execute(sql`UPDATE users SET admin_role = 'super_admin' WHERE email = 'admin@atmemly.ae'`);
 
   await db.insert(cmsPagesTable).values([
     {
@@ -736,7 +736,7 @@ async function main() {
     { locale: "en", category: "fees", question: "Are there any fees to join Khidma?",
       answer: "Creating an account and posting a project is free. We charge a small service fee on completed contracts.", sortOrder: 30 },
     { locale: "en", category: "support", question: "How do I contact support?",
-      answer: "Use the Contact Us page or email hello@khidma.ae — we usually respond within a few hours.", sortOrder: 40 },
+      answer: "Use the Contact Us page or email hello@atmemly.ae — we usually respond within a few hours.", sortOrder: 40 },
     { locale: "ar", category: "البدء", question: "كيف أنشئ حساباً في خدمة؟",
       answer: "انقر على إنشاء حساب، أدخل بريدك الإلكتروني، وأكد التحقق وأكمل ملفك الشخصي.", sortOrder: 10 },
     { locale: "ar", category: "المدفوعات", question: "كيف يعمل نظام الضمان في خدمة؟",
@@ -746,7 +746,7 @@ async function main() {
     { locale: "ar", category: "المستقلون", question: "كيف أبدأ كمستقل على خدمة؟",
       answer: "أكمل ملفك الشخصي، أضف أعمالك السابقة، وقدّم عروضاً على المشاريع التي تناسب تخصصك.", sortOrder: 40 },
     { locale: "ar", category: "الدعم", question: "كيف أتواصل مع فريق الدعم؟",
-      answer: "استخدم صفحة تواصل معنا أو راسلنا على hello@khidma.ae — نرد عادةً خلال ساعات قليلة.", sortOrder: 50 },
+      answer: "استخدم صفحة تواصل معنا أو راسلنا على hello@atmemly.ae — نرد عادةً خلال ساعات قليلة.", sortOrder: 50 },
     { locale: "ar", category: "الأمان", question: "هل بياناتي آمنة على المنصة؟",
       answer: "نعم. نستخدم تشفيراً قوياً ولا نشارك بياناتك مع أي طرف ثالث دون إذنك.", sortOrder: 60 },
   ]);

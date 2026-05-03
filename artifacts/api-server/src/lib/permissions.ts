@@ -6,10 +6,9 @@ import type { Request, Response, NextFunction } from "express";
 // `adminRole` is the staff sub-role used for permission gating in the admin panel.
 // A user is considered "admin staff" iff `role === 'admin'`. The `adminRole` then
 // determines which resources/actions they may perform. Legacy `role === 'admin'`
-// users without an explicit `adminRole` are treated as `'admin'` (matrix-driven,
-// NOT super_admin) — least privilege. Unknown adminRole values fail closed (deny).
-// To grant super_admin, set `adminRole='super_admin'` explicitly (the seed does
-// this for the canonical `admin@khidma.ae` account).
+// users without an explicit `adminRole` are mapped to `super_admin` so existing
+// admins retain full access during the rollout of granular roles. Unknown
+// adminRole values fail closed (deny).
 
 export const ADMIN_ROLES = [
   "super_admin",
@@ -201,10 +200,9 @@ export function effectiveAdminRole(user: {
   adminRole: string | null | undefined;
 }): AdminRole | null {
   if (user.role !== "admin") return null;
-  // Legacy admin (no explicit adminRole) → treat as standard 'admin', NOT
-  // super_admin. The matrix below grants 'admin' broad write access but not
-  // a blanket bypass.
-  if (!user.adminRole) return "admin";
+  // Legacy admin (no explicit adminRole) → super_admin. Existing admin
+  // accounts predating the granular role system keep full access.
+  if (!user.adminRole) return "super_admin";
   if ((ADMIN_ROLES as readonly string[]).includes(user.adminRole)) {
     return user.adminRole as AdminRole;
   }

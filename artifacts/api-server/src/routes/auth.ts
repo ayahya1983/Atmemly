@@ -82,6 +82,7 @@ function meFromUser(u: typeof usersTable.$inferSelect, verificationStatus = "not
     email: u.email,
     fullName: u.fullName,
     role: u.role,
+    adminRole: u.adminRole ?? null,
     status: u.status,
     avatarUrl: u.avatarUrl,
     createdAt: u.createdAt,

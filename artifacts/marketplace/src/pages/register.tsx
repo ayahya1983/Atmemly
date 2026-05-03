@@ -55,7 +55,7 @@ export default function Register() {
         login(data.token, data.user);
         toast({
           title: "Account created!",
-          description: "Welcome to Khidma.",
+          description: "Welcome to Atmemly.",
         });
         if (data.user.role === "client") setLocation("/dashboard/client");
         else setLocation("/dashboard/freelancer");
@@ -83,7 +83,7 @@ export default function Register() {
       <Card className="w-full max-w-lg shadow-xl border-border/50">
         <CardHeader className="space-y-2 text-center">
           <CardTitle className="text-2xl font-bold">Create an Account</CardTitle>
-          <CardDescription>Join Khidma to hire or find work across the GCC.</CardDescription>
+          <CardDescription>Join Atmemly to hire or find work across the GCC.</CardDescription>
         </CardHeader>
         <CardContent>
           <Form {...form}>

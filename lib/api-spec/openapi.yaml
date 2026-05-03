@@ -1257,6 +1257,7 @@ components:
         email: { type: string }
         fullName: { type: string }
         role: { $ref: "#/components/schemas/Role" }
+        adminRole: { type: ["string", "null"] }
         status: { $ref: "#/components/schemas/UserStatus" }
         avatarUrl: { type: ["string", "null"] }
         createdAt: { type: string, format: date-time }

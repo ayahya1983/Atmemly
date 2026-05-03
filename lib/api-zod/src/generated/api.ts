@@ -28,6 +28,7 @@ export const RegisterResponse = zod.object({
     email: zod.string(),
     fullName: zod.string(),
     role: zod.enum(["client", "freelancer", "admin"]),
+    adminRole: zod.string().nullish(),
     status: zod.enum([
       "active",
       "suspended",
@@ -62,6 +63,7 @@ export const LoginResponse = zod.object({
     email: zod.string(),
     fullName: zod.string(),
     role: zod.enum(["client", "freelancer", "admin"]),
+    adminRole: zod.string().nullish(),
     status: zod.enum([
       "active",
       "suspended",
@@ -87,6 +89,7 @@ export const GetMeResponse = zod.object({
   email: zod.string(),
   fullName: zod.string(),
   role: zod.enum(["client", "freelancer", "admin"]),
+  adminRole: zod.string().nullish(),
   status: zod.enum([
     "active",
     "suspended",
@@ -860,6 +863,7 @@ export const RefreshTokenResponse = zod.object({
     email: zod.string(),
     fullName: zod.string(),
     role: zod.enum(["client", "freelancer", "admin"]),
+    adminRole: zod.string().nullish(),
     status: zod.enum([
       "active",
       "suspended",
