@@ -338,7 +338,7 @@ export default function Home() {
                     >
                       <div className="aspect-[4/3] bg-gradient-to-br from-primary/20 to-primary/5 relative overflow-hidden">
                         <SafeImg
-                          src={coverForFreelancer(f.id)}
+                          src={hasImage(f.coverUrl) ? f.coverUrl : coverForFreelancer(f.id)}
                           alt={f.headline}
                           width={600}
                           height={450}

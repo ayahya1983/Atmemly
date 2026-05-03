@@ -176,6 +176,8 @@ export interface FreelancerCard {
   fullName: string;
   /** @nullable */
   avatarUrl?: string | null;
+  /** @nullable */
+  coverUrl?: string | null;
   headline: string;
   skills: string[];
   hourlyRate: number;
@@ -209,6 +211,8 @@ export interface UpdateFreelancerProfileBody {
   fullName?: string;
   /** @nullable */
   avatarUrl?: string | null;
+  /** @nullable */
+  coverUrl?: string | null;
   headline?: string;
   bio?: string;
   skills?: string[];

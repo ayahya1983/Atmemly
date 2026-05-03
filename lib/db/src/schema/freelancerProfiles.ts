@@ -28,6 +28,9 @@ export const freelancerProfilesTable = pgTable(
       .$type<Array<{ title: string; url: string; description?: string | null }>>()
       .notNull()
       .default([]),
+    // Optional uploaded cover image shown on the freelancer's service card
+    // and profile page. NULL/empty falls back to the generic SVG illustration.
+    coverUrl: text("cover_url"),
     verificationStatus: text("verification_status").notNull().default("not_submitted"),
     // Phase 3 — denormalized trust score (0..100). Recomputed on review/contract/verification events.
     trustScore: integer("trust_score").notNull().default(0),

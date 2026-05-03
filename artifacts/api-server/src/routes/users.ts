@@ -43,6 +43,7 @@ async function freelancerCard(userId: number) {
     id: user.id,
     fullName: user.fullName,
     avatarUrl: user.avatarUrl,
+    coverUrl: profile.coverUrl,
     headline: profile.headline,
     skills: profile.skills,
     hourlyRate: Number(profile.hourlyRate),
@@ -148,6 +149,7 @@ router.get("/freelancers", async (req, res): Promise<void> => {
         id: user.id,
         fullName: user.fullName,
         avatarUrl: user.avatarUrl,
+        coverUrl: profile.coverUrl,
         headline: profile.headline,
         skills: profile.skills,
         hourlyRate: Number(profile.hourlyRate),
@@ -206,6 +208,7 @@ router.put(
     if (data.hourlyRate !== undefined) profileUpdates.hourlyRate = String(data.hourlyRate);
     if (data.location !== undefined) profileUpdates.location = data.location;
     if (data.portfolio !== undefined) profileUpdates.portfolio = data.portfolio;
+    if (data.coverUrl !== undefined) profileUpdates.coverUrl = data.coverUrl;
     if (Object.keys(profileUpdates).length > 0) {
       await db
         .update(freelancerProfilesTable)

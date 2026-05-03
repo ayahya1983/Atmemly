@@ -8,8 +8,8 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
-import { useEffect, useState } from "react";
-import { Trash2, Plus } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { Trash2, Plus, Upload, ImageOff } from "lucide-react";
 
 const profileSchema = z.object({
   fullName: z.string().min(2),
@@ -21,6 +21,26 @@ const profileSchema = z.object({
 
 type PortfolioItem = { title: string; url: string; description: string };
 
+const API_BASE = `${import.meta.env.BASE_URL}api`.replace(/\/+/g, "/");
+
+async function uploadCoverImage(file: File): Promise<string> {
+  const fd = new FormData();
+  fd.append("file", file);
+  fd.append("kind", "freelancer_cover");
+  const token = typeof window !== "undefined" ? localStorage.getItem("auth_token") : null;
+  const res = await fetch(`${API_BASE}/uploads`, {
+    method: "POST",
+    body: fd,
+    headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+  });
+  if (!res.ok) {
+    const txt = await res.text().catch(() => "");
+    throw new Error(txt || `Upload failed (${res.status})`);
+  }
+  const json = (await res.json()) as { url: string };
+  return json.url;
+}
+
 export default function FreelancerProfile() {
   const { toast } = useToast();
   const { data: user } = useGetMe();
@@ -31,6 +51,9 @@ export default function FreelancerProfile() {
   const updateProfile = useUpdateFreelancerProfile();
 
   const [portfolio, setPortfolio] = useState<PortfolioItem[]>([]);
+  const [coverUrl, setCoverUrl] = useState<string | null>(null);
+  const [coverUploading, setCoverUploading] = useState(false);
+  const coverInputRef = useRef<HTMLInputElement | null>(null);
 
   const form = useForm<z.infer<typeof profileSchema>>({
     resolver: zodResolver(profileSchema),
@@ -53,6 +76,7 @@ export default function FreelancerProfile() {
         location: freelancerData.location || "",
       });
       setPortfolio((freelancerData.portfolio as PortfolioItem[]) || []);
+      setCoverUrl(freelancerData.coverUrl ?? null);
     } else if (user) {
       form.reset({
         fullName: user.fullName,
@@ -61,9 +85,40 @@ export default function FreelancerProfile() {
   }, [user, freelancerData, form]);
 
   const onSubmit = (values: z.infer<typeof profileSchema>) => {
-    updateProfile.mutate({ data: { ...values, portfolio } }, {
+    updateProfile.mutate({ data: { ...values, portfolio, coverUrl } }, {
       onSuccess: () => toast({ title: "Profile updated" }),
       onError: (err: any) => toast({ variant: "destructive", title: "Error", description: err.message })
+    });
+  };
+
+  const onCoverFileChosen = async (file: File | undefined) => {
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      toast({ variant: "destructive", title: "Invalid file", description: "Please choose an image file." });
+      return;
+    }
+    setCoverUploading(true);
+    try {
+      const url = await uploadCoverImage(file);
+      setCoverUrl(url);
+      // Persist immediately so the new cover shows up on cards/profile right away.
+      updateProfile.mutate({ data: { coverUrl: url } }, {
+        onSuccess: () => toast({ title: "Cover image uploaded" }),
+        onError: (err: any) => toast({ variant: "destructive", title: "Save failed", description: err.message }),
+      });
+    } catch (err: any) {
+      toast({ variant: "destructive", title: "Upload failed", description: err.message });
+    } finally {
+      setCoverUploading(false);
+      if (coverInputRef.current) coverInputRef.current.value = "";
+    }
+  };
+
+  const removeCover = () => {
+    setCoverUrl(null);
+    updateProfile.mutate({ data: { coverUrl: null } }, {
+      onSuccess: () => toast({ title: "Cover image removed" }),
+      onError: (err: any) => toast({ variant: "destructive", title: "Save failed", description: err.message }),
     });
   };
 
@@ -84,6 +139,65 @@ export default function FreelancerProfile() {
   return (
     <div className="max-w-3xl mx-auto space-y-6">
       <h1 className="text-2xl font-bold">Edit Profile</h1>
+
+      <Card>
+        <CardContent className="p-6 space-y-4">
+          <div>
+            <h2 className="text-lg font-semibold">Service Cover Image</h2>
+            <p className="text-sm text-muted-foreground">
+              Shown on your service card and profile page. Recommended 1200×900. Falls back to a generic illustration if empty.
+            </p>
+          </div>
+          <div className="aspect-[4/3] w-full max-w-md rounded-md overflow-hidden border bg-muted flex items-center justify-center">
+            {coverUrl ? (
+              <img
+                src={coverUrl}
+                alt="Service cover"
+                className="w-full h-full object-cover"
+                data-testid="cover-preview"
+              />
+            ) : (
+              <div className="flex flex-col items-center text-muted-foreground gap-2">
+                <ImageOff className="w-8 h-8" />
+                <span className="text-sm">No cover uploaded</span>
+              </div>
+            )}
+          </div>
+          <input
+            ref={coverInputRef}
+            type="file"
+            accept="image/*"
+            className="hidden"
+            data-testid="cover-input"
+            onChange={(e) => onCoverFileChosen(e.target.files?.[0])}
+          />
+          <div className="flex gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => coverInputRef.current?.click()}
+              disabled={coverUploading}
+              data-testid="button-upload-cover"
+            >
+              <Upload className="w-4 h-4 mr-2" />
+              {coverUploading ? "Uploading…" : coverUrl ? "Replace Cover" : "Upload Cover"}
+            </Button>
+            {coverUrl && (
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={removeCover}
+                disabled={coverUploading}
+                data-testid="button-remove-cover"
+              >
+                <Trash2 className="w-4 h-4 mr-2 text-destructive" />
+                Remove
+              </Button>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+
       <Card>
         <CardContent className="p-6">
           <Form {...form}>

@@ -1706,6 +1706,7 @@ components:
         id: { type: integer }
         fullName: { type: string }
         avatarUrl: { type: ["string", "null"] }
+        coverUrl: { type: ["string", "null"] }
         headline: { type: string }
         skills:
           type: array
@@ -1739,6 +1740,7 @@ components:
       properties:
         fullName: { type: string }
         avatarUrl: { type: ["string", "null"] }
+        coverUrl: { type: ["string", "null"] }
         headline: { type: string }
         bio: { type: string }
         skills:

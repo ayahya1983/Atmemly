@@ -22,6 +22,17 @@ export default function FreelancerProfile() {
 
   return (
     <div className="container mx-auto px-4 py-8 max-w-4xl">
+      {freelancer.coverUrl && freelancer.coverUrl.trim() !== "" && (
+        <div className="mb-6 rounded-xl overflow-hidden border bg-muted aspect-[16/6]">
+          <img
+            src={freelancer.coverUrl}
+            alt={`${freelancer.fullName} cover`}
+            className="w-full h-full object-cover"
+            data-testid="freelancer-cover"
+            onError={(e) => { (e.currentTarget.parentElement as HTMLElement).style.display = "none"; }}
+          />
+        </div>
+      )}
       <Card className="mb-8">
         <CardContent className="p-6 sm:p-8">
           <div className="flex flex-col sm:flex-row items-start sm:items-center gap-6">
