@@ -19,6 +19,14 @@ resource "aws_iam_role_policy_attachment" "ssm_core" {
   policy_arn = "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
 }
 
+# Lets the CloudWatch Agent on the EC2 box publish disk/mem/etc. metrics
+# to the CWAgent namespace (consumed by atmemly-ec2-disk-used-high alarm
+# in monitoring.tf).
+resource "aws_iam_role_policy_attachment" "cwagent" {
+  role       = aws_iam_role.ec2.name
+  policy_arn = "arn:aws:iam::aws:policy/CloudWatchAgentServerPolicy"
+}
+
 data "aws_iam_policy_document" "ec2_app" {
   statement {
     sid    = "ReadAtmemlyParams"

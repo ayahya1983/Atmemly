@@ -440,6 +440,78 @@ cd infra/aws/terraform && terraform destroy -auto-approve
 aws s3 rm s3://atmemly-uploads-f960865d --recursive
 ```
 
+## Monitoring & alerting (May 03, 2026)
+
+CloudWatch alarms + SNS topic are managed by `infra/aws/terraform/monitoring.tf`.
+
+**Alarms wired up** (all publish to the `atmemly-alerts` SNS topic):
+
+| Alarm                              | Source              | Trigger                                              |
+| ---------------------------------- | ------------------- | ---------------------------------------------------- |
+| `atmemly-ec2-status-check-failed`  | `AWS/EC2`           | `StatusCheckFailed` >= 1 for 2 minutes               |
+| `atmemly-ec2-disk-used-high`       | `CWAgent`           | `disk_used_percent` > 80% on `/` for 10 minutes      |
+| `atmemly-rds-free-storage-low`     | `AWS/RDS`           | `FreeStorageSpace` < 5 GB for 5 minutes              |
+| `atmemly-rds-cpu-high`             | `AWS/RDS`           | `CPUUtilization` > 80% for 10 minutes                |
+| `atmemly-api-healthz-down`         | `AWS/Route53` (us-east-1) | Route53 health check on `/api/healthz` failing |
+
+**Two SNS topics** are created (both named `atmemly-alerts`): one in
+`eu-west-1` for the EC2/RDS alarms, and one in `us-east-1` for the
+Route53 `/api/healthz` alarm (Route53 health-check metrics only publish
+to us-east-1, and CloudWatch alarm actions are region-scoped). Both
+topics get the same email/SMS subscribers.
+
+**Subscriber**: `alaa@machinesensiot.com` is auto-subscribed via the
+`alert_email` variable. AWS sends **two** confirmation emails on first
+apply (one per topic) — **click both "Confirm subscription" links** or
+alarms will fire silently. Add more recipients with:
+
+```bash
+aws sns subscribe --region eu-west-1 \
+  --topic-arn $(terraform output -raw alerts_sns_topic_arn) \
+  --protocol email --notification-endpoint <addr>
+aws sns subscribe --region us-east-1 \
+  --topic-arn $(terraform output -raw alerts_sns_topic_arn_us_east_1) \
+  --protocol email --notification-endpoint <addr>
+```
+
+Or set `alert_phone` to an E.164 number for SMS.
+
+**EC2 disk metric prerequisite**: `disk_used_percent` is published by the
+CloudWatch Agent, which is *not* installed by default. Install it once on
+the box (one-time, idempotent):
+
+```bash
+aws ssm start-session --target i-09d44904cddfaa638
+sudo wget -q https://s3.amazonaws.com/amazoncloudwatch-agent/ubuntu/amd64/latest/amazon-cloudwatch-agent.deb
+sudo dpkg -i -E amazon-cloudwatch-agent.deb
+sudo tee /opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json >/dev/null <<'JSON'
+{ "metrics": { "append_dimensions": { "InstanceId": "${aws:InstanceId}" },
+  "metrics_collected": { "disk": { "measurement": ["used_percent"],
+    "resources": ["/"], "metrics_collection_interval": 60 } } } }
+JSON
+sudo /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl \
+  -a fetch-config -m ec2 -s \
+  -c file:/opt/aws/amazon-cloudwatch-agent/etc/amazon-cloudwatch-agent.json
+```
+
+`CloudWatchAgentServerPolicy` is attached to the EC2 role by Terraform
+(see `iam.tf` `cwagent` attachment), so the agent is allowed to
+`PutMetricData` into the `CWAgent` namespace. If metrics don't appear
+within ~5 minutes after install, check
+`/opt/aws/amazon-cloudwatch-agent/logs/amazon-cloudwatch-agent.log`.
+
+Until the agent is installed, the disk alarm sits in `INSUFFICIENT_DATA`
+(intentional — `treat_missing_data = "missing"`), which does not page.
+
+**Verify after `terraform apply`**:
+
+```bash
+aws cloudwatch describe-alarms --alarm-name-prefix atmemly- \
+  --query 'MetricAlarms[].[AlarmName,StateValue]' --output table
+aws sns list-subscriptions-by-topic \
+  --topic-arn $(terraform output -raw alerts_sns_topic_arn)
+```
+
 ## Estimated monthly cost
 
 ~$35–40 USD/mo on-demand in eu-west-1 (t3.small EC2 + EIP +
