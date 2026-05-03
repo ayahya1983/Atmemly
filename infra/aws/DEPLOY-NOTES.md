@@ -137,8 +137,9 @@ the SSM parameter was performed — that would have meant editing
       Terraform never holds the private half on disk.
 - [ ] Add CloudWatch alarms (EC2 status, RDS storage/CPU, `/api/healthz`
       external probe) and an SNS topic for alerts.
-- [ ] Move from local Terraform state to a remote encrypted backend
+- [x] Move from local Terraform state to a remote encrypted backend
       (S3 + DynamoDB lock) so state isn't only on one operator's box.
+      DONE — see "Remote Terraform state" section below.
 - [ ] Front the EIP with HTTPS (ACM cert + nginx 443 + custom domain).
 
 ## Security tradeoffs in this revision
@@ -268,11 +269,12 @@ calls used by the workflow to poll command status.
 **These resources are Terraform-managed.** They were originally
 provisioned via direct `aws iam` CLI calls (because the local
 Terraform state for the rest of the live stack — VPC, EC2, RDS, S3 —
-had been lost between task runs and there's no remote backend yet,
+had been lost between task runs and there was no remote backend yet,
 so a blind `terraform apply` would have tried to recreate the live
-infrastructure). They have since been imported into `infra/aws/terraform`
-state and the OIDC stack is the only part of the stack currently
-under Terraform control. To reconcile or change them in the future:
+infrastructure). The whole live stack has since been imported into
+the new S3 remote backend (see "Remote Terraform state" below) and
+`terraform plan` reports `No changes`. To reconcile or change the
+OIDC pieces in the future:
 
 ```bash
 cd infra/aws/terraform
@@ -318,10 +320,9 @@ terraform import \
   atmemly-github-deploy:atmemly-github-deploy
 ```
 
-A remote Terraform state (S3 + DynamoDB lock) and importing the rest
-of the live stack are tracked as a follow-up — without those, the
-local `terraform.tfstate` is gitignored and only lives on whichever
-machine last ran `terraform apply`.
+See "Remote Terraform state" below for the S3 + DynamoDB backend that
+now holds state for the entire live stack (VPC, EC2, RDS, S3, IAM,
+OIDC, SSM params), so future task runs no longer have to re-import.
 
 ### Trigger a deploy
 
@@ -431,6 +432,105 @@ aws ssm send-command --region eu-west-1 \
     "sudo docker compose -f /opt/atmemly/app/infra/aws/docker-compose.prod.yml up -d --force-recreate api-server"
   ]'
 ```
+
+## Remote Terraform state
+
+Terraform state for the live `eu-west-1` stack lives in an encrypted,
+versioned S3 bucket with DynamoDB locking. The configuration is pinned
+in `infra/aws/terraform/providers.tf` (see the `backend "s3"` block);
+operators do not need to pass `-backend-config=…` flags.
+
+| Item                | Value                                              |
+| ------------------- | -------------------------------------------------- |
+| Backend             | `s3`                                               |
+| Bucket              | `atmemly-tfstate-670687146435`                     |
+| State key           | `atmemly/prod/terraform.tfstate`                   |
+| Region              | `eu-west-1`                                        |
+| Encryption          | SSE-S3 (AES256), bucket-keys on; `encrypt = true`  |
+| Versioning          | Enabled (every state push is a new object version) |
+| Public access       | All four block-public-access flags ON              |
+| Lock table          | DynamoDB `atmemly-tfstate-locks` (PK `LockID`, on-demand) |
+
+The bucket and table are **bootstrap resources** — created once via
+direct `aws` CLI calls (since Terraform itself needs them to exist
+before `terraform init`), and tagged `Project=atmemly` /
+`Purpose=terraform-state`. They are intentionally **not** declared in
+the Terraform config that uses them; managing them inside their own
+state would be a chicken-and-egg problem. If you ever need to recreate
+the backend from scratch:
+
+```bash
+BUCKET=atmemly-tfstate-670687146435
+TABLE=atmemly-tfstate-locks
+aws s3api create-bucket --bucket "$BUCKET" --region eu-west-1 \
+  --create-bucket-configuration LocationConstraint=eu-west-1
+aws s3api put-bucket-versioning --bucket "$BUCKET" \
+  --versioning-configuration Status=Enabled
+aws s3api put-bucket-encryption --bucket "$BUCKET" \
+  --server-side-encryption-configuration \
+  '{"Rules":[{"ApplyServerSideEncryptionByDefault":{"SSEAlgorithm":"AES256"},"BucketKeyEnabled":true}]}'
+aws s3api put-public-access-block --bucket "$BUCKET" \
+  --public-access-block-configuration \
+  'BlockPublicAcls=true,IgnorePublicAcls=true,BlockPublicPolicy=true,RestrictPublicBuckets=true'
+aws dynamodb create-table --table-name "$TABLE" --region eu-west-1 \
+  --attribute-definitions AttributeName=LockID,AttributeType=S \
+  --key-schema AttributeName=LockID,KeyType=HASH \
+  --billing-mode PAY_PER_REQUEST
+```
+
+### Day-to-day usage
+
+```bash
+cd infra/aws/terraform
+terraform init                                                  # picks up backend automatically
+terraform plan  -var github_owner=ayahya1983 -var github_repo=Atmemly
+terraform apply -var github_owner=ayahya1983 -var github_repo=Atmemly
+```
+
+A clean `terraform plan` against the current live stack reports
+**`No changes. Your infrastructure matches the configuration.`** —
+the entire stack (VPC, IGW, subnets, route tables + associations,
+security groups, EC2 + EIP + key pair, RDS + subnet group,
+S3 + PAB + versioning + SSE, IAM EC2 role / instance profile / inline
+policy / SSM-core attachment, GitHub OIDC provider + role + policy,
+all `/atmemly/*` SSM parameters, `random_password.db` /
+`random_password.session_secret`, `random_id.bucket_suffix`) was
+imported into this remote state and is now under Terraform management.
+
+### Drift suppression after import
+
+A handful of attributes can never round-trip cleanly from a
+post-creation `terraform import` (AWS does not return them on read,
+or the import API doesn't capture them), so the live config carries
+explicit `lifecycle { ignore_changes = […] }` blocks to keep
+`terraform plan` quiet. None of these mask configuration drift you
+actually care about; each is documented inline in the `.tf` file:
+
+| Resource                                  | Ignored attributes                       | Why |
+| ----------------------------------------- | ---------------------------------------- | --- |
+| `aws_instance.app`                        | `ami`, `user_data`, `user_data_replace_on_change` | Ubuntu data source rolls forward; cloud-init template has been edited; `user_data_replace_on_change` is plan-only and not stored in state. To roll any of these, `terraform taint aws_instance.app` then apply. |
+| `aws_key_pair.main`                       | `public_key`                             | AWS does not return public_key on read; the fingerprint is checked instead. `var.ssh_public_key` is pinned to the existing key in `variables.tf`. |
+| `aws_db_instance.main`                    | `password`, `apply_immediately`          | Both are write-only on RDS. Password matches `random_password.db.result`, which is itself frozen below. |
+| `aws_ssm_parameter.{db_password,database_url,session_secret,jwt_secret}` | `value`, `version` | SSM does not return SecureString values on read; without ignore the plan would always rewrite them and bump `version`. |
+| `random_password.db`                      | `all`                                    | Realised value lives in `/atmemly/DB_PASSWORD` and on the RDS instance; regenerating would break the DB. |
+| `random_password.session_secret`          | `all`                                    | Realised value lives in `/atmemly/SESSION_SECRET` (and is reused for `JWT_SECRET`); regenerating would log every user out. |
+
+`var.ssh_public_key` defaults to the public half of the existing
+`atmemly-key` keypair so operators can run `terraform plan` without
+needing the private `.pem` (which is not in this repo). The TLS /
+local-file resources that originally generated the keypair stay at
+`count = 0` whenever `ssh_public_key` is non-empty.
+
+### Bootstrap resources (out-of-band, not in state)
+
+| Resource                                   | ARN / name                                                     |
+| ------------------------------------------ | -------------------------------------------------------------- |
+| State S3 bucket                            | `arn:aws:s3:::atmemly-tfstate-670687146435`                    |
+| State lock DynamoDB table                  | `arn:aws:dynamodb:eu-west-1:670687146435:table/atmemly-tfstate-locks` |
+
+Do **not** add these to Terraform config — losing the state that
+manages your state bucket is exactly the failure mode this remote
+backend exists to prevent.
 
 ## Teardown
 

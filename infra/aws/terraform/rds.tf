@@ -7,6 +7,15 @@ resource "aws_db_subnet_group" "main" {
 resource "random_password" "db" {
   length  = 32
   special = false
+
+  # The realised value lives in /atmemly/DB_PASSWORD (SecureString) and on
+  # the running RDS instance. `terraform import random_password.db <value>`
+  # captures `result` but not the generation parameters, so any plan would
+  # otherwise want to regenerate (which would change the DB password and
+  # break the running app). Keep the existing value frozen.
+  lifecycle {
+    ignore_changes = all
+  }
 }
 
 resource "aws_ssm_parameter" "db_password" {
@@ -14,6 +23,13 @@ resource "aws_ssm_parameter" "db_password" {
   description = "RDS Postgres password for ${var.project}"
   type        = "SecureString"
   value       = random_password.db.result
+
+  # SSM does not return SecureString values on read, so plan would always
+  # show drift on `value` and bump `version`. The live value is already in
+  # SSM (and matches random_password.db.result, which is now frozen above).
+  lifecycle {
+    ignore_changes = [value, version]
+  }
 }
 
 resource "aws_db_instance" "main" {
@@ -40,6 +56,15 @@ resource "aws_db_instance" "main" {
   apply_immediately       = true
 
   tags = { Name = "${var.project}-db" }
+
+  # `password` is write-only on AWS — never returned on read, so plan always
+  # shows it as needing to be set after import. `apply_immediately` is also
+  # not surfaced by RDS describe calls. Both are no-ops on subsequent applies
+  # (the password matches what's already on the instance via random_password
+  # being frozen with ignore_changes=all).
+  lifecycle {
+    ignore_changes = [password, apply_immediately]
+  }
 }
 
 locals {
@@ -51,23 +76,42 @@ resource "aws_ssm_parameter" "database_url" {
   description = "ATMEMLY DATABASE_URL"
   type        = "SecureString"
   value       = local.database_url
+
+  lifecycle {
+    ignore_changes = [value, version]
+  }
 }
 
 resource "random_password" "session_secret" {
   length  = 64
   special = false
+
+  # Same rationale as random_password.db: the realised value already lives
+  # in /atmemly/SESSION_SECRET (and is reused for /atmemly/JWT_SECRET).
+  # Regenerating would log every user out and invalidate every JWT.
+  lifecycle {
+    ignore_changes = all
+  }
 }
 
 resource "aws_ssm_parameter" "session_secret" {
   name  = "/${var.project}/SESSION_SECRET"
   type  = "SecureString"
   value = random_password.session_secret.result
+
+  lifecycle {
+    ignore_changes = [value, version]
+  }
 }
 
 resource "aws_ssm_parameter" "jwt_secret" {
   name  = "/${var.project}/JWT_SECRET"
   type  = "SecureString"
   value = random_password.session_secret.result
+
+  lifecycle {
+    ignore_changes = [value, version]
+  }
 }
 
 resource "aws_ssm_parameter" "node_env" {
