@@ -166,6 +166,15 @@ extract_static artifacts/admin atmemly_admin_static /admin/
 PNPM_STORE_DIR=${PNPM_STORE_DIR:-/opt/atmemly/.pnpm-store}
 sudo mkdir -p "${PNPM_STORE_DIR}"
 
+# Shared pnpm content-addressable store on the host. Mounting this into
+# the one-off node containers below means successive deploys reuse the
+# downloaded package tarballs instead of refetching every dep from the
+# registry, which is the slowest part of a no-source-change deploy.
+# cloud-init creates this on first boot, but mkdir -p here keeps older
+# hosts (provisioned before this change) working too.
+PNPM_STORE_DIR=${PNPM_STORE_DIR:-/opt/atmemly/.pnpm-store}
+sudo mkdir -p "${PNPM_STORE_DIR}"
+
 echo "==> Pushing database schema (drizzle-kit push)"
 # NOTE: --env NODE_ENV=development must come AFTER --env-file so it
 # overrides the production value baked into /opt/atmemly/.env. With

@@ -44,7 +44,7 @@ jobs:
           [[ "${missing}" == "0" ]]
 
       - name: Configure AWS credentials (OIDC)
-        uses: aws-actions/configure-aws-credentials@v4
+        uses: aws-actions/configure-aws-credentials@v6
         with:
           role-to-assume: ${{ env.DEPLOY_ROLE_ARN }}
           role-session-name: github-actions-deploy-${{ github.run_id }}
@@ -71,15 +71,23 @@ jobs:
           CMD_ID: ${{ steps.send.outputs.command_id }}
         run: |
           set -euo pipefail
-          aws ssm wait command-executed \
-            --command-id "${CMD_ID}" \
-            --instance-id "${EC2_INSTANCE_ID}" \
-          || true
-
-          STATUS=$(aws ssm get-command-invocation \
-            --command-id "${CMD_ID}" \
-            --instance-id "${EC2_INSTANCE_ID}" \
-            --query "Status" --output text)
+          # `aws ssm wait command-executed` only polls ~20 attempts × 5s
+          # (~100s) with no override knob, so on a t3.small a normal
+          # deploy.sh run (docker build + drizzle push + healthz wait)
+          # always exceeds it and the step false-fails with status
+          # "InProgress". Roll our own bounded poller instead.
+          DEADLINE=$((SECONDS + 1800))   # 30 min hard cap
+          STATUS="Pending"
+          while (( SECONDS < DEADLINE )); do
+            STATUS=$(aws ssm get-command-invocation \
+              --command-id "${CMD_ID}" \
+              --instance-id "${EC2_INSTANCE_ID}" \
+              --query "Status" --output text 2>/dev/null || echo "Pending")
+            case "${STATUS}" in
+              Success|Failed|Cancelled|TimedOut) break ;;
+            esac
+            sleep 15
+          done
 
           echo "::group::SSM stdout"
           aws ssm get-command-invocation \
