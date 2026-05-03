@@ -20,6 +20,9 @@ export const notificationsTable = pgTable(
   (t) => ({
     userIdx: index("notifications_user_idx").on(t.userId),
     userReadIdx: index("notifications_user_read_idx").on(t.userId, t.read),
+    // ATMEMLY audit (May 2026) — notification feed always orders newest-first
+    // per user; this composite serves the bell-icon and inbox queries.
+    userCreatedIdx: index("notifications_user_created_idx").on(t.userId, t.createdAt),
   }),
 );
 

@@ -28,6 +28,9 @@ export const milestonesTable = pgTable(
   (t) => ({
     contractIdx: index("milestones_contract_idx").on(t.contractId),
     statusIdx: index("milestones_status_idx").on(t.status),
+    // ATMEMLY audit (May 2026) — admin/contract views filter milestones by
+    // (contract, status); composite avoids re-scans.
+    contractStatusIdx: index("milestones_contract_status_idx").on(t.contractId, t.status),
   }),
 );
 

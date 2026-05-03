@@ -27,6 +27,9 @@ export const proposalsTable = pgTable(
     freelancerIdx: index("proposals_freelancer_idx").on(t.freelancerId),
     statusIdx: index("proposals_status_idx").on(t.status),
     deletedIdx: index("proposals_deleted_idx").on(t.deletedAt),
+    // ATMEMLY audit (May 2026) — "show me pending proposals on job X" is the
+    // hottest path for both the client dashboard and admin moderation queue.
+    jobStatusIdx: index("proposals_job_status_idx").on(t.jobId, t.status),
   }),
 );
 

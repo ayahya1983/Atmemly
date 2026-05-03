@@ -30,6 +30,9 @@ export const usersTable = pgTable(
   (t) => ({
     statusIdx: index("users_status_idx").on(t.status),
     deletedIdx: index("users_deleted_idx").on(t.deletedAt),
+    // ATMEMLY audit (May 2026) — admin people pages always filter by role
+    // (client / freelancer / admin) and order by createdAt DESC.
+    roleCreatedIdx: index("users_role_created_idx").on(t.role, t.createdAt),
   }),
 );
 

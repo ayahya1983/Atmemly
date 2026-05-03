@@ -1,6 +1,6 @@
-# Khidma — UAE Freelance Marketplace
+# ATMEMLY — UAE Freelance Marketplace
 
-Khidma is a multi-artifact pnpm monorepo containing:
+ATMEMLY is a multi-artifact pnpm monorepo containing:
 
 | Artifact            | Path                          | Stack                      |
 | ------------------- | ----------------------------- | -------------------------- |
@@ -33,7 +33,12 @@ Workflows (not `pnpm dev`) start each service. The shared proxy on
 The May 2026 audit added a set of safe, non-breaking hardening passes
 across the database, backend and frontend. None of the public API
 contracts changed; only response timing/headers and a few new optional
-columns / opt-in features moved.
+columns / opt-in features moved. A second, ATMEMLY-branded enterprise
+audit pass (also May 2026) layered additional hardening on top — see
+`docs/ATMEMLY-architecture-audit.md` for the full report covering
+financial integrity guards, idempotency, structured logging with
+request IDs, env validation, admin pagination/filter/CSV coverage,
+and the N+1 fix in `/admin/clients`.
 
 ### Database (`lib/db`)
 

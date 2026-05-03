@@ -1,14 +1,14 @@
-# Khidma — UAE/GCC Bilingual Freelance Marketplace
+# ATMEMLY — UAE/GCC Bilingual Freelance Marketplace
 
 ## Overview
-Khidma is a bilingual (English/Arabic) freelance marketplace MVP tailored for the UAE and wider GCC region. Inspired by atmemli.com, it aims to connect freelancers with clients, facilitating job postings, proposals, contracts, and payments. The platform supports a full freelance lifecycle including user authentication, profiles, job management, payment processing with escrow, real-time chat, and an administrative panel for platform management. The project emphasizes a robust, scalable architecture with a strong focus on security, performance, and localization for the regional market. Future ambitions include advanced analytics, refined matching algorithms, and comprehensive mobile API support.
+ATMEMLY is a bilingual (English/Arabic) freelance marketplace MVP tailored for the UAE and wider GCC region. Inspired by atmemli.com, it aims to connect freelancers with clients, facilitating job postings, proposals, contracts, and payments. The platform supports a full freelance lifecycle including user authentication, profiles, job management, payment processing with escrow, real-time chat, and an administrative panel for platform management. The project emphasizes a robust, scalable architecture with a strong focus on security, performance, and localization for the regional market. Future ambitions include advanced analytics, refined matching algorithms, and comprehensive mobile API support.
 
 ## User Preferences
 I prefer to work with a coding agent that provides detailed explanations and asks for confirmation before making major architectural changes. I am open to iterative development. I prefer a communication style that is direct and uses clear, precise language. I appreciate it when the agent focuses on delivering solutions that align with the project's high-level goals and business vision.
 
 ## System Architecture
 
-Khidma operates as a monorepo utilizing pnpm workspaces, comprising an Express.js TypeScript API, a React.js Vite frontend for the marketplace, and a design preview sandbox. The architecture is built upon shared libraries for database management (Drizzle ORM with PostgreSQL), API specification (OpenAPI), Zod schema validation, and React Query hooks for frontend API interaction.
+ATMEMLY operates as a monorepo utilizing pnpm workspaces, comprising an Express.js TypeScript API, a React.js Vite frontend for the marketplace, and a design preview sandbox. The architecture is built upon shared libraries for database management (Drizzle ORM with PostgreSQL), API specification (OpenAPI), Zod schema validation, and React Query hooks for frontend API interaction.
 
 **Technical Implementations & Design Choices:**
 - **Backend:** Express.js, TypeScript, JWT for authentication, bcrypt for password hashing, Drizzle ORM, PostgreSQL, Pino logger.

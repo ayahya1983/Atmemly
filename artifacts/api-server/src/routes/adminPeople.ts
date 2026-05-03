@@ -1,6 +1,6 @@
 import { Router, type IRouter } from "express";
 import { z } from "zod";
-import { eq, sql, and, ilike, or, desc } from "drizzle-orm";
+import { eq, sql, and, ilike, or, desc, inArray } from "drizzle-orm";
 import {
   db,
   usersTable,
@@ -236,25 +236,38 @@ router.get(
       .orderBy(desc(usersTable.createdAt))
       .limit(f.limit)
       .offset(f.offset);
-    const items = await Promise.all(
-      rows.map(async ({ u, p }) => {
-        const [spend] = await db
-          .select({ s: sql<string>`coalesce(sum(amount),0)::text` })
-          .from(paymentsTable)
-          .where(and(eq(paymentsTable.payerId, u.id), eq(paymentsTable.status, "succeeded")));
-        return {
-          userId: u.id,
-          email: u.email,
-          fullName: u.fullName,
-          status: u.status,
-          companyName: p?.companyName ?? null,
-          verificationStatus: p?.verificationStatus ?? "not_submitted",
-          qualityScore: p?.qualityScore ?? 0,
-          totalSpend: Number(spend?.s ?? 0),
-          createdAt: u.createdAt,
-        };
-      }),
-    );
+    // ATMEMLY architecture audit (May 2026) — eliminate N+1: previously this
+    // ran one COUNT per user-row to compute totalSpend. Now we issue a single
+    // grouped SUM over the visible page's payerIds.
+    const userIds = rows.map((r) => r.u.id);
+    const spendMap = new Map<number, number>();
+    if (userIds.length > 0) {
+      const sums = await db
+        .select({
+          payerId: paymentsTable.payerId,
+          total: sql<string>`coalesce(sum(${paymentsTable.amount}),0)::text`,
+        })
+        .from(paymentsTable)
+        .where(
+          and(
+            inArray(paymentsTable.payerId, userIds),
+            eq(paymentsTable.status, "succeeded"),
+          ),
+        )
+        .groupBy(paymentsTable.payerId);
+      for (const s of sums) spendMap.set(s.payerId, Number(s.total ?? 0));
+    }
+    const items = rows.map(({ u, p }) => ({
+      userId: u.id,
+      email: u.email,
+      fullName: u.fullName,
+      status: u.status,
+      companyName: p?.companyName ?? null,
+      verificationStatus: p?.verificationStatus ?? "not_submitted",
+      qualityScore: p?.qualityScore ?? 0,
+      totalSpend: spendMap.get(u.id) ?? 0,
+      createdAt: u.createdAt,
+    }));
     res.json({ total, limit: f.limit, offset: f.offset, items });
   },
 );

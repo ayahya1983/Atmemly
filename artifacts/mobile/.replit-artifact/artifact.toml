@@ -1,6 +1,6 @@
 kind = "mobile"
 previewPath = "/mobile/"
-title = "Khidma Mobile"
+title = "ATMEMLY Mobile"
 version = "1.0.0"
 id = "artifacts/mobile"
 router = "expo-domain"

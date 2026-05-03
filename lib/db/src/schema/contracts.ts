@@ -41,6 +41,9 @@ export const contractsTable = pgTable(
     jobIdx: index("contracts_job_idx").on(t.jobId),
     statusIdx: index("contracts_status_idx").on(t.status),
     proposalUnique: uniqueIndex("contracts_proposal_unique").on(t.proposalId),
+    // ATMEMLY audit (May 2026) — admin contract list orders by createdAt DESC
+    // and filters by status; composite avoids the sort + scan.
+    statusCreatedIdx: index("contracts_status_created_idx").on(t.status, t.createdAt),
   }),
 );
 
