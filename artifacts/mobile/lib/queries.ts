@@ -8,6 +8,9 @@ import {
   useCreateProposal as useGenCreateProposal,
   useListConversations as useGenListConversations,
   useListNotifications as useGenListNotifications,
+  useListSavedJobs as useGenListSavedJobs,
+  useSaveJob as useGenSaveJob,
+  useUnsaveJob as useGenUnsaveJob,
   getJob,
   getFreelancer,
   listProposals,
@@ -126,6 +129,35 @@ export function useCreateProposal() {
   return useGenCreateProposal({
     mutation: {
       onSuccess: () => qc.invalidateQueries({ queryKey: ["/api/proposals"] }),
+    },
+  });
+}
+
+// ===== Saved jobs =====
+export function useSavedJobs() {
+  return useGenListSavedJobs();
+}
+
+export function useSaveJob() {
+  const qc = useQueryClient();
+  return useGenSaveJob({
+    mutation: {
+      onSuccess: () => {
+        qc.invalidateQueries({ queryKey: ["/api/jobs"] });
+        qc.invalidateQueries({ queryKey: ["/api/saved-jobs"] });
+      },
+    },
+  });
+}
+
+export function useUnsaveJob() {
+  const qc = useQueryClient();
+  return useGenUnsaveJob({
+    mutation: {
+      onSuccess: () => {
+        qc.invalidateQueries({ queryKey: ["/api/jobs"] });
+        qc.invalidateQueries({ queryKey: ["/api/saved-jobs"] });
+      },
     },
   });
 }

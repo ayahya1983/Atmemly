@@ -118,7 +118,7 @@ export function FreelancerCard({
   return (
     <Card onPress={onPress} style={{ gap: 10 }}>
       <View style={rowStyle(isRTL)}>
-        <Avatar name={name} />
+        <Avatar name={name} uri={freelancer.avatarUrl} />
         <View style={{ flex: 1 }}>
           <Text
             numberOfLines={1}
@@ -143,6 +143,28 @@ export function FreelancerCard({
             >
               {freelancer.headline}
             </Text>
+          ) : null}
+          {freelancer.location ? (
+            <View
+              style={{
+                flexDirection: isRTL ? "row-reverse" : "row",
+                alignItems: "center",
+                gap: 4,
+                marginTop: 2,
+              }}
+            >
+              <Ionicons name="location-outline" size={11} color={c.mutedForeground} />
+              <Text
+                numberOfLines={1}
+                style={{
+                  color: c.mutedForeground,
+                  fontSize: 11,
+                  fontFamily: "Inter_400Regular",
+                }}
+              >
+                {freelancer.location}
+              </Text>
+            </View>
           ) : null}
         </View>
       </View>
@@ -178,7 +200,7 @@ export function FreelancerCard({
               fontSize: 13,
             }}
           >
-            {formatCurrency(freelancer.hourlyRate, lang)}/{t("hourly")}
+            {formatCurrency(freelancer.hourlyRate, lang)}/{t("rate")}
           </Text>
         ) : null}
       </View>
