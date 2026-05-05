@@ -13,6 +13,7 @@ import {
   LoadingState,
 } from "@/components/ui";
 import { useColors } from "@/hooks/useColors";
+import { ApiError, api } from "@/lib/api";
 import { useAuth } from "@/lib/auth";
 import { formatCurrency } from "@/lib/format";
 import { useI18n } from "@/lib/i18n";
@@ -26,11 +27,12 @@ export default function FreelancerDetailScreen() {
   const fl = useFreelancer(id);
   const { user } = useAuth();
   const [contactError, setContactError] = React.useState<string | null>(null);
+  const [contactBusy, setContactBusy] = React.useState(false);
 
   const isClient = user?.role === "client";
   const isOwnProfile = user?.id === Number(id);
 
-  const onMessage = () => {
+  const onMessage = async () => {
     setContactError(null);
     if (!user) {
       router.push("/(auth)/login");
@@ -40,7 +42,20 @@ export default function FreelancerDetailScreen() {
       setContactError(t("onlyClientsCanMessage"));
       return;
     }
-    router.push("/(tabs)/messages");
+    setContactBusy(true);
+    try {
+      const conv = await api<{ id: number }>("/conversations", {
+        method: "POST",
+        body: { otherUserId: Number(id) },
+      });
+      router.push(`/conversations/${conv.id}`);
+    } catch (e) {
+      setContactError(
+        e instanceof ApiError ? e.message : (e as Error).message,
+      );
+    } finally {
+      setContactBusy(false);
+    }
   };
 
   if (fl.isLoading) return <LoadingState />;
@@ -308,7 +323,12 @@ export default function FreelancerDetailScreen() {
               {contactError}
             </Text>
           ) : null}
-          <Button label={t("contact")} icon="chatbubble-outline" onPress={onMessage} />
+          <Button
+            label={t("contact")}
+            icon="chatbubble-outline"
+            onPress={onMessage}
+            loading={contactBusy}
+          />
         </View>
       ) : null}
     </>
