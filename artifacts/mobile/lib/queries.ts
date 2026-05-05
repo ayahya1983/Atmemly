@@ -158,12 +158,17 @@ export function useMyProposals() {
   });
 }
 
-export function useJobProposals(jobId: number | string | undefined) {
+export function useJobProposals(
+  jobId: number | string | undefined,
+  options?: { enabled?: boolean },
+) {
   const numId = typeof jobId === "string" ? Number(jobId) : jobId;
+  const idOk = numId !== undefined && Number.isFinite(numId) && numId > 0;
+  const callerEnabled = options?.enabled ?? true;
   return useQuery({
     queryKey: ["/api/proposals", { jobId: numId }],
     queryFn: () => listProposals({ jobId: numId }),
-    enabled: numId !== undefined && Number.isFinite(numId) && numId > 0,
+    enabled: idOk && callerEnabled,
   });
 }
 

@@ -53,17 +53,19 @@ export default function JobApplicantsScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const jobId = Number(id);
   const job = useJob(jobId);
-  const proposals = useJobProposals(jobId);
-  const updateStatus = useUpdateProposalStatus();
-  const completeJob = useCompleteJob();
-  const createPayment = useCreatePaymentIntent();
-  const createReview = useCreateReview();
-
   const isOwner =
     !!user &&
     user.role === "client" &&
     job.data != null &&
     job.data.clientId === user.id;
+  // Gate the proposals fetch on owner authorization to avoid issuing
+  // privileged data requests before the client-side guard is satisfied.
+  // The server still enforces ownership; this prevents pre-guard fetching.
+  const proposals = useJobProposals(jobId, { enabled: isOwner });
+  const updateStatus = useUpdateProposalStatus();
+  const completeJob = useCompleteJob();
+  const createPayment = useCreatePaymentIntent();
+  const createReview = useCreateReview();
 
   const [paymentTarget, setPaymentTarget] = useState<ProposalDetail | null>(
     null,
