@@ -223,6 +223,14 @@ const dict: Dict = {
     ar: "غير مصرح لك بعرض هذه الصفحة.",
     en: "You don't have access to this page.",
   },
+  demoAccounts: { ar: "حسابات تجريبية", en: "Demo accounts" },
+  demoAccountsHint: {
+    ar: "اضغط لتعبئة بيانات الدخول التلقائي",
+    en: "Tap to autofill credentials",
+  },
+  demoClient: { ar: "تجربة كعميل", en: "Sign in as client" },
+  demoFreelancer: { ar: "تجربة كمستقل", en: "Sign in as freelancer" },
+  demoAdmin: { ar: "تجربة كمدير", en: "Sign in as admin" },
   // Common
   comma: { ar: "،", en: "," },
 };

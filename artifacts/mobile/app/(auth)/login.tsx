@@ -20,24 +20,59 @@ export default function LoginScreen() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
 
-  const onSubmit = async () => {
+  const onSubmit = async (overrideEmail?: string, overridePassword?: string) => {
     setError(null);
-    if (!email || !password) {
+    const e = (overrideEmail ?? email).trim();
+    const p = overridePassword ?? password;
+    if (!e || !p) {
       setError(t("required"));
       return;
     }
     try {
-      await login(email.trim(), password);
+      await login(e, p);
       router.replace("/(tabs)");
-    } catch (e) {
+    } catch (err) {
       const msg =
-        e instanceof ApiError
-          ? e.message
-          : e instanceof Error
-          ? e.message
+        err instanceof ApiError
+          ? err.message
+          : err instanceof Error
+          ? err.message
           : "Login failed";
       setError(msg);
     }
+  };
+
+  const demoAccounts: Array<{
+    email: string;
+    password: string;
+    labelKey: "demoClient" | "demoFreelancer" | "demoAdmin";
+    icon: keyof typeof Ionicons.glyphMap;
+  }> = [
+    {
+      email: "noor@atmemly.com",
+      password: "client1234",
+      labelKey: "demoClient",
+      icon: "briefcase-outline",
+    },
+    {
+      email: "layla@atmemly.com",
+      password: "freelancer1234",
+      labelKey: "demoFreelancer",
+      icon: "color-palette-outline",
+    },
+    {
+      email: "admin@atmemly.com",
+      password: "admin1234",
+      labelKey: "demoAdmin",
+      icon: "shield-checkmark-outline",
+    },
+  ];
+
+  const fillDemo = (acc: { email: string; password: string }) => {
+    setEmail(acc.email);
+    setPassword(acc.password);
+    setError(null);
+    void onSubmit(acc.email, acc.password);
   };
 
   return (
@@ -130,8 +165,99 @@ export default function LoginScreen() {
           </Text>
         </Pressable>
         <View style={{ marginTop: 16 }}>
-          <Button label={t("login")} onPress={onSubmit} loading={loading} />
+          <Button
+            label={t("login")}
+            onPress={() => void onSubmit()}
+            loading={loading}
+          />
         </View>
+
+        {/* Demo accounts quick-fill */}
+        <View
+          style={{
+            marginTop: 16,
+            padding: 14,
+            borderRadius: c.radius,
+            borderWidth: 1,
+            borderColor: c.border,
+            backgroundColor: c.surface,
+            gap: 10,
+          }}
+        >
+          <View>
+            <Text
+              style={{
+                color: c.foreground,
+                fontFamily: "Inter_700Bold",
+                fontSize: 13,
+                textAlign: isRTL ? "right" : "left",
+              }}
+            >
+              {t("demoAccounts")}
+            </Text>
+            <Text
+              style={{
+                color: c.mutedForeground,
+                fontFamily: "Inter_400Regular",
+                fontSize: 12,
+                marginTop: 2,
+                textAlign: isRTL ? "right" : "left",
+              }}
+            >
+              {t("demoAccountsHint")}
+            </Text>
+          </View>
+          {demoAccounts.map((acc) => (
+            <Pressable
+              key={acc.email}
+              onPress={() => fillDemo(acc)}
+              disabled={loading}
+              style={({ pressed }) => ({
+                flexDirection: isRTL ? "row-reverse" : "row",
+                alignItems: "center",
+                gap: 10,
+                paddingVertical: 10,
+                paddingHorizontal: 12,
+                borderRadius: c.radius,
+                backgroundColor: pressed ? c.accent : c.background,
+                borderWidth: 1,
+                borderColor: c.border,
+                opacity: loading ? 0.6 : 1,
+              })}
+            >
+              <Ionicons name={acc.icon} size={18} color={c.primary} />
+              <View style={{ flex: 1 }}>
+                <Text
+                  style={{
+                    color: c.foreground,
+                    fontFamily: "Inter_600SemiBold",
+                    fontSize: 13,
+                    textAlign: isRTL ? "right" : "left",
+                  }}
+                >
+                  {t(acc.labelKey)}
+                </Text>
+                <Text
+                  style={{
+                    color: c.mutedForeground,
+                    fontFamily: "Inter_400Regular",
+                    fontSize: 11,
+                    marginTop: 1,
+                    textAlign: isRTL ? "right" : "left",
+                  }}
+                >
+                  {acc.email}
+                </Text>
+              </View>
+              <Ionicons
+                name={isRTL ? "chevron-back" : "chevron-forward"}
+                size={16}
+                color={c.mutedForeground}
+              />
+            </Pressable>
+          ))}
+        </View>
+
         <SsoButtons />
         <View
           style={{

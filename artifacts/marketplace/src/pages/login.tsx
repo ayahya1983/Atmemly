@@ -4,21 +4,47 @@ import * as z from "zod";
 import { useLogin, LoginBody } from "@workspace/api-client-react";
 import { useAuth } from "@/contexts/AuthContext";
 import { useLocation, Link } from "wouter";
-import { useTranslation } from "@/lib/i18n";
+import { useTranslation, useI18nStore } from "@/lib/i18n";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { Logo } from "@/components/ui/logo";
-import { Loader2 } from "lucide-react";
+import { Loader2, Briefcase, Palette, ShieldCheck } from "lucide-react";
 import { SsoButtons } from "@/components/SsoButtons";
+
+const DEMO_ACCOUNTS = [
+  {
+    email: "noor@atmemly.com",
+    password: "client1234",
+    label: "Sign in as client",
+    labelAr: "تجربة كعميل",
+    Icon: Briefcase,
+  },
+  {
+    email: "layla@atmemly.com",
+    password: "freelancer1234",
+    label: "Sign in as freelancer",
+    labelAr: "تجربة كمستقل",
+    Icon: Palette,
+  },
+  {
+    email: "admin@atmemly.com",
+    password: "admin1234",
+    label: "Sign in as admin",
+    labelAr: "تجربة كمدير",
+    Icon: ShieldCheck,
+  },
+] as const;
 
 
 export default function Login() {
   const [, setLocation] = useLocation();
   const { login } = useAuth();
   const { t } = useTranslation();
+  const lang = useI18nStore((s) => s.lang);
+  const isAr = lang === "ar";
   const { toast } = useToast();
 
   const loginSchema = z.object({
@@ -62,6 +88,12 @@ export default function Login() {
 
   const onSubmit = (data: LoginBody) => {
     loginMutation.mutate({ data });
+  };
+
+  const fillDemo = (acc: { email: string; password: string }) => {
+    form.setValue("email", acc.email);
+    form.setValue("password", acc.password);
+    loginMutation.mutate({ data: { email: acc.email, password: acc.password } });
   };
 
   return (
@@ -108,6 +140,42 @@ export default function Login() {
               </Button>
             </form>
           </Form>
+
+          <div className="mt-6 rounded-lg border border-border bg-muted/30 p-4">
+            <div className="mb-3">
+              <p className="text-sm font-semibold text-foreground">
+                {isAr ? "حسابات تجريبية" : "Demo accounts"}
+              </p>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                {isAr ? "اضغط لتسجيل الدخول مباشرة" : "Tap to sign in instantly"}
+              </p>
+            </div>
+            <div className="space-y-2">
+              {DEMO_ACCOUNTS.map((acc) => {
+                const Icon = acc.Icon;
+                return (
+                  <button
+                    key={acc.email}
+                    type="button"
+                    onClick={() => fillDemo(acc)}
+                    disabled={loginMutation.isPending}
+                    className="w-full flex items-center gap-3 rounded-md border border-border bg-background px-3 py-2.5 text-left hover:bg-accent transition-colors disabled:opacity-60 disabled:cursor-not-allowed"
+                  >
+                    <Icon className="h-4 w-4 text-primary shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-foreground truncate">
+                        {isAr ? acc.labelAr : acc.label}
+                      </p>
+                      <p className="text-xs text-muted-foreground truncate">
+                        {acc.email}
+                      </p>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
           <div className="mt-6"><SsoButtons /></div>
         </CardContent>
         <CardFooter className="flex justify-center border-t p-6">
