@@ -11,8 +11,15 @@ import {
   useListSavedJobs as useGenListSavedJobs,
   useSaveJob as useGenSaveJob,
   useUnsaveJob as useGenUnsaveJob,
+  useUpdateFreelancerProfile as useGenUpdateFreelancerProfile,
+  useUpdateClientProfile as useGenUpdateClientProfile,
+  useUpdateProposalStatus as useGenUpdateProposalStatus,
+  useCreatePaymentIntent as useGenCreatePaymentIntent,
+  useCompleteJob as useGenCompleteJob,
+  useCreateReview as useGenCreateReview,
   getJob,
   getFreelancer,
+  getClient,
   listProposals,
   listMessages,
   sendMessage,
@@ -23,6 +30,7 @@ import {
   type CreateJobBody,
   type FreelancerCard,
   type FreelancerDetail,
+  type ClientDetail,
   type Proposal,
   type ProposalDetail,
   type CreateProposalBody,
@@ -43,12 +51,14 @@ export type {
   CreateJobBody,
   FreelancerCard,
   FreelancerDetail,
+  ClientDetail,
   Proposal,
   ProposalDetail,
   CreateProposalBody,
   ConversationSummary,
   Message,
   Notification,
+  ListJobsParams,
 };
 
 export type Payment = {
@@ -107,6 +117,39 @@ export function useFreelancer(id: number | string | undefined) {
   });
 }
 
+export function useClient(id: number | string | undefined) {
+  const numId = typeof id === "string" ? Number(id) : id;
+  return useQuery({
+    queryKey: ["/api/clients", numId],
+    queryFn: () => getClient(numId!),
+    enabled: numId !== undefined && Number.isFinite(numId) && numId > 0,
+  });
+}
+
+export function useUpdateFreelancerProfile() {
+  const qc = useQueryClient();
+  return useGenUpdateFreelancerProfile({
+    mutation: {
+      onSuccess: () => {
+        qc.invalidateQueries({ queryKey: ["/api/freelancers"] });
+        qc.invalidateQueries({ queryKey: ["/api/auth/me"] });
+      },
+    },
+  });
+}
+
+export function useUpdateClientProfile() {
+  const qc = useQueryClient();
+  return useGenUpdateClientProfile({
+    mutation: {
+      onSuccess: () => {
+        qc.invalidateQueries({ queryKey: ["/api/clients"] });
+        qc.invalidateQueries({ queryKey: ["/api/auth/me"] });
+      },
+    },
+  });
+}
+
 // ===== Proposals =====
 export function useMyProposals() {
   return useQuery({
@@ -129,6 +172,48 @@ export function useCreateProposal() {
   return useGenCreateProposal({
     mutation: {
       onSuccess: () => qc.invalidateQueries({ queryKey: ["/api/proposals"] }),
+    },
+  });
+}
+
+export function useUpdateProposalStatus() {
+  const qc = useQueryClient();
+  return useGenUpdateProposalStatus({
+    mutation: {
+      onSuccess: () => qc.invalidateQueries({ queryKey: ["/api/proposals"] }),
+    },
+  });
+}
+
+export function useCreatePaymentIntent() {
+  const qc = useQueryClient();
+  return useGenCreatePaymentIntent({
+    mutation: {
+      onSuccess: () => {
+        qc.invalidateQueries({ queryKey: ["payments"] });
+        qc.invalidateQueries({ queryKey: ["/api/jobs"] });
+      },
+    },
+  });
+}
+
+export function useCompleteJob() {
+  const qc = useQueryClient();
+  return useGenCompleteJob({
+    mutation: {
+      onSuccess: () => {
+        qc.invalidateQueries({ queryKey: ["/api/jobs"] });
+        qc.invalidateQueries({ queryKey: ["/api/proposals"] });
+      },
+    },
+  });
+}
+
+export function useCreateReview() {
+  const qc = useQueryClient();
+  return useGenCreateReview({
+    mutation: {
+      onSuccess: () => qc.invalidateQueries({ queryKey: ["/api/reviews"] }),
     },
   });
 }

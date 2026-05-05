@@ -52,7 +52,7 @@ export default function JobDetailScreen() {
 
   const isFreelancer = user?.role === "freelancer";
   const isClient = user?.role === "client";
-  const isOwner = user?.id === job.data?.clientId;
+  const isOwner = !!user && user.id === job.data?.clientId;
 
   const onSubmit = async () => {
     setError(null);
@@ -161,6 +161,8 @@ export default function JobDetailScreen() {
     lang === "ar" && j.categoryNameAr ? j.categoryNameAr : j.categoryNameEn;
   const showApply = isFreelancer && !isOwner;
   const showMessage = !!user && !isOwner && (isFreelancer || isClient);
+  const showApplicants = isOwner;
+  const proposalCount = j.proposalCount ?? 0;
 
   return (
     <>
@@ -169,7 +171,9 @@ export default function JobDetailScreen() {
         style={{ flex: 1, backgroundColor: c.background }}
         contentContainerStyle={{
           padding: 20,
-          paddingBottom: insets.bottom + (showApply || showMessage ? 100 : 24),
+          paddingBottom:
+            insets.bottom +
+            (showApply || showMessage || showApplicants ? 100 : 24),
           gap: 16,
         }}
       >
@@ -389,7 +393,7 @@ export default function JobDetailScreen() {
       </ScrollView>
 
       {/* Sticky CTA */}
-      {showApply || showMessage ? (
+      {showApply || showMessage || showApplicants ? (
         <View
           style={{
             position: "absolute",
@@ -448,6 +452,15 @@ export default function JobDetailScreen() {
           {showApply ? (
             <View style={{ flex: 1 }}>
               <Button label={t("applyNow")} onPress={onApply} />
+            </View>
+          ) : null}
+          {showApplicants ? (
+            <View style={{ flex: 1 }}>
+              <Button
+                label={`${t("viewApplicants")}${proposalCount ? ` (${proposalCount})` : ""}`}
+                icon="people-outline"
+                onPress={() => router.push(`/jobs/${id}/applicants`)}
+              />
             </View>
           ) : null}
         </View>

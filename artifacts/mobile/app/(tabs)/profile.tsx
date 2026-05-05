@@ -37,7 +37,7 @@ export default function ProfileScreen() {
       return;
     }
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      mediaTypes: ["images"],
       allowsEditing: true,
       aspect: [1, 1],
       quality: 0.8,
@@ -116,6 +116,11 @@ export default function ProfileScreen() {
   const isClient = user.role === "client";
 
   const rows: Row[] = [
+    {
+      icon: "create-outline",
+      label: t("editProfile"),
+      onPress: () => router.push("/edit-profile"),
+    },
     ...(isClient
       ? ([
           {
@@ -137,6 +142,11 @@ export default function ProfileScreen() {
             icon: "document-text-outline",
             label: t("myProposals"),
             onPress: () => router.push("/proposals"),
+          },
+          {
+            icon: "bookmark-outline",
+            label: t("savedJobs"),
+            onPress: () => router.push("/saved-jobs"),
           },
         ] as Row[])
       : []),

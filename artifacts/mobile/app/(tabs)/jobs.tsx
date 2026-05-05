@@ -23,11 +23,13 @@ export default function JobsScreen() {
   const c = useColors();
   const insets = useSafeAreaInsets();
   const { t, isRTL } = useI18n();
-  const params = useLocalSearchParams<{ category?: string }>();
+  const params = useLocalSearchParams<{ category?: string; mine?: string }>();
   const [q, setQ] = useState("");
+  const isMine = params.mine === "1" || params.mine === "true";
   const jobs = useJobs({
     q: q || undefined,
     category: params.category || undefined,
+    mine: isMine || undefined,
   });
 
   return (
@@ -42,7 +44,7 @@ export default function JobsScreen() {
             marginBottom: 12,
           }}
         >
-          {t("jobs")}
+          {isMine ? t("myJobs") : t("jobs")}
         </Text>
         <Input
           icon="search-outline"
