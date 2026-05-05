@@ -45,7 +45,7 @@ export default function LoginScreen() {
   const demoAccounts: Array<{
     email: string;
     password: string;
-    labelKey: "demoClient" | "demoFreelancer" | "demoAdmin";
+    labelKey: "demoClient" | "demoFreelancer";
     icon: keyof typeof Ionicons.glyphMap;
   }> = [
     {
@@ -59,12 +59,6 @@ export default function LoginScreen() {
       password: "freelancer1234",
       labelKey: "demoFreelancer",
       icon: "color-palette-outline",
-    },
-    {
-      email: "admin@atmemly.com",
-      password: "admin1234",
-      labelKey: "demoAdmin",
-      icon: "shield-checkmark-outline",
     },
   ];
 

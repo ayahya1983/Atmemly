@@ -57,8 +57,7 @@ ATMEMLY operates as a monorepo utilizing pnpm workspaces, comprising an Express.
 - **TypeScript:** Superset of JavaScript.
 
 ## Demo Accounts (seeded)
-Both the marketplace web login (`/login`) and the mobile login screen surface a "Demo accounts" quick-fill panel. Tap a row to one-tap sign in.
+The marketplace web login (`/login`) and the mobile login screen surface a "Demo accounts" quick-fill panel with one-tap sign in for the two end-user roles:
 - Client: noor@atmemly.com / client1234
 - Freelancer: layla@atmemly.com / freelancer1234
-- Admin: admin@atmemly.com / admin1234
-Seeded by `artifacts/api-server/src/seed.ts` (lines 133–135). Note: admin one-tap on marketplace logs in successfully then redirects to `/admin/`; the admin SPA has its own auth bootstrap and may briefly land on `/admin/login` (separate, pre-existing behavior).
+Admin (admin@atmemly.com / admin1234) is intentionally NOT exposed in the client UIs — admins must type their credentials. Seeded by `artifacts/api-server/src/seed.ts` (lines 133–135).

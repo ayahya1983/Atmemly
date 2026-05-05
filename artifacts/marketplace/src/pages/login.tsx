@@ -11,7 +11,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { Logo } from "@/components/ui/logo";
-import { Loader2, Briefcase, Palette, ShieldCheck } from "lucide-react";
+import { Loader2, Briefcase, Palette } from "lucide-react";
 import { SsoButtons } from "@/components/SsoButtons";
 
 const DEMO_ACCOUNTS = [
@@ -28,13 +28,6 @@ const DEMO_ACCOUNTS = [
     label: "Sign in as freelancer",
     labelAr: "تجربة كمستقل",
     Icon: Palette,
-  },
-  {
-    email: "admin@atmemly.com",
-    password: "admin1234",
-    label: "Sign in as admin",
-    labelAr: "تجربة كمدير",
-    Icon: ShieldCheck,
   },
 ] as const;
 

@@ -230,7 +230,6 @@ const dict: Dict = {
   },
   demoClient: { ar: "تجربة كعميل", en: "Sign in as client" },
   demoFreelancer: { ar: "تجربة كمستقل", en: "Sign in as freelancer" },
-  demoAdmin: { ar: "تجربة كمدير", en: "Sign in as admin" },
   // Common
   comma: { ar: "،", en: "," },
 };
